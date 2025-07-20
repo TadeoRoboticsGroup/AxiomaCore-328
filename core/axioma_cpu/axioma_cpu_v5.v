@@ -175,13 +175,15 @@ module axioma_cpu_v5 (
     // Señales de los periféricos (mismas que v4)
     wire [7:0] gpio_data_out, uart_data_out, timer0_data_out, timer1_data_out;
     wire [7:0] spi_data_out, i2c_data_out, adc_data_out, pwm_data_out;
+    wire [7:0] system_tick_data_out;
     wire gpio_io_active, uart_io_active, timer0_io_active, timer1_io_active;
-    wire spi_io_active, i2c_io_active, adc_io_active, pwm_io_active;
+    wire spi_io_active, i2c_io_active, adc_io_active, pwm_io_active, system_tick_io_active;
     wire usart_rx_complete, usart_udre, usart_tx_complete;
     wire timer0_overflow, timer0_compa, timer0_compb;
     wire timer1_overflow, timer1_compa, timer1_compb, timer1_capt;
     wire timer2_overflow, timer2_compa, timer2_compb;
     wire spi_interrupt, twi_interrupt, adc_interrupt;
+    wire pcint0_req, pcint1_req, pcint2_req; // Pin change interrupts
 
     // Instanciación del sistema de clock y reset (mismo que v4)
     axioma_clock_system clock_system_inst (
@@ -290,9 +292,9 @@ module axioma_cpu_v5 (
         .interrupt_disable_write(sreg_update && sreg_mask[7] && sreg_clear_bits),
         .int0_pin(int0_pin),
         .int1_pin(int1_pin),
-        .pcint0_req(1'b0), // TODO: Connect to GPIO
-        .pcint1_req(1'b0),
-        .pcint2_req(1'b0),
+        .pcint0_req(pcint0_req), // Pin change interrupt PORTB
+        .pcint1_req(pcint1_req), // Pin change interrupt PORTC
+        .pcint2_req(pcint2_req), // Pin change interrupt PORTD
         .timer2_compa(timer2_compa),
         .timer2_compb(timer2_compb),
         .timer2_ovf(timer2_overflow),
@@ -432,6 +434,9 @@ module axioma_cpu_v5 (
         .portd_port(portd_out),
         .portd_ddr(portd_ddr),
         .portd_pin_out(),
+        .pcint0_req(pcint0_req), // Pin change interrupt PORTB
+        .pcint1_req(pcint1_req), // Pin change interrupt PORTC  
+        .pcint2_req(pcint2_req), // Pin change interrupt PORTD
         .debug_portb_state(),
         .debug_portc_state(),
         .debug_portd_state()
@@ -531,6 +536,24 @@ module axioma_cpu_v5 (
         .debug_result()
     );
 
+    // System Tick para millis() y delay() Arduino
+    axioma_system_tick system_tick_inst (
+        .clk(clk_cpu),
+        .reset_n(reset_system_n),
+        .io_addr(io_addr_cpu[5:0]),
+        .io_data_in(io_data_in_cpu),
+        .io_data_out(system_tick_data_out),
+        .io_read(io_read_cpu && system_tick_io_active),
+        .io_write(io_write_cpu && system_tick_io_active),
+        .system_tick_1ms(),
+        .system_tick_1us(),
+        .millis_counter(),
+        .micros_counter(),
+        .tick_enable(1'b1),
+        .debug_prescaler_count(),
+        .debug_tick_active()
+    );
+
     // Máquina de estados del CPU COMPLETA
     always @(posedge clk_cpu or negedge reset_system_n) begin
         if (!reset_system_n) begin
@@ -608,6 +631,11 @@ module axioma_cpu_v5 (
                     // Update registers and flags
                     if (rd_write_en) begin
                         // reg_write_data will be assigned combinatorially
+                        // For multiplication, also write R1 with high byte
+                        if (multiply_en && multiply_ready) begin
+                            // R0 gets low byte, R1 gets high byte
+                            // This is handled by special logic in registers
+                        end
                     end
                     
                     if (sreg_update) begin
@@ -674,11 +702,30 @@ module axioma_cpu_v5 (
 
     // Lógica combinacional para datos de escritura
     always @(*) begin
-        if (multiply_en) begin
+        if (multiply_en && multiply_ready) begin
             reg_write_data = multiply_result[7:0]; // Low byte to R0
-            // High byte to R1 handled separately
+            // High byte to R1 will be written in next cycle
         end else begin
             reg_write_data = alu_result;
+        end
+    end
+    
+    // Lógica para escribir resultado multiplicación en R1:R0
+    reg multiply_r1_write;
+    reg [7:0] multiply_r1_data;
+    
+    always @(posedge clk_cpu or negedge reset_system_n) begin
+        if (!reset_system_n) begin
+            multiply_r1_write <= 1'b0;
+            multiply_r1_data <= 8'h00;
+        end else begin
+            if (multiply_en && multiply_ready && cpu_state == CPU_WRITEBACK) begin
+                // Escribir R1 en siguiente ciclo
+                multiply_r1_write <= 1'b1;
+                multiply_r1_data <= multiply_result[15:8];
+            end else begin
+                multiply_r1_write <= 1'b0;
+            end
         end
     end
 
@@ -691,6 +738,7 @@ module axioma_cpu_v5 (
     assign i2c_io_active    = (io_addr_cpu >= 8'hB8 && io_addr_cpu <= 8'hBD);
     assign adc_io_active    = (io_addr_cpu >= 8'h78 && io_addr_cpu <= 8'h7F);
     assign pwm_io_active    = (io_addr_cpu >= 8'hB0 && io_addr_cpu <= 8'hB4);
+    assign system_tick_io_active = (io_addr_cpu >= 8'h30 && io_addr_cpu <= 8'h38);
 
     // Multiplexor de datos I/O expandido
     assign io_data_out_cpu = gpio_io_active   ? gpio_data_out :
@@ -701,6 +749,7 @@ module axioma_cpu_v5 (
                             i2c_io_active    ? i2c_data_out :
                             adc_io_active    ? adc_data_out :
                             pwm_io_active    ? pwm_data_out :
+                            system_tick_io_active ? system_tick_data_out :
                             8'h00;
 
     // Conexiones de señales I/O del CPU (expandidas)

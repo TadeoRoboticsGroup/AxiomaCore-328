@@ -1,0 +1,79 @@
+{
+  "DESIGN_NAME": "axioma_cpu_v5",
+  "VERILOG_FILES": [
+    "dir::src/axioma_cpu_v5.v",
+    "dir::src/axioma_decoder_v3.v", 
+    "dir::src/axioma_alu_v2.v",
+    "dir::src/axioma_interrupt_v2.v",
+    "dir::src/axioma_registers.v",
+    "dir::src/axioma_flash_ctrl.v",
+    "dir::src/axioma_sram_ctrl.v",
+    "dir::src/axioma_eeprom_ctrl.v",
+    "dir::src/axioma_gpio.v",
+    "dir::src/axioma_uart.v",
+    "dir::src/axioma_spi.v",
+    "dir::src/axioma_i2c.v",
+    "dir::src/axioma_adc.v",
+    "dir::src/axioma_pwm.v",
+    "dir::src/axioma_timer0.v",
+    "dir::src/axioma_timer1.v",
+    "dir::src/axioma_clock_system.v"
+  ],
+  "CLOCK_PERIOD": 40.0,
+  "CLOCK_PORT": "clk_ext",
+  "CLOCK_NET": "clk_ext",
+  
+  "PDK": "sky130A",
+  "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+  "DESIGN_IS_CORE": 1,
+  
+  "DIE_AREA": "0 0 3000 3000",
+  "CORE_AREA": "14 14 2986 2986",
+  "FP_SIZING": "absolute",
+  
+  "PL_TARGET_DENSITY": 0.40,
+  "CELL_PAD": 4,
+  "DIODE_INSERTION_STRATEGY": 3,
+  
+  "FP_IO_VEXTEND": 4,
+  "FP_IO_HEXTEND": 4,
+  "FP_IO_VLENGTH": 4,
+  "FP_IO_HLENGTH": 4,
+  
+  "QUIT_ON_TIMING_VIOLATIONS": 0,
+  "QUIT_ON_MAGIC_DRC": 0,
+  "QUIT_ON_LVS_ERROR": 0,
+  "QUIT_ON_SLEW_VIOLATIONS": 0,
+  
+  "RUN_KLAYOUT": 1,
+  "RUN_KLAYOUT_DRC": 1,
+  "RUN_KLAYOUT_XOR": 1,
+  
+  "MAGIC_ZEROIZE_ORIGIN": 0,
+  "MAGIC_WRITE_FULL_LEF": 1,
+  
+  "VDD_NETS": ["vccd1"],
+  "GND_NETS": ["vssd1"],
+  "VDD_PIN": "vccd1",
+  "GND_PIN": "vssd1",
+  
+  "SYNTH_STRATEGY": "AREA 0",
+  "SYNTH_BUFFERING": 1,
+  "SYNTH_SIZING": 1,
+  "SYNTH_SHARE_RESOURCES": 1,
+  
+  "RT_MAX_LAYER": "met4",
+  "GLB_RT_MAXLAYER": 5,
+  "GLB_RT_MAX_DIODE_INS_ITERS": 10,
+  
+  "DRVS": "$(PDK_ROOT)/sky130A/libs.tech/openlane/sky130_fd_sc_hd/no_synth.cells",
+  
+  "pdk::sky130*": {
+    "MAX_FANOUT_CONSTRAINT": 10,
+    "scl::sky130_fd_sc_hd": {
+      "CLOCK_PERIOD": 40.0,
+      "SYNTH_MAX_FANOUT": 8,
+      "PL_TARGET_DENSITY": 0.40
+    }
+  }
+}

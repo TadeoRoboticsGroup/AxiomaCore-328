@@ -1,0 +1,89 @@
+// Test 1: ADD_basic
+@0000 0C00
+// Test 2: ADD_overflow
+@0001 0C00
+// Test 3: ADD_carry
+@0002 0C00
+// Test 4: SUB_basic
+@0003 1800
+// Test 5: SUB_borrow
+@0004 1800
+// Test 6: MUL_basic
+@0005 9C00
+// Test 7: MULS_signed
+@0006 0200
+// Test 8: FMUL_fractional
+@0007 0308
+// Test 9: AND_basic
+@0008 2000
+// Test 10: OR_basic
+@0009 2800
+// Test 11: EOR_basic
+@000A 2400
+// Test 12: LSL_basic
+@000B 0C00
+// Test 13: LSR_basic
+@000C 9406
+// Test 14: ROL_basic
+@000D 1C00
+// Test 15: BREQ_taken
+@000E F001
+// Test 16: BRNE_not_taken
+@000F F401
+// Test 17: BRCS_taken
+@0010 F000
+// Test 18: LDS_load
+@0011 9000
+// Test 19: STS_store
+@0012 9200
+// Test 20: LPM_flash
+@0013 95C8
+// Test 21: IN_port
+@0014 B000
+// Test 22: OUT_port
+@0015 B800
+// Test 23: PUSH_reg
+@0016 920F
+// Test 24: POP_reg
+@0017 900F
+// Test 25: ADIW_basic
+@0018 9600
+// Test 26: SBIW_basic
+@0019 9700
+// Test 27: MOVW_copy
+@001A 0100
+// Test 28: GPIO_PORTB_write
+// Test 29: GPIO_DDRB_config
+// Test 30: GPIO_PINB_read
+// Test 31: UART_baud_115200
+// Test 32: UART_tx_data
+// Test 33: UART_rx_data
+// Test 34: SPI_master_mode
+// Test 35: SPI_data_exchange
+// Test 36: I2C_start_condition
+// Test 37: I2C_address_send
+// Test 38: ADC_channel_0
+// Test 39: ADC_channel_5
+// Test 40: PWM_timer0_50pc
+// Test 41: PWM_timer1_25pc
+// Test 42: TIMER0_overflow
+// Test 43: TIMER1_compare
+// Test 44: INT0_falling_edge
+// Test 45: INT1_rising_edge
+// Test 46: TIMER0_OVF_interrupt
+// Test 47: TIMER1_COMPA_interrupt
+// Test 48: TIMER2_COMPB_interrupt
+// Test 49: USART_RX_interrupt
+// Test 50: SPI_STC_interrupt
+// Test 51: TWI_interrupt
+// Test 52: ADC_complete_interrupt
+// Test 53: IDLE_mode
+// Test 54: POWER_DOWN_mode
+// Test 55: STANDBY_mode
+// Test 56: MAX_FREQ_25MHz
+// Test 57: MIN_FREQ_1MHz
+// Test 58: STACK_overflow
+// Test 59: STACK_underflow
+// Test 60: FLASH_boundary
+// Test 61: SRAM_boundary
+// Test 62: EEPROM_boundary

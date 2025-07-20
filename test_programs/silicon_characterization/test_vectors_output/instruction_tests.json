@@ -1,0 +1,211 @@
+[
+  {
+    "name": "ADD_basic",
+    "opcode": 3072,
+    "operands": [
+      16,
+      32
+    ],
+    "expected": 48
+  },
+  {
+    "name": "ADD_overflow",
+    "opcode": 3072,
+    "operands": [
+      255,
+      1
+    ],
+    "expected": 0
+  },
+  {
+    "name": "ADD_carry",
+    "opcode": 3072,
+    "operands": [
+      128,
+      128
+    ],
+    "expected": 0
+  },
+  {
+    "name": "SUB_basic",
+    "opcode": 6144,
+    "operands": [
+      48,
+      16
+    ],
+    "expected": 32
+  },
+  {
+    "name": "SUB_borrow",
+    "opcode": 6144,
+    "operands": [
+      16,
+      32
+    ],
+    "expected": 240
+  },
+  {
+    "name": "MUL_basic",
+    "opcode": 39936,
+    "operands": [
+      5,
+      6
+    ],
+    "expected": 30
+  },
+  {
+    "name": "MULS_signed",
+    "opcode": 512,
+    "operands": [
+      254,
+      2
+    ],
+    "expected": 65532
+  },
+  {
+    "name": "FMUL_fractional",
+    "opcode": 776,
+    "operands": [
+      64,
+      128
+    ],
+    "expected": 16384
+  },
+  {
+    "name": "AND_basic",
+    "opcode": 8192,
+    "operands": [
+      240,
+      15
+    ],
+    "expected": 0
+  },
+  {
+    "name": "OR_basic",
+    "opcode": 10240,
+    "operands": [
+      240,
+      15
+    ],
+    "expected": 255
+  },
+  {
+    "name": "EOR_basic",
+    "opcode": 9216,
+    "operands": [
+      170,
+      85
+    ],
+    "expected": 255
+  },
+  {
+    "name": "LSL_basic",
+    "opcode": 3072,
+    "operands": [
+      64
+    ],
+    "expected": 128
+  },
+  {
+    "name": "LSR_basic",
+    "opcode": 37894,
+    "operands": [
+      128
+    ],
+    "expected": 64
+  },
+  {
+    "name": "ROL_basic",
+    "opcode": 7168,
+    "operands": [
+      128
+    ],
+    "expected": 0
+  },
+  {
+    "name": "BREQ_taken",
+    "opcode": 61441,
+    "sreg": 2,
+    "pc_offset": 5
+  },
+  {
+    "name": "BRNE_not_taken",
+    "opcode": 62465,
+    "sreg": 2,
+    "pc_offset": 0
+  },
+  {
+    "name": "BRCS_taken",
+    "opcode": 61440,
+    "sreg": 1,
+    "pc_offset": 3
+  },
+  {
+    "name": "LDS_load",
+    "opcode": 36864,
+    "addr": 256,
+    "data": 66
+  },
+  {
+    "name": "STS_store",
+    "opcode": 37376,
+    "addr": 256,
+    "data": 36
+  },
+  {
+    "name": "LPM_flash",
+    "opcode": 38344,
+    "z_reg": 80,
+    "expected": 52
+  },
+  {
+    "name": "IN_port",
+    "opcode": 45056,
+    "port": 63,
+    "expected": 0
+  },
+  {
+    "name": "OUT_port",
+    "opcode": 47104,
+    "port": 63,
+    "data": 255
+  },
+  {
+    "name": "PUSH_reg",
+    "opcode": 37391,
+    "reg_data": 85,
+    "sp_before": 8703
+  },
+  {
+    "name": "POP_reg",
+    "opcode": 36879,
+    "sp_before": 8702,
+    "expected": 85
+  },
+  {
+    "name": "ADIW_basic",
+    "opcode": 38400,
+    "operands": [
+      4660,
+      1
+    ],
+    "expected": 4661
+  },
+  {
+    "name": "SBIW_basic",
+    "opcode": 38656,
+    "operands": [
+      4661,
+      1
+    ],
+    "expected": 4660
+  },
+  {
+    "name": "MOVW_copy",
+    "opcode": 256,
+    "operands": [
+      4660
+    ],
+    "expected": 4660
+  }
+]

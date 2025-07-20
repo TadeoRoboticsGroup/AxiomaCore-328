@@ -1,0 +1,37 @@
+[
+  {
+    "name": "MAX_FREQ_25MHz",
+    "clock_period": 40,
+    "instructions": 1000
+  },
+  {
+    "name": "MIN_FREQ_1MHz",
+    "clock_period": 1000,
+    "instructions": 100
+  },
+  {
+    "name": "STACK_overflow",
+    "sp_init": 8704,
+    "push_count": 1000
+  },
+  {
+    "name": "STACK_underflow",
+    "sp_init": 8448,
+    "pop_count": 10
+  },
+  {
+    "name": "FLASH_boundary",
+    "addr": 32767,
+    "operation": "read"
+  },
+  {
+    "name": "SRAM_boundary",
+    "addr": 8703,
+    "operation": "write"
+  },
+  {
+    "name": "EEPROM_boundary",
+    "addr": 1023,
+    "operation": "read"
+  }
+]

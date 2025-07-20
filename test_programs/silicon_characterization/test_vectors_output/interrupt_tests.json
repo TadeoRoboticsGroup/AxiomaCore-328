@@ -1,0 +1,52 @@
+[
+  {
+    "name": "INT0_falling_edge",
+    "vector": 1,
+    "trigger": "falling",
+    "pc_before": 256
+  },
+  {
+    "name": "INT1_rising_edge",
+    "vector": 2,
+    "trigger": "rising",
+    "pc_before": 512
+  },
+  {
+    "name": "TIMER0_OVF_interrupt",
+    "vector": 16,
+    "timer": 0,
+    "event": "overflow"
+  },
+  {
+    "name": "TIMER1_COMPA_interrupt",
+    "vector": 11,
+    "timer": 1,
+    "event": "compare_a"
+  },
+  {
+    "name": "TIMER2_COMPB_interrupt",
+    "vector": 8,
+    "timer": 2,
+    "event": "compare_b"
+  },
+  {
+    "name": "USART_RX_interrupt",
+    "vector": 18,
+    "uart_data": 72
+  },
+  {
+    "name": "SPI_STC_interrupt",
+    "vector": 17,
+    "spi_data": 170
+  },
+  {
+    "name": "TWI_interrupt",
+    "vector": 24,
+    "i2c_event": "address_match"
+  },
+  {
+    "name": "ADC_complete_interrupt",
+    "vector": 21,
+    "adc_result": 291
+  }
+]

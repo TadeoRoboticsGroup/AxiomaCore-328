@@ -18,31 +18,9 @@ SOURCES_V2 = $(CORE_DIR)/axioma_registers/axioma_registers.v \
              $(INT_DIR)/axioma_interrupt.v \
              $(CORE_DIR)/axioma_cpu/axioma_cpu_v2.v
 
-# Archivos fuente Fase 3 (con periféricos)
-SOURCES_V3 = $(SOURCES_V2) \
-             peripherals/axioma_gpio/axioma_gpio.v \
-             peripherals/axioma_uart/axioma_uart.v \
-             peripherals/axioma_timers/axioma_timer0.v \
-             clock_reset/axioma_clock_system.v \
-             $(CORE_DIR)/axioma_cpu/axioma_cpu_v3.v
-
-# Archivos fuente Fase 4 (periféricos avanzados)
-SOURCES_V4 = $(SOURCES_V2) \
-             peripherals/axioma_gpio/axioma_gpio.v \
-             peripherals/axioma_uart/axioma_uart.v \
-             peripherals/axioma_timers/axioma_timer0.v \
-             peripherals/axioma_timers/axioma_timer1.v \
-             peripherals/axioma_spi/axioma_spi.v \
-             peripherals/axioma_i2c/axioma_i2c.v \
-             peripherals/axioma_adc/axioma_adc.v \
-             clock_reset/axioma_clock_system.v \
-             $(CORE_DIR)/axioma_cpu/axioma_cpu_v4.v
-
 # Testbenches
 TESTBENCH_V1 = $(TB_DIR)/axioma_cpu_tb.v
 TESTBENCH_V2 = $(TB_DIR)/axioma_cpu_v2_tb.v
-TESTBENCH_V3 = $(TB_DIR)/axioma_cpu_v3_tb.v
-TESTBENCH_V4 = $(TB_DIR)/axioma_cpu_v4_tb.v
 
 # Herramientas
 IVERILOG = iverilog
@@ -53,7 +31,7 @@ YOSYS = yosys
 # Targets principales
 .PHONY: all clean test_v1 test_v2 cpu_v1 cpu_v2 synthesize_v2 view_waves help phase1 phase2
 
-all: phase4
+all: phase2
 
 help:
 	@echo "AxiomaCore-328 Build System v2"
@@ -68,18 +46,6 @@ help:
 	@echo "  make cpu_v2       - Compilar CPU v2"
 	@echo "  make test_v2      - Test CPU v2 avanzado"
 	@echo "  make test_v2_view - Test v2 + GTKWave"
-	@echo ""
-	@echo "FASE 3 (Periféricos):"
-	@echo "  make phase3       - Periféricos básicos Fase 3"
-	@echo "  make cpu_v3       - Compilar CPU v3"
-	@echo "  make test_v3      - Test CPU v3 + periféricos"
-	@echo "  make test_v3_view - Test v3 + GTKWave"
-	@echo ""
-	@echo "FASE 4 (Avanzados):"
-	@echo "  make phase4       - Periféricos avanzados Fase 4"
-	@echo "  make cpu_v4       - Compilar CPU v4"
-	@echo "  make test_v4      - Test CPU v4 + todos periféricos"
-	@echo "  make test_v4_view - Test v4 + GTKWave"
 	@echo ""
 	@echo "SÍNTESIS:"
 	@echo "  make synthesize_v2 - Síntesis Fase 2"
@@ -114,46 +80,6 @@ test_v1: axioma_cpu_v1_sim
 # ============= FASE 2 =============
 phase2: cpu_v2 test_v2
 	@echo "🚀 AxiomaCore-328 Fase 2 completada"
-
-# ============= FASE 3 =============
-phase3: cpu_v3 test_v3
-	@echo "🎯 AxiomaCore-328 Fase 3 completada"
-
-# ============= FASE 4 =============
-phase4: cpu_v4 test_v4
-	@echo "🚀 AxiomaCore-328 Fase 4 completada - Sistema AVR completo!"
-
-cpu_v4: axioma_cpu_v4_sim
-	@echo "✅ CPU v4 (periféricos avanzados) compilado exitosamente"
-
-axioma_cpu_v4_sim: $(SOURCES_V4) $(TESTBENCH_V4)
-	@echo "🔨 Compilando AxiomaCore-328 v4 (Periféricos Avanzados)..."
-	$(IVERILOG) -o axioma_cpu_v4_sim -I$(CORE_DIR) -I$(MEMORY_DIR) -I$(INT_DIR) -Iperipherals -Iclock_reset $(SOURCES_V4) $(TESTBENCH_V4)
-
-test_v4: axioma_cpu_v4_sim
-	@echo "🧪 Ejecutando testbench completo v4 (todos los periféricos)..."
-	$(VVP) axioma_cpu_v4_sim
-	@echo "✅ Test completo v4 finalizado"
-
-test_v4_view: test_v4
-	@echo "🔍 Abriendo GTKWave para v4..."
-	$(GTKWAVE) axioma_cpu_v4_tb.vcd &
-
-cpu_v3: axioma_cpu_v3_sim
-	@echo "✅ CPU v3 (con periféricos) compilado exitosamente"
-
-axioma_cpu_v3_sim: $(SOURCES_V3) $(TESTBENCH_V3)
-	@echo "🔨 Compilando AxiomaCore-328 v3 (Periféricos Básicos)..."
-	$(IVERILOG) -o axioma_cpu_v3_sim -I$(CORE_DIR) -I$(MEMORY_DIR) -I$(INT_DIR) -Iperipherals -Iclock_reset $(SOURCES_V3) $(TESTBENCH_V3)
-
-test_v3: axioma_cpu_v3_sim
-	@echo "🧪 Ejecutando testbench avanzado v3 (periféricos)..."
-	$(VVP) axioma_cpu_v3_sim
-	@echo "✅ Test periféricos v3 completado"
-
-test_v3_view: test_v3
-	@echo "🔍 Abriendo GTKWave para v3..."
-	$(GTKWAVE) axioma_cpu_v3_tb.vcd &
 
 cpu_v2: axioma_cpu_v2_sim
 	@echo "✅ CPU v2 (completo) compilado exitosamente"

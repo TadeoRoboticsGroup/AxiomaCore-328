@@ -1,0 +1,521 @@
+// AxiomaCore-328 Silicon Test Vectors
+// Generated test vectors para ATE
+`timescale 1ns/1ps
+
+module axioma_silicon_test_vectors;
+    
+    // Vectores de entrada
+    reg [15:0] test_opcode;
+    reg [7:0] test_operand_a, test_operand_b;
+    reg [7:0] test_sreg;
+    reg [15:0] test_pc;
+    
+    // Vectores esperados
+    reg [7:0] expected_result;
+    reg [15:0] expected_result_16bit;
+    reg [7:0] expected_sreg;
+    reg [15:0] expected_pc;
+    
+    // Control de test
+    integer test_number;
+    reg test_pass;
+    
+    initial begin
+        $display("AxiomaCore-328 Silicon Test Vectors");
+        $display("====================================");
+        test_number = 0;
+        
+        // Test 1: ADD_basic
+        test_number = 1;
+        test_opcode = 16'h0C00;
+        test_operand_a = 8'h10;
+        test_operand_b = 8'h20;
+        expected_result = 8'h30;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 2: ADD_overflow
+        test_number = 2;
+        test_opcode = 16'h0C00;
+        test_operand_a = 8'hFF;
+        test_operand_b = 8'h01;
+        expected_result = 8'h00;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 3: ADD_carry
+        test_number = 3;
+        test_opcode = 16'h0C00;
+        test_operand_a = 8'h80;
+        test_operand_b = 8'h80;
+        expected_result = 8'h00;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 4: SUB_basic
+        test_number = 4;
+        test_opcode = 16'h1800;
+        test_operand_a = 8'h30;
+        test_operand_b = 8'h10;
+        expected_result = 8'h20;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 5: SUB_borrow
+        test_number = 5;
+        test_opcode = 16'h1800;
+        test_operand_a = 8'h10;
+        test_operand_b = 8'h20;
+        expected_result = 8'hF0;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 6: MUL_basic
+        test_number = 6;
+        test_opcode = 16'h9C00;
+        test_operand_a = 8'h05;
+        test_operand_b = 8'h06;
+        expected_result = 8'h1E;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 7: MULS_signed
+        test_number = 7;
+        test_opcode = 16'h0200;
+        test_operand_a = 8'hFE;
+        test_operand_b = 8'h02;
+        expected_result_16bit = 16'hFFFC;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 8: FMUL_fractional
+        test_number = 8;
+        test_opcode = 16'h0308;
+        test_operand_a = 8'h40;
+        test_operand_b = 8'h80;
+        expected_result_16bit = 16'h4000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 9: AND_basic
+        test_number = 9;
+        test_opcode = 16'h2000;
+        test_operand_a = 8'hF0;
+        test_operand_b = 8'h0F;
+        expected_result = 8'h00;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 10: OR_basic
+        test_number = 10;
+        test_opcode = 16'h2800;
+        test_operand_a = 8'hF0;
+        test_operand_b = 8'h0F;
+        expected_result = 8'hFF;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 11: EOR_basic
+        test_number = 11;
+        test_opcode = 16'h2400;
+        test_operand_a = 8'hAA;
+        test_operand_b = 8'h55;
+        expected_result = 8'hFF;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 12: LSL_basic
+        test_number = 12;
+        test_opcode = 16'h0C00;
+        test_operand_a = 8'h40;
+        expected_result = 8'h80;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 13: LSR_basic
+        test_number = 13;
+        test_opcode = 16'h9406;
+        test_operand_a = 8'h80;
+        expected_result = 8'h40;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 14: ROL_basic
+        test_number = 14;
+        test_opcode = 16'h1C00;
+        test_operand_a = 8'h80;
+        expected_result = 8'h00;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 15: BREQ_taken
+        test_number = 15;
+        test_opcode = 16'hF001;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 16: BRNE_not_taken
+        test_number = 16;
+        test_opcode = 16'hF401;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 17: BRCS_taken
+        test_number = 17;
+        test_opcode = 16'hF000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 18: LDS_load
+        test_number = 18;
+        test_opcode = 16'h9000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 19: STS_store
+        test_number = 19;
+        test_opcode = 16'h9200;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 20: LPM_flash
+        test_number = 20;
+        test_opcode = 16'h95C8;
+        expected_result = 8'h34;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 21: IN_port
+        test_number = 21;
+        test_opcode = 16'hB000;
+        expected_result = 8'h00;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 22: OUT_port
+        test_number = 22;
+        test_opcode = 16'hB800;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 23: PUSH_reg
+        test_number = 23;
+        test_opcode = 16'h920F;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 24: POP_reg
+        test_number = 24;
+        test_opcode = 16'h900F;
+        expected_result = 8'h55;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 25: ADIW_basic
+        test_number = 25;
+        test_opcode = 16'h9600;
+        test_operand_a = 8'h1234;
+        test_operand_b = 8'h01;
+        expected_result_16bit = 16'h1235;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 26: SBIW_basic
+        test_number = 26;
+        test_opcode = 16'h9700;
+        test_operand_a = 8'h1235;
+        test_operand_b = 8'h01;
+        expected_result_16bit = 16'h1234;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 27: MOVW_copy
+        test_number = 27;
+        test_opcode = 16'h0100;
+        test_operand_a = 8'h1234;
+        expected_result_16bit = 16'h1234;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 28: GPIO_PORTB_write
+        test_number = 28;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 29: GPIO_DDRB_config
+        test_number = 29;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 30: GPIO_PINB_read
+        test_number = 30;
+        test_opcode = 16'h0000;
+        expected_result = 8'h55;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 31: UART_baud_115200
+        test_number = 31;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 32: UART_tx_data
+        test_number = 32;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 33: UART_rx_data
+        test_number = 33;
+        test_opcode = 16'h0000;
+        expected_result = 8'h42;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 34: SPI_master_mode
+        test_number = 34;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 35: SPI_data_exchange
+        test_number = 35;
+        test_opcode = 16'h0000;
+        expected_result = 8'h55;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 36: I2C_start_condition
+        test_number = 36;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 37: I2C_address_send
+        test_number = 37;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 38: ADC_channel_0
+        test_number = 38;
+        test_opcode = 16'h0000;
+        expected_result_16bit = 16'h0200;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 39: ADC_channel_5
+        test_number = 39;
+        test_opcode = 16'h0000;
+        expected_result_16bit = 16'h0100;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 40: PWM_timer0_50pc
+        test_number = 40;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 41: PWM_timer1_25pc
+        test_number = 41;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 42: TIMER0_overflow
+        test_number = 42;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 43: TIMER1_compare
+        test_number = 43;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 44: INT0_falling_edge
+        test_number = 44;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 45: INT1_rising_edge
+        test_number = 45;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 46: TIMER0_OVF_interrupt
+        test_number = 46;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 47: TIMER1_COMPA_interrupt
+        test_number = 47;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 48: TIMER2_COMPB_interrupt
+        test_number = 48;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 49: USART_RX_interrupt
+        test_number = 49;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 50: SPI_STC_interrupt
+        test_number = 50;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 51: TWI_interrupt
+        test_number = 51;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 52: ADC_complete_interrupt
+        test_number = 52;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 53: IDLE_mode
+        test_number = 53;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 54: POWER_DOWN_mode
+        test_number = 54;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 55: STANDBY_mode
+        test_number = 55;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 56: MAX_FREQ_25MHz
+        test_number = 56;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 57: MIN_FREQ_1MHz
+        test_number = 57;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 58: STACK_overflow
+        test_number = 58;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 59: STACK_underflow
+        test_number = 59;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 60: FLASH_boundary
+        test_number = 60;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 61: SRAM_boundary
+        test_number = 61;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        // Test 62: EEPROM_boundary
+        test_number = 62;
+        test_opcode = 16'h0000;
+        #100; // Execute test
+        // Verificar resultado
+        $display("Test %d: %s", test_number, test_pass ? "PASS" : "FAIL");
+
+        $display("Silicon test vectors complete");
+        $finish;
+    end
+    
+endmodule

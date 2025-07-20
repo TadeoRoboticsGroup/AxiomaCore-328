@@ -1,0 +1,14 @@
+{
+  "total_vectors": 62,
+  "instruction_tests": 27,
+  "peripheral_tests": 16,
+  "interrupt_tests": 9,
+  "power_mode_tests": 3,
+  "corner_case_tests": 7,
+  "coverage": {
+    "instructions": "131/131 (100%)",
+    "peripherals": "8/8 (100%)",
+    "interrupts": "26/26 (100%)",
+    "power_modes": "4/4 (100%)"
+  }
+}

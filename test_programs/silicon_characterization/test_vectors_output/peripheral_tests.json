@@ -1,0 +1,101 @@
+[
+  {
+    "name": "GPIO_PORTB_write",
+    "addr": 37,
+    "data": 255,
+    "expected_pin": 255
+  },
+  {
+    "name": "GPIO_DDRB_config",
+    "addr": 36,
+    "data": 255,
+    "expected_ddr": 255
+  },
+  {
+    "name": "GPIO_PINB_read",
+    "addr": 35,
+    "pin_input": 85,
+    "expected": 85
+  },
+  {
+    "name": "UART_baud_115200",
+    "addr": 196,
+    "data": 103,
+    "baud": 115200
+  },
+  {
+    "name": "UART_tx_data",
+    "addr": 198,
+    "data": 65,
+    "expected_tx": 65
+  },
+  {
+    "name": "UART_rx_data",
+    "addr": 192,
+    "rx_input": 66,
+    "expected": 66
+  },
+  {
+    "name": "SPI_master_mode",
+    "addr": 44,
+    "data": 92,
+    "mode": "master"
+  },
+  {
+    "name": "SPI_data_exchange",
+    "addr": 46,
+    "data": 170,
+    "miso": 85,
+    "expected": 85
+  },
+  {
+    "name": "I2C_start_condition",
+    "addr": 188,
+    "data": 164,
+    "expected_sda": 0
+  },
+  {
+    "name": "I2C_address_send",
+    "addr": 187,
+    "data": 72,
+    "slave_addr": 36
+  },
+  {
+    "name": "ADC_channel_0",
+    "addr": 124,
+    "data": 0,
+    "analog_in": 2.5,
+    "expected": 512
+  },
+  {
+    "name": "ADC_channel_5",
+    "addr": 124,
+    "data": 5,
+    "analog_in": 1.25,
+    "expected": 256
+  },
+  {
+    "name": "PWM_timer0_50pc",
+    "addr": 71,
+    "data": 128,
+    "duty_cycle": 50
+  },
+  {
+    "name": "PWM_timer1_25pc",
+    "addr": 136,
+    "data": 64,
+    "duty_cycle": 25
+  },
+  {
+    "name": "TIMER0_overflow",
+    "addr": 70,
+    "data": 255,
+    "cycles": 256
+  },
+  {
+    "name": "TIMER1_compare",
+    "addr": 137,
+    "data": 128,
+    "compare_val": 32768
+  }
+]

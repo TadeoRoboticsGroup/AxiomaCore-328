@@ -1,0 +1,17 @@
+[
+  {
+    "name": "IDLE_mode",
+    "smcr": 1,
+    "power_reduction": 30
+  },
+  {
+    "name": "POWER_DOWN_mode",
+    "smcr": 5,
+    "power_reduction": 95
+  },
+  {
+    "name": "STANDBY_mode",
+    "smcr": 13,
+    "power_reduction": 90
+  }
+]

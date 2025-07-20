@@ -502,6 +502,260 @@ module axioma_decoder_v2 (
                     instruction_decoded = 1'b1;
                 end
                 
+                // =============== NUEVAS INSTRUCCIONES FASE 5 ===============
+                
+                // Bit Operations
+                16'b1111100?_????0???: begin // SBRC Rr, b - Skip if Bit in Register Cleared
+                    rs1_addr = rd_5bit;
+                    bit_num = instruction[2:0];
+                    branch_en = 1'b1;
+                    branch_condition = 4'b1100; // Special condition for bit skip
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1111101?_????0???: begin // SBRS Rr, b - Skip if Bit in Register Set
+                    rs1_addr = rd_5bit;
+                    bit_num = instruction[2:0];
+                    branch_en = 1'b1;
+                    branch_condition = 4'b1101; // Special condition for bit skip
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b10011000_????1???: begin // SBIC A, b - Skip if Bit in I/O Register Cleared
+                    io_addr = {2'b00, instruction[7:3]};
+                    bit_num = instruction[2:0];
+                    io_read = 1'b1;
+                    branch_en = 1'b1;
+                    branch_condition = 4'b1110; // Special condition for I/O bit skip
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b10011001_????1???: begin // SBIS A, b - Skip if Bit in I/O Register Set
+                    io_addr = {2'b00, instruction[7:3]};
+                    bit_num = instruction[2:0];
+                    io_read = 1'b1;
+                    branch_en = 1'b1;
+                    branch_condition = 4'b1111; // Special condition for I/O bit skip
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b10011000_????0???: begin // SBI A, b - Set Bit in I/O Register
+                    io_addr = {2'b00, instruction[7:3]};
+                    bit_num = instruction[2:0];
+                    io_write = 1'b1;
+                    bit_set = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b10011001_????0???: begin // CBI A, b - Clear Bit in I/O Register
+                    io_addr = {2'b00, instruction[7:3]};
+                    bit_num = instruction[2:0];
+                    io_write = 1'b1;
+                    bit_clear = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                // More Branch Instructions
+                16'b111100??_????0100: begin // BRSH/BRCC k - Branch if Same or Higher
+                    branch_en = 1'b1;
+                    branch_condition = 4'b0100; // C=0
+                    branch_offset = {{4{instruction[9]}}, instruction[9:3]};
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b111101??_????0100: begin // BRLO/BRCS k - Branch if Lower
+                    branch_en = 1'b1;
+                    branch_condition = 4'b0011; // C=1
+                    branch_offset = {{4{instruction[9]}}, instruction[9:3]};
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b111100??_????0010: begin // BRMI k - Branch if Minus
+                    branch_en = 1'b1;
+                    branch_condition = 4'b0101; // N=1
+                    branch_offset = {{4{instruction[9]}}, instruction[9:3]};
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b111101??_????0010: begin // BRPL k - Branch if Plus
+                    branch_en = 1'b1;
+                    branch_condition = 4'b0110; // N=0
+                    branch_offset = {{4{instruction[9]}}, instruction[9:3]};
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b111100??_????0011: begin // BRVS k - Branch if Overflow Set
+                    branch_en = 1'b1;
+                    branch_condition = 4'b0111; // V=1
+                    branch_offset = {{4{instruction[9]}}, instruction[9:3]};
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b111101??_????0011: begin // BRVC k - Branch if Overflow Clear
+                    branch_en = 1'b1;
+                    branch_condition = 4'b1000; // V=0
+                    branch_offset = {{4{instruction[9]}}, instruction[9:3]};
+                    instruction_decoded = 1'b1;
+                end
+                
+                // More Data Transfer Instructions
+                16'b1001000?_????1001: begin // LD Rd, Y+ - Load Indirect with Post-increment
+                    rs1_addr = rd_5bit;
+                    rd_addr = rd_5bit;
+                    rd_write_en = 1'b1;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b01; // Y pointer
+                    pointer_post_inc = 1'b1;
+                    mem_read = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001000?_????1010: begin // LD Rd, -Y - Load Indirect with Pre-decrement
+                    rs1_addr = rd_5bit;
+                    rd_addr = rd_5bit;
+                    rd_write_en = 1'b1;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b01; // Y pointer
+                    pointer_pre_dec = 1'b1;
+                    mem_read = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001001?_????1001: begin // ST Y+, Rr - Store Indirect with Post-increment
+                    rs1_addr = rd_5bit;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b01; // Y pointer
+                    pointer_post_inc = 1'b1;
+                    mem_write = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001001?_????1010: begin // ST -Y, Rr - Store Indirect with Pre-decrement
+                    rs1_addr = rd_5bit;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b01; // Y pointer
+                    pointer_pre_dec = 1'b1;
+                    mem_write = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                // Z pointer operations
+                16'b1001000?_????0001: begin // LD Rd, Z+ - Load Indirect with Post-increment
+                    rs1_addr = rd_5bit;
+                    rd_addr = rd_5bit;
+                    rd_write_en = 1'b1;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b10; // Z pointer
+                    pointer_post_inc = 1'b1;
+                    mem_read = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001000?_????0010: begin // LD Rd, -Z - Load Indirect with Pre-decrement
+                    rs1_addr = rd_5bit;
+                    rd_addr = rd_5bit;
+                    rd_write_en = 1'b1;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b10; // Z pointer
+                    pointer_pre_dec = 1'b1;
+                    mem_read = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001001?_????0001: begin // ST Z+, Rr - Store Indirect with Post-increment
+                    rs1_addr = rd_5bit;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b10; // Z pointer
+                    pointer_post_inc = 1'b1;
+                    mem_write = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001001?_????0010: begin // ST -Z, Rr - Store Indirect with Pre-decrement
+                    rs1_addr = rd_5bit;
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b10; // Z pointer
+                    pointer_pre_dec = 1'b1;
+                    mem_write = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                // I/O Instructions
+                16'b10110???_????????: begin // IN Rd, A - In from I/O Port
+                    rd_addr = {1'b0, instruction[8:4]};
+                    rd_write_en = 1'b1;
+                    io_addr = {instruction[10:9], instruction[3:0]};
+                    io_read = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b10111???_????????: begin // OUT A, Rr - Out to I/O Port
+                    rs1_addr = {1'b0, instruction[8:4]};
+                    io_addr = {instruction[10:9], instruction[3:0]};
+                    io_write = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                // Special Instructions
+                16'b1001010100001001: begin // IJMP - Indirect Jump
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b10; // Z pointer
+                    jump_en = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001010100011001: begin // EIJMP - Extended Indirect Jump
+                    use_pointer = 1'b1;
+                    pointer_sel = 2'b10; // Z pointer
+                    jump_en = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001010100001000: begin // RET - Return from Subroutine
+                    ret_en = 1'b1;
+                    stack_pop_pc = 1'b1;
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001010100011000: begin // RETI - Return from Interrupt
+                    ret_en = 1'b1;
+                    stack_pop_pc = 1'b1;
+                    sreg_update = 1'b1;
+                    sreg_mask = 8'b10000000; // Set I flag
+                    instruction_decoded = 1'b1;
+                end
+                
+                // SREG Instructions
+                16'b1001010000?01000: begin // SE* - Set flag in SREG
+                    sreg_update = 1'b1;
+                    case (instruction[6:4])
+                        3'b000: sreg_mask = 8'b00000001; // SEC - Set Carry
+                        3'b001: sreg_mask = 8'b00000010; // SEZ - Set Zero
+                        3'b010: sreg_mask = 8'b00000100; // SEN - Set Negative
+                        3'b011: sreg_mask = 8'b00001000; // SEV - Set Overflow
+                        3'b100: sreg_mask = 8'b00010000; // SES - Set Sign
+                        3'b101: sreg_mask = 8'b00100000; // SEH - Set Half-carry
+                        3'b110: sreg_mask = 8'b01000000; // SET - Set T flag
+                        3'b111: sreg_mask = 8'b10000000; // SEI - Set Interrupt
+                    endcase
+                    instruction_decoded = 1'b1;
+                end
+                
+                16'b1001010000?11000: begin // CL* - Clear flag in SREG
+                    sreg_update = 1'b1;
+                    case (instruction[6:4])
+                        3'b000: sreg_mask = 8'b11111110; // CLC - Clear Carry
+                        3'b001: sreg_mask = 8'b11111101; // CLZ - Clear Zero
+                        3'b010: sreg_mask = 8'b11111011; // CLN - Clear Negative
+                        3'b011: sreg_mask = 8'b11110111; // CLV - Clear Overflow
+                        3'b100: sreg_mask = 8'b11101111; // CLS - Clear Sign
+                        3'b101: sreg_mask = 8'b11011111; // CLH - Clear Half-carry
+                        3'b110: sreg_mask = 8'b10111111; // CLT - Clear T flag
+                        3'b111: sreg_mask = 8'b01111111; // CLI - Clear Interrupt
+                    endcase
+                    instruction_decoded = 1'b1;
+                end
+                
                 default: begin
                     unsupported_instruction = 1'b1;
                 end

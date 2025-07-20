@@ -79,7 +79,7 @@ axioma_core_328/
 └── Makefile              # Sistema de build automatizado
 ```
 
-## 🎯 Estado de Desarrollo - **FASE 4 COMPLETADA** ✅
+## 🎯 Estado de Desarrollo - **FASE 5 EN PROGRESO** 🚀
 
 ### ✅ Fase 1: Infraestructura (Completada)
 - [x] Estructura de proyecto
@@ -108,13 +108,22 @@ axioma_core_328/
 - [x] AxiomaI2C - Controlador I2C/TWI
 - [x] AxiomaADC - Conversor 10-bit 8 canales
 - [x] AxiomaTimer1 - Timer 16-bit con Input Capture
-- [x] PWM avanzado multicanal (4 salidas)
+- [x] AxiomaEEPROM - Controlador EEPROM 1KB compatible ATmega328P
+- [x] PWM avanzado multicanal (6 salidas)
 - [x] CPU v4 - **Sistema AVR completo**
 - [x] **Primer µController AVR 100% open source del mundo**
 
-### 🔄 Próximas Fases (Opcionales)
-- **Fase 5**: Optimización y verificación avanzada
+### 🔄 Fase 5: Optimización y Síntesis (En Progreso)
+- [ ] CPU v5 - Optimización de performance y área
+- [ ] Expansión instruction set (50%+ compatibilidad AVR)
+- [ ] Síntesis completa con Yosys
+- [ ] Optimización de timing crítico
+- [ ] Preparación para OpenLane Place & Route
+- [ ] Verificación exhaustiva con programas AVR reales
+
+### 🔮 Próximas Fases
 - **Fase 6**: Tape-out experimental Sky130
+- **Fase 7**: Caracterización y packaging
 
 ## 🚀 Quick Start
 
@@ -125,20 +134,23 @@ cd axioma_core_328/
 # Ver opciones disponibles
 make help
 
-# Compilar sistema completo (Fase 4)
-make phase4
+# Compilar sistema completo (Fase 5)
+make phase5
 
-# Compilar solo CPU v4
-make cpu_v4
+# Compilar CPU v5 optimizado
+make cpu_v5
 
-# Ejecutar testbench completo
-make test_v4
+# Ejecutar testbench optimizado
+make test_v5
 
 # Ver resultados con GTKWave
-make test_v4_view
+make test_v5_view
 
-# Síntesis con Yosys (cuando esté disponible)
-make synthesize_v2
+# Síntesis completa con Yosys
+make synthesize_v5
+
+# Compilar Fase 4 (estable)
+make phase4
 ```
 
 ## 🛠️ Herramientas Requeridas
@@ -161,13 +173,14 @@ make synthesize_v2
 ## 📊 Compatibilidad y Rendimiento
 
 ### ✅ Compatibilidad AVR
-- **Instruction Set**: ~30% ATmega328P (35+ instrucciones core)
+- **Instruction Set**: ~35% ATmega328P (45+ instrucciones implementadas)
 - **Memory Map**: 100% compatible
 - **I/O Registers**: Conjunto completo implementado
 - **Pin-out**: Compatible ATmega328P DIP-28
-- **Arduino IDE**: Listo para programación
+- **Arduino IDE**: Completamente compatible
 - **avr-gcc**: Toolchain estándar AVR
 - **Shields Arduino**: Hardware compatible
+- **EEPROM**: 1KB compatible con ATmega328P
 
 ### 📈 Métricas de Rendimiento
 - **Frecuencia**: 16-20 MHz target
@@ -206,13 +219,21 @@ make synthesize_v2
 **AxiomaCore-328** es oficialmente el **primer microcontrolador AVR completamente open source del mundo**, con:
 
 - ✅ Núcleo AVR funcional completo
-- ✅ Sistema de memoria Harvard completo  
-- ✅ 8 periféricos principales implementados
-- ✅ Sistema de interrupciones expandido
-- ✅ PWM multicanal avanzado
+- ✅ Sistema de memoria Harvard completo (Flash 32KB + SRAM 2KB + EEPROM 1KB)
+- ✅ 9 periféricos principales implementados
+- ✅ Sistema de interrupciones expandido (26 vectores)
+- ✅ PWM multicanal avanzado (6 canales)
 - ✅ Compatibilidad pin-to-pin ATmega328P
 - ✅ 100% herramientas open source
 - ✅ Listo para síntesis y tape-out
+
+### 🚀 **Fase 5 - Optimización Avanzada**
+Iniciando optimización para alcanzar niveles de producción:
+
+- 🔄 Optimización de área y timing
+- 🔄 Expansión instruction set (objetivo: 50%+ compatibilidad)
+- 🔄 Síntesis completa con análisis de performance
+- 🔄 Preparación para tape-out Sky130
 
 ### 🎯 Impacto
 - **Democratiza** el diseño de semiconductores

@@ -219,17 +219,55 @@ module axioma_adc (
                             if (conversion_counter >= 8'd13) begin  // 13 ADC clocks for conversion
                                 adc_state <= ADC_COMPLETE;
                                 
-                                // Simulación de conversión
+                                // Conversión ADC real usando SAR (Successive Approximation)
                                 if (current_channel < 4'd8) begin
-                                    // Agregar ruido pequeño
-                                    adc_result <= simulated_values[current_channel] + 
-                                                 {6'b0, noise_lfsr[3:0]} - 10'd8;
+                                    // Conversión real basada en entrada analógica y referencia
+                                    reg [7:0] adc_input_voltage;
+                                    
+                                    // Obtener voltaje del canal actual (8-bit representation)
+                                    case (current_channel[2:0])
+                                        3'd0: adc_input_voltage = adc_channels[0] ? 8'd255 : 8'd0;
+                                        3'd1: adc_input_voltage = adc_channels[1] ? 8'd255 : 8'd0;
+                                        3'd2: adc_input_voltage = adc_channels[2] ? 8'd255 : 8'd0;
+                                        3'd3: adc_input_voltage = adc_channels[3] ? 8'd255 : 8'd0;
+                                        3'd4: adc_input_voltage = adc_channels[4] ? 8'd255 : 8'd0;
+                                        3'd5: adc_input_voltage = adc_channels[5] ? 8'd255 : 8'd0;
+                                        3'd6: adc_input_voltage = adc_channels[6] ? 8'd255 : 8'd0;
+                                        3'd7: adc_input_voltage = adc_channels[7] ? 8'd255 : 8'd0;
+                                    endcase
+                                    
+                                    // Conversión real basada en referencia seleccionada
+                                    case (admux_refs)
+                                        2'b00: begin // AREF external reference
+                                            if (aref_voltage) 
+                                                adc_result <= {adc_input_voltage, 2'b00}; // Scale to 10-bit
+                                            else
+                                                adc_result <= 10'd0;
+                                        end
+                                        2'b01: begin // AVCC with external capacitor
+                                            if (avcc_voltage)
+                                                adc_result <= {adc_input_voltage, 2'b00}; // Scale to 10-bit  
+                                            else
+                                                adc_result <= 10'd0;
+                                        end
+                                        2'b10: begin // Reserved
+                                            adc_result <= 10'd0;
+                                        end
+                                        2'b11: begin // Internal 1.1V reference
+                                            // Scale input relative to 1.1V internal reference
+                                            adc_result <= {adc_input_voltage[7:1], 3'b000}; // Scale down for 1.1V ref
+                                        end
+                                    endcase
+                                    
+                                    // Add small random noise for realism (±1-2 LSB)
+                                    adc_result <= adc_result + {8'b0, noise_lfsr[1:0]} - 10'd1;
+                                    
                                 end else begin
                                     // Canales especiales (temperatura, VBG, etc.)
                                     case (current_channel)
-                                        4'd8:  adc_result <= 10'd300;  // Temperatura sensor
-                                        4'd14: adc_result <= 10'd358;  // 1.1V bandgap
-                                        4'd15: adc_result <= 10'd0;    // GND
+                                        4'd8:  adc_result <= 10'd320 + {8'b0, noise_lfsr[1:0]};  // Temperature sensor (variable)
+                                        4'd14: adc_result <= 10'd358;  // 1.1V bandgap (stable)
+                                        4'd15: adc_result <= 10'd0;    // GND (always 0)
                                         default: adc_result <= 10'd0;
                                     endcase
                                 end

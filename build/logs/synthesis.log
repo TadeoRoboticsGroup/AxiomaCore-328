@@ -1,0 +1,1545 @@
+
+ /----------------------------------------------------------------------------\
+ |                                                                            |
+ |  yosys -- Yosys Open SYnthesis Suite                                       |
+ |                                                                            |
+ |  Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>           |
+ |                                                                            |
+ |  Permission to use, copy, modify, and/or distribute this software for any  |
+ |  purpose with or without fee is hereby granted, provided that the above    |
+ |  copyright notice and this permission notice appear in all copies.         |
+ |                                                                            |
+ |  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES  |
+ |  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF          |
+ |  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR   |
+ |  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES    |
+ |  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN     |
+ |  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF   |
+ |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.            |
+ |                                                                            |
+ \----------------------------------------------------------------------------/
+
+ Yosys 0.9 (git sha1 1979e0b)
+
+
+-- Executing script file `synthesis/axioma_syn.ys' --
+
+1. Executing Verilog-2005 frontend: core/axioma_registers/axioma_registers.v
+Parsing Verilog input from `core/axioma_registers/axioma_registers.v' to AST representation.
+Generating RTLIL representation for module `\axioma_registers'.
+Warning: Replacing memory \registers with list of registers. See core/axioma_registers/axioma_registers.v:56
+Successfully finished Verilog frontend.
+
+2. Executing Verilog-2005 frontend: core/axioma_alu/axioma_alu.v
+Parsing Verilog input from `core/axioma_alu/axioma_alu.v' to AST representation.
+Generating RTLIL representation for module `\axioma_alu'.
+Successfully finished Verilog frontend.
+
+3. Executing Verilog-2005 frontend: core/axioma_decoder/axioma_decoder.v
+Parsing Verilog input from `core/axioma_decoder/axioma_decoder.v' to AST representation.
+Generating RTLIL representation for module `\axioma_decoder'.
+Successfully finished Verilog frontend.
+
+4. Executing Verilog-2005 frontend: core/axioma_cpu/axioma_cpu.v
+Parsing Verilog input from `core/axioma_cpu/axioma_cpu.v' to AST representation.
+Generating RTLIL representation for module `\axioma_cpu'.
+core/axioma_cpu/axioma_cpu.v:306: Warning: Identifier `\registers_inst.registers' is implicitly declared.
+core/axioma_cpu/axioma_cpu.v:306: Warning: Range select out of bounds on signal `\registers_inst.registers': Setting result bit to undef.
+core/axioma_cpu/axioma_cpu.v:307: Warning: Range select out of bounds on signal `\registers_inst.registers': Setting result bit to undef.
+Successfully finished Verilog frontend.
+
+5. Executing HIERARCHY pass (managing design hierarchy).
+
+5.1. Analyzing design hierarchy..
+Top module:  \axioma_cpu
+Used module:     \axioma_alu
+Used module:     \axioma_registers
+Used module:     \axioma_decoder
+
+5.2. Analyzing design hierarchy..
+Top module:  \axioma_cpu
+Used module:     \axioma_alu
+Used module:     \axioma_registers
+Used module:     \axioma_decoder
+Removed 0 unused modules.
+
+6. Executing PROC pass (convert processes to netlists).
+
+6.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+6.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Removed 1 dead cases from process $proc$core/axioma_cpu/axioma_cpu.v:246$163 in module axioma_cpu.
+Marked 7 switch rules as full_case in process $proc$core/axioma_cpu/axioma_cpu.v:246$163 in module axioma_cpu.
+Removed 1 dead cases from process $proc$core/axioma_cpu/axioma_cpu.v:178$139 in module axioma_cpu.
+Marked 6 switch rules as full_case in process $proc$core/axioma_cpu/axioma_cpu.v:178$139 in module axioma_cpu.
+Removed 6 dead cases from process $proc$core/axioma_decoder/axioma_decoder.v:100$112 in module axioma_decoder.
+Marked 8 switch rules as full_case in process $proc$core/axioma_decoder/axioma_decoder.v:100$112 in module axioma_decoder.
+Marked 2 switch rules as full_case in process $proc$core/axioma_alu/axioma_alu.v:71$58 in module axioma_alu.
+Removed 1 dead cases from process $proc$core/axioma_registers/axioma_registers.v:7$47 in module axioma_registers.
+Marked 1 switch rules as full_case in process $proc$core/axioma_registers/axioma_registers.v:7$47 in module axioma_registers.
+Removed 1 dead cases from process $proc$core/axioma_registers/axioma_registers.v:7$44 in module axioma_registers.
+Marked 1 switch rules as full_case in process $proc$core/axioma_registers/axioma_registers.v:7$44 in module axioma_registers.
+Marked 3 switch rules as full_case in process $proc$core/axioma_registers/axioma_registers.v:52$36 in module axioma_registers.
+Removed a total of 10 dead cases.
+
+6.3. Executing PROC_INIT pass (extract init attributes).
+
+6.4. Executing PROC_ARST pass (detect async resets in processes).
+Found async reset \reset_n in `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+Found async reset \reset_n in `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+
+6.5. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+     1/33: $6\next_state[1:0]
+     2/33: $5\next_state[1:0]
+     3/33: $4\data_out[7:0]
+     4/33: $4\data_addr[15:0]
+     5/33: $4\data_write[0:0]
+     6/33: $4\data_read[0:0]
+     7/33: $4\next_state[1:0]
+     8/33: $3\alu_update_flags[0:0]
+     9/33: $3\reg_rd_write_en[0:0]
+    10/33: $3\next_state[1:0]
+    11/33: $3\data_read[0:0]
+    12/33: $3\data_out[7:0]
+    13/33: $3\data_addr[15:0]
+    14/33: $3\data_write[0:0]
+    15/33: $2\alu_update_flags[0:0]
+    16/33: $2\reg_rd_write_en[0:0]
+    17/33: $2\next_state[1:0]
+    18/33: $1\next_state[1:0]
+    19/33: $1\alu_update_flags[0:0]
+    20/33: $1\reg_rd_write_en[0:0]
+    21/33: $2\data_read[0:0]
+    22/33: $2\data_out[7:0]
+    23/33: $2\data_addr[15:0]
+    24/33: $2\data_write[0:0]
+    25/33: $0\alu_update_flags[0:0]
+    26/33: $0\reg_rd_write_en[0:0]
+    27/33: $0\next_state[1:0]
+    28/33: $1\data_read[0:0]
+    29/33: $1\data_out[7:0]
+    30/33: $1\data_addr[15:0]
+    31/33: $1\data_write[0:0]
+    32/33: $0\reg_rd_data[7:0]
+    33/33: $1\program_addr[15:0]
+Creating decoders for process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+     1/27: $5$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken[0:0]$158
+     2/27: $4$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\sreg[7:0]$156
+     3/27: $4$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\condition[2:0]$155
+     4/27: $4$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken[0:0]$154
+     5/27: $3$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\sreg[7:0]$153
+     6/27: $3$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\condition[2:0]$152
+     7/27: $3$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken[0:0]$151
+     8/27: $2$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\sreg[7:0]$149
+     9/27: $2$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\condition[2:0]$148
+    10/27: $2$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken[0:0]$147
+    11/27: $1$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\sreg[7:0]$146
+    12/27: $1$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\condition[2:0]$145
+    13/27: $1$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken[0:0]$144
+    14/27: $0$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\sreg[7:0]$142
+    15/27: $0$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\condition[2:0]$141
+    16/27: $0$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken[0:0]$140
+    17/27: $0\instruction_reg[15:0]
+    18/27: $0\pc[15:0]
+    19/27: $0\cpu_state[1:0]
+    20/27: $0\status_reg[7:0]
+    21/27: $0\cpu_halted[0:0]
+    22/27: $0\data_read[0:0]
+    23/27: $0\data_out[7:0]
+    24/27: $0\data_addr[15:0]
+    25/27: $0\program_addr[15:0]
+    26/27: $0\data_write[0:0]
+    27/27: $0\instruction_valid[0:0]
+Creating decoders for process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+     1/93: $14\instruction_decoded[0:0]
+     2/93: $7\branch_offset[11:0]
+     3/93: $7\branch_condition[2:0]
+     4/93: $7\branch_en[0:0]
+     5/93: $7\unsupported_instruction[0:0]
+     6/93: $13\instruction_decoded[0:0]
+     7/93: $6\branch_offset[11:0]
+     8/93: $6\branch_condition[2:0]
+     9/93: $6\branch_en[0:0]
+    10/93: $6\unsupported_instruction[0:0]
+    11/93: $12\instruction_decoded[0:0]
+    12/93: $5\jump_addr[21:0]
+    13/93: $5\jump_en[0:0]
+    14/93: $5\unsupported_instruction[0:0]
+    15/93: $5\branch_offset[11:0]
+    16/93: $5\branch_condition[2:0]
+    17/93: $5\branch_en[0:0]
+    18/93: $11\instruction_decoded[0:0]
+    19/93: $4\immediate[7:0]
+    20/93: $4\alu_use_immediate[0:0]
+    21/93: $11\alu_op[4:0]
+    22/93: $11\rs1_addr[4:0]
+    23/93: $4\unsupported_instruction[0:0]
+    24/93: $4\jump_addr[21:0]
+    25/93: $4\jump_en[0:0]
+    26/93: $4\branch_offset[11:0]
+    27/93: $4\branch_condition[2:0]
+    28/93: $4\branch_en[0:0]
+    29/93: $10\instruction_decoded[0:0]
+    30/93: $3\immediate[7:0]
+    31/93: $3\alu_use_immediate[0:0]
+    32/93: $10\alu_op[4:0]
+    33/93: $10\rd_write_en[0:0]
+    34/93: $10\rd_addr[4:0]
+    35/93: $3\unsupported_instruction[0:0]
+    36/93: $3\jump_addr[21:0]
+    37/93: $3\jump_en[0:0]
+    38/93: $3\branch_offset[11:0]
+    39/93: $3\branch_condition[2:0]
+    40/93: $3\branch_en[0:0]
+    41/93: $10\rs1_addr[4:0]
+    42/93: $3\instruction_decoded[0:0]
+    43/93: $3\alu_op[4:0]
+    44/93: $3\rd_write_en[0:0]
+    45/93: $3\rd_addr[4:0]
+    46/93: $3\rs2_addr[4:0]
+    47/93: $3\rs1_addr[4:0]
+    48/93: $2\instruction_decoded[0:0]
+    49/93: $2\unsupported_instruction[0:0]
+    50/93: $2\jump_addr[21:0]
+    51/93: $2\jump_en[0:0]
+    52/93: $2\branch_offset[11:0]
+    53/93: $2\branch_condition[2:0]
+    54/93: $2\immediate[7:0]
+    55/93: $2\alu_use_immediate[0:0]
+    56/93: $2\branch_en[0:0]
+    57/93: $2\alu_op[4:0]
+    58/93: $2\rd_write_en[0:0]
+    59/93: $2\rs1_addr[4:0]
+    60/93: $2\rd_addr[4:0]
+    61/93: $2\rs2_addr[4:0]
+    62/93: $1\unsupported_instruction[0:0]
+    63/93: $1\instruction_decoded[0:0]
+    64/93: $1\jump_addr[21:0]
+    65/93: $1\jump_en[0:0]
+    66/93: $1\branch_offset[11:0]
+    67/93: $1\branch_condition[2:0]
+    68/93: $1\immediate[7:0]
+    69/93: $1\alu_use_immediate[0:0]
+    70/93: $1\branch_en[0:0]
+    71/93: $1\alu_op[4:0]
+    72/93: $1\rd_write_en[0:0]
+    73/93: $1\rs1_addr[4:0]
+    74/93: $1\rd_addr[4:0]
+    75/93: $1\rs2_addr[4:0]
+    76/93: $0\unsupported_instruction[0:0]
+    77/93: $0\instruction_decoded[0:0]
+    78/93: $0\jump_addr[21:0]
+    79/93: $0\jump_en[0:0]
+    80/93: $0\branch_offset[11:0]
+    81/93: $0\branch_condition[2:0]
+    82/93: $0\immediate[7:0]
+    83/93: $0\alu_use_immediate[0:0]
+    84/93: $0\branch_en[0:0]
+    85/93: $0\alu_op[4:0]
+    86/93: $0\rd_write_en[0:0]
+    87/93: $0\rs1_addr[4:0]
+    88/93: $0\rd_addr[4:0]
+    89/93: $0\rs2_addr[4:0]
+    90/93: $0\pointer_sel[1:0]
+    91/93: $0\use_pointer[0:0]
+    92/93: $0\mem_write[0:0]
+    93/93: $0\mem_read[0:0]
+Creating decoders for process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+     1/12: $2\result[7:0]
+     2/12: $1\flag_v_out[0:0]
+     3/12: $1\flag_h_out[0:0]
+     4/12: $1\flag_c_out[0:0]
+     5/12: $1\result[7:0]
+     6/12: $0\flag_s_out[0:0]
+     7/12: $0\flag_n_out[0:0]
+     8/12: $0\flag_z_out[0:0]
+     9/12: $0\flag_h_out[0:0]
+    10/12: $0\flag_v_out[0:0]
+    11/12: $0\flag_c_out[0:0]
+    12/12: $0\result[7:0]
+Creating decoders for process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$47'.
+     1/2: $1$mem2reg_rd$\registers$core/axioma_registers/axioma_registers.v:86$35_DATA[7:0]$49
+     2/2: $0$mem2reg_rd$\registers$core/axioma_registers/axioma_registers.v:86$35_DATA[7:0]$48
+Creating decoders for process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$44'.
+     1/2: $1$mem2reg_rd$\registers$core/axioma_registers/axioma_registers.v:83$34_DATA[7:0]$46
+     2/2: $0$mem2reg_rd$\registers$core/axioma_registers/axioma_registers.v:83$34_DATA[7:0]$45
+Creating decoders for process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+     1/40: $2$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_ADDR[4:0]$42
+     2/40: $2$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_DATA[7:0]$43
+     3/40: $1$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_DATA[7:0]$41
+     4/40: $1$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_ADDR[4:0]$40
+     5/40: $1\i[31:0]
+     6/40: $0$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_DATA[7:0]$38
+     7/40: $0$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_ADDR[4:0]$37
+     8/40: $0\i[31:0]
+     9/40: $0\registers[31][7:0]
+    10/40: $0\registers[30][7:0]
+    11/40: $0\registers[29][7:0]
+    12/40: $0\registers[28][7:0]
+    13/40: $0\registers[27][7:0]
+    14/40: $0\registers[26][7:0]
+    15/40: $0\registers[25][7:0]
+    16/40: $0\registers[24][7:0]
+    17/40: $0\registers[23][7:0]
+    18/40: $0\registers[22][7:0]
+    19/40: $0\registers[21][7:0]
+    20/40: $0\registers[20][7:0]
+    21/40: $0\registers[19][7:0]
+    22/40: $0\registers[18][7:0]
+    23/40: $0\registers[17][7:0]
+    24/40: $0\registers[16][7:0]
+    25/40: $0\registers[15][7:0]
+    26/40: $0\registers[14][7:0]
+    27/40: $0\registers[13][7:0]
+    28/40: $0\registers[12][7:0]
+    29/40: $0\registers[11][7:0]
+    30/40: $0\registers[10][7:0]
+    31/40: $0\registers[9][7:0]
+    32/40: $0\registers[8][7:0]
+    33/40: $0\registers[7][7:0]
+    34/40: $0\registers[6][7:0]
+    35/40: $0\registers[5][7:0]
+    36/40: $0\registers[4][7:0]
+    37/40: $0\registers[3][7:0]
+    38/40: $0\registers[2][7:0]
+    39/40: $0\registers[1][7:0]
+    40/40: $0\registers[0][7:0]
+
+6.6. Executing PROC_DLATCH pass (convert process syncs to latches).
+No latch inferred for signal `\axioma_cpu.\data_write' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\program_addr' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\data_addr' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\data_out' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\data_read' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\next_state' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\reg_rd_write_en' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\reg_rd_data' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_cpu.\alu_update_flags' from process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+No latch inferred for signal `\axioma_decoder.\rs2_addr' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\rd_addr' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\rs1_addr' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\rd_write_en' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\alu_op' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\mem_read' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\mem_write' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\use_pointer' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\pointer_sel' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\branch_en' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\alu_use_immediate' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\immediate' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\branch_condition' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\branch_offset' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\jump_en' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\jump_addr' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\instruction_decoded' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_decoder.\unsupported_instruction' from process `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+No latch inferred for signal `\axioma_alu.\result' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_alu.\flag_c_out' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_alu.\flag_z_out' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_alu.\flag_n_out' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_alu.\flag_v_out' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_alu.\flag_s_out' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_alu.\flag_h_out' from process `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+No latch inferred for signal `\axioma_registers.$mem2reg_rd$\registers$core/axioma_registers/axioma_registers.v:86$35_DATA' from process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$47'.
+No latch inferred for signal `\axioma_registers.$mem2reg_rd$\registers$core/axioma_registers/axioma_registers.v:83$34_DATA' from process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$44'.
+
+6.7. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\axioma_cpu.\instruction_valid' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2095' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\data_write' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2096' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\program_addr' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2097' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\data_addr' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2098' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\data_out' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2099' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\data_read' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2100' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\cpu_halted' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2101' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\status_reg' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2102' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\cpu_state' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2103' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\pc' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2104' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.\instruction_reg' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2105' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\branch_taken' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2106' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\condition' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2107' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_cpu.$func$\branch_taken$core/axioma_cpu/axioma_cpu.v:211$137$\sreg' using process `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+  created $adff cell `$procdff$2108' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\i' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2109' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[0]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2110' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[1]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2111' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[2]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2112' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[3]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2113' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[4]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2114' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[5]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2115' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[6]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2116' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[7]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2117' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[8]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2118' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[9]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2119' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[10]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2120' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[11]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2121' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[12]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2122' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[13]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2123' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[14]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2124' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[15]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2125' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[16]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2126' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[17]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2127' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[18]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2128' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[19]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2129' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[20]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2130' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[21]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2131' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[22]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2132' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[23]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2133' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[24]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2134' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[25]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2135' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[26]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2136' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[27]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2137' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[28]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2138' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[29]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2139' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[30]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2140' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.\registers[31]' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2141' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_ADDR' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2142' with positive edge clock and negative level reset.
+Creating register for signal `\axioma_registers.$mem2reg_wr$\registers$core/axioma_registers/axioma_registers.v:61$33_DATA' using process `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+  created $adff cell `$procdff$2143' with positive edge clock and negative level reset.
+
+6.8. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 7 empty switches in `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+Removing empty process `axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:246$163'.
+Found and cleaned up 9 empty switches in `\axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+Removing empty process `axioma_cpu.$proc$core/axioma_cpu/axioma_cpu.v:178$139'.
+Found and cleaned up 8 empty switches in `\axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+Removing empty process `axioma_decoder.$proc$core/axioma_decoder/axioma_decoder.v:100$112'.
+Found and cleaned up 2 empty switches in `\axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+Removing empty process `axioma_alu.$proc$core/axioma_alu/axioma_alu.v:71$58'.
+Found and cleaned up 1 empty switch in `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$47'.
+Removing empty process `axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$47'.
+Found and cleaned up 1 empty switch in `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$44'.
+Removing empty process `axioma_registers.$proc$core/axioma_registers/axioma_registers.v:7$44'.
+Found and cleaned up 5 empty switches in `\axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+Removing empty process `axioma_registers.$proc$core/axioma_registers/axioma_registers.v:52$36'.
+Cleaned up 33 empty switches.
+
+7. Executing OPT pass (performing simple optimizations).
+
+7.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_cpu.
+<suppressed ~14 debug messages>
+Optimizing module axioma_decoder.
+<suppressed ~54 debug messages>
+Optimizing module axioma_alu.
+<suppressed ~7 debug messages>
+Optimizing module axioma_registers.
+<suppressed ~3 debug messages>
+
+7.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_cpu'.
+<suppressed ~213 debug messages>
+Finding identical cells in module `\axioma_decoder'.
+<suppressed ~366 debug messages>
+Finding identical cells in module `\axioma_alu'.
+<suppressed ~183 debug messages>
+Finding identical cells in module `\axioma_registers'.
+Removed a total of 254 cells.
+
+7.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \axioma_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+    dead port 1/2 on $mux $procmux$381.
+    dead port 2/2 on $mux $procmux$381.
+    dead port 1/2 on $mux $procmux$375.
+    dead port 2/2 on $mux $procmux$375.
+    dead port 1/2 on $mux $procmux$373.
+    dead port 2/2 on $mux $procmux$373.
+    dead port 1/2 on $mux $procmux$371.
+    dead port 2/2 on $mux $procmux$371.
+    dead port 1/2 on $mux $procmux$365.
+    dead port 2/2 on $mux $procmux$365.
+    dead port 1/2 on $mux $procmux$363.
+    dead port 2/2 on $mux $procmux$363.
+    dead port 1/2 on $mux $procmux$361.
+    dead port 2/2 on $mux $procmux$361.
+    dead port 1/5 on $pmux $procmux$418.
+    dead port 2/5 on $pmux $procmux$418.
+    dead port 3/5 on $pmux $procmux$418.
+    dead port 4/5 on $pmux $procmux$418.
+    dead port 5/5 on $pmux $procmux$418.
+    dead port 1/5 on $pmux $procmux$413.
+    dead port 2/5 on $pmux $procmux$413.
+    dead port 3/5 on $pmux $procmux$413.
+    dead port 4/5 on $pmux $procmux$413.
+    dead port 5/5 on $pmux $procmux$413.
+    dead port 2/2 on $mux $procmux$306.
+    dead port 2/2 on $mux $procmux$298.
+    dead port 2/2 on $mux $procmux$291.
+    dead port 2/2 on $mux $procmux$284.
+    dead port 2/2 on $mux $procmux$277.
+    dead port 1/5 on $pmux $procmux$408.
+    dead port 2/5 on $pmux $procmux$408.
+    dead port 3/5 on $pmux $procmux$408.
+    dead port 4/5 on $pmux $procmux$408.
+    dead port 5/5 on $pmux $procmux$408.
+    dead port 2/2 on $mux $procmux$270.
+    dead port 2/2 on $mux $procmux$263.
+    dead port 1/2 on $mux $procmux$406.
+    dead port 2/2 on $mux $procmux$406.
+    dead port 2/2 on $mux $procmux$256.
+    dead port 2/2 on $mux $procmux$249.
+    dead port 1/2 on $mux $procmux$404.
+    dead port 2/2 on $mux $procmux$404.
+    dead port 2/2 on $mux $procmux$247.
+    dead port 2/2 on $mux $procmux$239.
+    dead port 1/2 on $mux $procmux$399.
+    dead port 2/2 on $mux $procmux$399.
+    dead port 2/2 on $mux $procmux$237.
+    dead port 2/2 on $mux $procmux$229.
+    dead port 2/2 on $mux $procmux$227.
+    dead port 2/2 on $mux $procmux$219.
+    dead port 1/2 on $mux $procmux$397.
+    dead port 2/2 on $mux $procmux$397.
+    dead port 2/2 on $mux $procmux$217.
+    dead port 2/2 on $mux $procmux$209.
+    dead port 1/2 on $mux $procmux$392.
+    dead port 2/2 on $mux $procmux$392.
+    dead port 2/2 on $mux $procmux$207.
+    dead port 2/2 on $mux $procmux$199.
+    dead port 2/2 on $mux $procmux$197.
+    dead port 2/2 on $mux $procmux$189.
+    dead port 1/2 on $mux $procmux$390.
+    dead port 2/2 on $mux $procmux$390.
+    dead port 2/2 on $mux $procmux$187.
+    dead port 2/2 on $mux $procmux$179.
+    dead port 1/2 on $mux $procmux$385.
+    dead port 2/2 on $mux $procmux$385.
+    dead port 1/2 on $mux $procmux$177.
+    dead port 2/2 on $mux $procmux$169.
+    dead port 1/2 on $mux $procmux$383.
+    dead port 2/2 on $mux $procmux$383.
+Running muxtree optimizer on module \axioma_decoder..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+    dead port 2/2 on $mux $procmux$1012.
+    dead port 1/3 on $pmux $procmux$1009.
+    dead port 2/3 on $pmux $procmux$1009.
+    dead port 2/2 on $mux $procmux$1002.
+    dead port 2/2 on $mux $procmux$1168.
+    dead port 1/3 on $pmux $procmux$999.
+    dead port 2/3 on $pmux $procmux$999.
+    dead port 2/2 on $mux $procmux$992.
+    dead port 1/3 on $pmux $procmux$989.
+    dead port 2/3 on $pmux $procmux$989.
+    dead port 2/2 on $mux $procmux$1223.
+    dead port 2/2 on $mux $procmux$982.
+    dead port 2/2 on $mux $procmux$1161.
+    dead port 1/3 on $pmux $procmux$979.
+    dead port 2/3 on $pmux $procmux$979.
+    dead port 2/2 on $mux $procmux$972.
+    dead port 1/3 on $pmux $procmux$969.
+    dead port 2/3 on $pmux $procmux$969.
+    dead port 2/2 on $mux $procmux$962.
+    dead port 2/2 on $mux $procmux$1154.
+    dead port 1/3 on $pmux $procmux$959.
+    dead port 2/3 on $pmux $procmux$959.
+    dead port 2/2 on $mux $procmux$1217.
+    dead port 2/2 on $mux $procmux$952.
+    dead port 1/3 on $pmux $procmux$949.
+    dead port 2/3 on $pmux $procmux$949.
+    dead port 2/2 on $mux $procmux$942.
+    dead port 2/2 on $mux $procmux$1147.
+    dead port 1/3 on $pmux $procmux$939.
+    dead port 2/3 on $pmux $procmux$939.
+    dead port 1/2 on $mux $procmux$936.
+    dead port 2/2 on $mux $procmux$929.
+    dead port 1/3 on $pmux $procmux$926.
+    dead port 2/3 on $pmux $procmux$926.
+    dead port 1/2 on $mux $procmux$923.
+    dead port 2/2 on $mux $procmux$916.
+    dead port 2/2 on $mux $procmux$1140.
+    dead port 1/3 on $pmux $procmux$913.
+    dead port 2/3 on $pmux $procmux$913.
+    dead port 2/2 on $mux $procmux$1210.
+    dead port 1/2 on $mux $procmux$910.
+    dead port 2/2 on $mux $procmux$903.
+    dead port 1/3 on $pmux $procmux$900.
+    dead port 2/3 on $pmux $procmux$900.
+    dead port 1/2 on $mux $procmux$897.
+    dead port 2/2 on $mux $procmux$890.
+    dead port 2/2 on $mux $procmux$1133.
+    dead port 1/3 on $pmux $procmux$887.
+    dead port 2/3 on $pmux $procmux$887.
+    dead port 1/2 on $mux $procmux$884.
+    dead port 2/2 on $mux $procmux$877.
+    dead port 1/3 on $pmux $procmux$874.
+    dead port 2/3 on $pmux $procmux$874.
+    dead port 1/2 on $mux $procmux$871.
+    dead port 2/2 on $mux $procmux$864.
+    dead port 2/2 on $mux $procmux$1126.
+    dead port 1/3 on $pmux $procmux$861.
+    dead port 2/3 on $pmux $procmux$861.
+    dead port 2/2 on $mux $procmux$1124.
+    dead port 1/2 on $mux $procmux$858.
+    dead port 2/2 on $mux $procmux$851.
+    dead port 2/2 on $mux $procmux$1203.
+    dead port 1/3 on $pmux $procmux$848.
+    dead port 2/3 on $pmux $procmux$848.
+    dead port 1/2 on $mux $procmux$845.
+    dead port 2/2 on $mux $procmux$838.
+    dead port 2/2 on $mux $procmux$1117.
+    dead port 1/3 on $pmux $procmux$835.
+    dead port 2/3 on $pmux $procmux$835.
+    dead port 2/2 on $mux $procmux$1115.
+    dead port 1/2 on $mux $procmux$832.
+    dead port 2/2 on $mux $procmux$825.
+    dead port 1/3 on $pmux $procmux$822.
+    dead port 2/3 on $pmux $procmux$822.
+    dead port 1/2 on $mux $procmux$819.
+    dead port 2/2 on $mux $procmux$812.
+    dead port 2/2 on $mux $procmux$1108.
+    dead port 1/3 on $pmux $procmux$809.
+    dead port 2/3 on $pmux $procmux$809.
+    dead port 2/2 on $mux $procmux$1106.
+    dead port 1/2 on $mux $procmux$806.
+    dead port 2/2 on $mux $procmux$799.
+    dead port 1/3 on $pmux $procmux$796.
+    dead port 2/3 on $pmux $procmux$796.
+    dead port 1/2 on $mux $procmux$793.
+    dead port 1/2 on $mux $procmux$790.
+    dead port 2/2 on $mux $procmux$783.
+    dead port 2/2 on $mux $procmux$1099.
+    dead port 1/3 on $pmux $procmux$780.
+    dead port 2/3 on $pmux $procmux$780.
+    dead port 2/2 on $mux $procmux$1097.
+    dead port 1/2 on $mux $procmux$777.
+    dead port 1/2 on $mux $procmux$774.
+    dead port 2/2 on $mux $procmux$767.
+    dead port 1/3 on $pmux $procmux$764.
+    dead port 2/3 on $pmux $procmux$764.
+    dead port 1/2 on $mux $procmux$761.
+    dead port 1/2 on $mux $procmux$758.
+    dead port 2/2 on $mux $procmux$751.
+    dead port 2/2 on $mux $procmux$1090.
+    dead port 1/3 on $pmux $procmux$748.
+    dead port 2/3 on $pmux $procmux$748.
+    dead port 2/2 on $mux $procmux$1088.
+    dead port 1/2 on $mux $procmux$745.
+    dead port 1/2 on $mux $procmux$742.
+    dead port 2/2 on $mux $procmux$735.
+    dead port 2/2 on $mux $procmux$1196.
+    dead port 1/3 on $pmux $procmux$732.
+    dead port 2/3 on $pmux $procmux$732.
+    dead port 1/2 on $mux $procmux$729.
+    dead port 1/2 on $mux $procmux$726.
+    dead port 2/2 on $mux $procmux$719.
+    dead port 2/2 on $mux $procmux$1081.
+    dead port 1/3 on $pmux $procmux$716.
+    dead port 2/3 on $pmux $procmux$716.
+    dead port 2/2 on $mux $procmux$1079.
+    dead port 1/2 on $mux $procmux$713.
+    dead port 1/2 on $mux $procmux$710.
+    dead port 2/2 on $mux $procmux$703.
+    dead port 1/3 on $pmux $procmux$700.
+    dead port 2/3 on $pmux $procmux$700.
+    dead port 1/2 on $mux $procmux$697.
+    dead port 1/2 on $mux $procmux$694.
+    dead port 2/2 on $mux $procmux$687.
+    dead port 2/2 on $mux $procmux$1072.
+    dead port 1/3 on $pmux $procmux$684.
+    dead port 2/3 on $pmux $procmux$684.
+    dead port 1/2 on $mux $procmux$681.
+    dead port 1/2 on $mux $procmux$678.
+    dead port 1/2 on $mux $procmux$675.
+    dead port 2/2 on $mux $procmux$668.
+    dead port 1/3 on $pmux $procmux$1069.
+    dead port 2/3 on $pmux $procmux$1069.
+    dead port 1/3 on $pmux $procmux$665.
+    dead port 2/3 on $pmux $procmux$665.
+    dead port 1/2 on $mux $procmux$662.
+    dead port 1/2 on $mux $procmux$659.
+    dead port 1/2 on $mux $procmux$656.
+    dead port 2/2 on $mux $procmux$649.
+    dead port 1/3 on $pmux $procmux$646.
+    dead port 2/3 on $pmux $procmux$646.
+    dead port 2/2 on $mux $procmux$1062.
+    dead port 1/2 on $mux $procmux$643.
+    dead port 1/2 on $mux $procmux$640.
+    dead port 1/2 on $mux $procmux$637.
+    dead port 2/2 on $mux $procmux$630.
+    dead port 2/2 on $mux $procmux$1189.
+    dead port 1/3 on $pmux $procmux$627.
+    dead port 2/3 on $pmux $procmux$627.
+    dead port 1/3 on $pmux $procmux$1059.
+    dead port 2/3 on $pmux $procmux$1059.
+    dead port 1/2 on $mux $procmux$624.
+    dead port 1/2 on $mux $procmux$621.
+    dead port 1/2 on $mux $procmux$618.
+    dead port 2/2 on $mux $procmux$611.
+    dead port 1/3 on $pmux $procmux$608.
+    dead port 2/3 on $pmux $procmux$608.
+    dead port 1/2 on $mux $procmux$605.
+    dead port 1/2 on $mux $procmux$602.
+    dead port 1/2 on $mux $procmux$599.
+    dead port 2/2 on $mux $procmux$592.
+    dead port 2/2 on $mux $procmux$1052.
+    dead port 1/3 on $pmux $procmux$589.
+    dead port 2/3 on $pmux $procmux$589.
+    dead port 1/2 on $mux $procmux$586.
+    dead port 1/2 on $mux $procmux$583.
+    dead port 1/2 on $mux $procmux$580.
+    dead port 1/2 on $mux $procmux$577.
+    dead port 2/2 on $mux $procmux$570.
+    dead port 1/3 on $pmux $procmux$1049.
+    dead port 2/3 on $pmux $procmux$1049.
+    dead port 1/3 on $pmux $procmux$567.
+    dead port 2/3 on $pmux $procmux$567.
+    dead port 1/2 on $mux $procmux$564.
+    dead port 1/2 on $mux $procmux$561.
+    dead port 1/2 on $mux $procmux$558.
+    dead port 1/2 on $mux $procmux$555.
+    dead port 2/2 on $mux $procmux$548.
+    dead port 1/3 on $pmux $procmux$545.
+    dead port 2/3 on $pmux $procmux$545.
+    dead port 2/2 on $mux $procmux$1042.
+    dead port 1/2 on $mux $procmux$542.
+    dead port 1/2 on $mux $procmux$539.
+    dead port 1/2 on $mux $procmux$536.
+    dead port 1/2 on $mux $procmux$533.
+    dead port 2/2 on $mux $procmux$526.
+    dead port 2/2 on $mux $procmux$1182.
+    dead port 1/3 on $pmux $procmux$523.
+    dead port 2/3 on $pmux $procmux$523.
+    dead port 1/3 on $pmux $procmux$1039.
+    dead port 2/3 on $pmux $procmux$1039.
+    dead port 1/2 on $mux $procmux$520.
+    dead port 1/2 on $mux $procmux$517.
+    dead port 1/2 on $mux $procmux$514.
+    dead port 1/2 on $mux $procmux$511.
+    dead port 2/2 on $mux $procmux$504.
+    dead port 1/3 on $pmux $procmux$501.
+    dead port 2/3 on $pmux $procmux$501.
+    dead port 1/2 on $mux $procmux$498.
+    dead port 1/2 on $mux $procmux$495.
+    dead port 1/2 on $mux $procmux$492.
+    dead port 1/2 on $mux $procmux$489.
+    dead port 2/2 on $mux $procmux$1032.
+    dead port 1/3 on $pmux $procmux$1029.
+    dead port 2/3 on $pmux $procmux$1029.
+    dead port 2/2 on $mux $procmux$1022.
+    dead port 2/2 on $mux $procmux$1175.
+    dead port 1/3 on $pmux $procmux$1019.
+    dead port 2/3 on $pmux $procmux$1019.
+Running muxtree optimizer on module \axioma_alu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+    dead port 2/2 on $mux $procmux$1286.
+Running muxtree optimizer on module \axioma_registers..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+    dead port 1/2 on $mux $procmux$1425.
+    dead port 2/2 on $mux $procmux$1425.
+    dead port 1/2 on $mux $procmux$1422.
+    dead port 2/2 on $mux $procmux$1422.
+Removed 284 multiplexer ports.
+<suppressed ~71 debug messages>
+
+7.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \axioma_cpu.
+    New ctrl vector for $pmux cell $procmux$313: { $procmux$480_CMP $auto$opt_reduce.cc:132:opt_mux$2145 }
+    New ctrl vector for $pmux cell $procmux$338: { $procmux$480_CMP $auto$opt_reduce.cc:132:opt_mux$2147 }
+    New ctrl vector for $pmux cell $procmux$333: { $procmux$480_CMP $auto$opt_reduce.cc:132:opt_mux$2149 }
+    New ctrl vector for $pmux cell $procmux$328: { $procmux$480_CMP $auto$opt_reduce.cc:132:opt_mux$2151 }
+    New ctrl vector for $pmux cell $procmux$323: { $procmux$480_CMP $auto$opt_reduce.cc:132:opt_mux$2153 }
+    New ctrl vector for $pmux cell $procmux$318: { $procmux$480_CMP $auto$opt_reduce.cc:132:opt_mux$2155 }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2144: { $procmux$453_CMP $procmux$476_CMP $procmux$483_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2146: { $procmux$453_CMP $procmux$476_CMP $procmux$483_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2148: { $procmux$453_CMP $procmux$476_CMP $procmux$483_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2150: { $procmux$453_CMP $procmux$476_CMP $procmux$483_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2152: { $procmux$453_CMP $procmux$476_CMP $procmux$483_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2154: { $procmux$453_CMP $procmux$476_CMP $procmux$483_CMP }
+  Optimizing cells in module \axioma_cpu.
+  Optimizing cells in module \axioma_decoder.
+    New ctrl vector for $pmux cell $procmux$1158: $auto$opt_reduce.cc:132:opt_mux$2157
+    New ctrl vector for $pmux cell $procmux$1165: $auto$opt_reduce.cc:132:opt_mux$2159
+    New ctrl vector for $pmux cell $procmux$1144: $auto$opt_reduce.cc:132:opt_mux$2161
+    New ctrl vector for $pmux cell $procmux$1172: $auto$opt_reduce.cc:132:opt_mux$2163
+    New ctrl vector for $pmux cell $procmux$1186: $auto$opt_reduce.cc:132:opt_mux$2165
+    New ctrl vector for $pmux cell $procmux$1137: $auto$opt_reduce.cc:132:opt_mux$2167
+    New ctrl vector for $pmux cell $procmux$1151: $auto$opt_reduce.cc:132:opt_mux$2169
+    New ctrl vector for $pmux cell $procmux$1179: $auto$opt_reduce.cc:132:opt_mux$2171
+  Optimizing cells in module \axioma_decoder.
+  Optimizing cells in module \axioma_alu.
+    New input vector for $reduce_or cell $procmux$1335_ANY: { $procmux$1354_CMP [0] $procmux$1354_CMP [1] }
+    New input vector for $reduce_or cell $procmux$1334_ANY: { $procmux$1353_CMP [0] $procmux$1353_CMP [1] $procmux$1353_CMP [2] $procmux$1353_CMP [3] }
+    New ctrl vector for $pmux cell $procmux$1325: { $procmux$1335_CTRL $procmux$1334_CTRL $procmux$1349_CMP $procmux$1348_CMP $auto$opt_reduce.cc:132:opt_mux$2175 $auto$opt_reduce.cc:132:opt_mux$2173 $procmux$1340_CMP }
+    New ctrl vector for $pmux cell $procmux$1290: { $procmux$1335_CTRL $procmux$1334_CTRL $procmux$1348_CMP $procmux$1347_CMP $procmux$1346_CMP $procmux$1344_CMP $auto$opt_reduce.cc:132:opt_mux$2179 $procmux$1342_CMP $procmux$1341_CMP $auto$opt_reduce.cc:132:opt_mux$2177 }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2172: { $procmux$1342_CMP $procmux$1341_CMP $procmux$1344_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2174: { $procmux$1343_CMP $procmux$1345_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2176: { $procmux$1339_CMP $procmux$1340_CMP $procmux$1349_CMP $procmux$1350_CMP $procmux$1351_CMP $procmux$1352_CMP }
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2178: { $procmux$1343_CMP $procmux$1345_CMP }
+  Optimizing cells in module \axioma_alu.
+  Optimizing cells in module \axioma_registers.
+Performed a total of 28 changes.
+
+7.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_cpu'.
+<suppressed ~24 debug messages>
+Finding identical cells in module `\axioma_decoder'.
+<suppressed ~33 debug messages>
+Finding identical cells in module `\axioma_alu'.
+<suppressed ~3 debug messages>
+Finding identical cells in module `\axioma_registers'.
+Removed a total of 20 cells.
+
+7.6. Executing OPT_RMDFF pass (remove dff with constant values).
+Removing $procdff$2099 ($adff) from module axioma_cpu.
+Removing $procdff$2098 ($adff) from module axioma_cpu.
+Removing $procdff$2108 ($adff) from module axioma_cpu.
+Removing $procdff$2107 ($adff) from module axioma_cpu.
+Removing $procdff$2106 ($adff) from module axioma_cpu.
+Removing $procdff$2109 ($adff) from module axioma_registers.
+Removing $procdff$2143 ($adff) from module axioma_registers.
+Removing $procdff$2142 ($adff) from module axioma_registers.
+Replaced 8 DFF cells.
+
+7.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_cpu..
+Warning: Driver-driver conflict for $procmux$328_Y [7] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [6] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [5] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [4] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [3] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [2] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [1] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$328_Y [0] between cell $procmux$328.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [15] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [14] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [13] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [12] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [11] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [10] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [9] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [8] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [7] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [6] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [5] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [4] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [3] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [2] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [1] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Warning: Driver-driver conflict for $procmux$333_Y [0] between cell $procmux$333.Y and constant 1'0 in axioma_cpu: Resolved using constant.
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_registers..
+Removed 14 unused cells and 1042 unused wires.
+<suppressed ~24 debug messages>
+
+7.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_alu.
+Optimizing module axioma_cpu.
+Optimizing module axioma_decoder.
+Optimizing module axioma_registers.
+
+7.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+7.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \axioma_alu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Running muxtree optimizer on module \axioma_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Running muxtree optimizer on module \axioma_decoder..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Running muxtree optimizer on module \axioma_registers..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~71 debug messages>
+
+7.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \axioma_alu.
+    New input vector for $reduce_or cell $procmux$1335_ANY: { $eq$core/axioma_alu/axioma_alu.v:65$51_Y $procmux$1306_CMP [0] }
+    New input vector for $reduce_or cell $procmux$1334_ANY: { $eq$core/axioma_alu/axioma_alu.v:68$55_Y $eq$core/axioma_alu/axioma_alu.v:100$89_Y $eq$core/axioma_alu/axioma_alu.v:100$90_Y $procmux$1287_CMP [0] }
+  Optimizing cells in module \axioma_alu.
+  Optimizing cells in module \axioma_cpu.
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2154: { $procmux$170_CMP $procmux$307_CMP $procmux$309_CMP }
+  Optimizing cells in module \axioma_cpu.
+  Optimizing cells in module \axioma_decoder.
+    New input vector for $reduce_or cell $auto$opt_reduce.cc:126:opt_mux$2170: { $procmux$1000_CMP $procmux$1001_CMP }
+  Optimizing cells in module \axioma_decoder.
+  Optimizing cells in module \axioma_registers.
+Performed a total of 4 changes.
+
+7.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_alu'.
+Finding identical cells in module `\axioma_cpu'.
+Finding identical cells in module `\axioma_decoder'.
+Finding identical cells in module `\axioma_registers'.
+Removed a total of 0 cells.
+
+7.13. Executing OPT_RMDFF pass (remove dff with constant values).
+
+7.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+
+7.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_alu.
+Optimizing module axioma_cpu.
+Optimizing module axioma_decoder.
+Optimizing module axioma_registers.
+
+7.16. Rerunning OPT passes. (Maybe there is more to do..)
+
+7.17. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \axioma_alu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Running muxtree optimizer on module \axioma_cpu..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Running muxtree optimizer on module \axioma_decoder..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Running muxtree optimizer on module \axioma_registers..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~71 debug messages>
+
+7.18. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \axioma_alu.
+  Optimizing cells in module \axioma_cpu.
+  Optimizing cells in module \axioma_decoder.
+  Optimizing cells in module \axioma_registers.
+Performed a total of 0 changes.
+
+7.19. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_alu'.
+Finding identical cells in module `\axioma_cpu'.
+Finding identical cells in module `\axioma_decoder'.
+Finding identical cells in module `\axioma_registers'.
+Removed a total of 0 cells.
+
+7.20. Executing OPT_RMDFF pass (remove dff with constant values).
+
+7.21. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+
+7.22. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_alu.
+Optimizing module axioma_cpu.
+Optimizing module axioma_decoder.
+Optimizing module axioma_registers.
+
+7.23. Finished OPT passes. (There is nothing left to do.)
+
+8. Executing FSM pass (extract and optimize FSM).
+
+8.1. Executing FSM_DETECT pass (finding FSMs in design).
+Found FSM state register axioma_cpu.cpu_state.
+
+8.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+Extracting FSM `\cpu_state' from module `\axioma_cpu'.
+  found $adff cell for state register: $procdff$2103
+  root of input selection tree: \next_state
+  found reset state: 2'00 (from async reset)
+  found ctrl input: $procmux$309_CMP
+  found ctrl input: $procmux$170_CMP
+  found ctrl input: $procmux$180_CMP
+  found ctrl input: $procmux$307_CMP
+  found state code: 2'11
+  found ctrl input: \data_ready
+  found ctrl input: \dec_instruction_decoded
+  found ctrl input: \dec_unsupported_instruction
+  found ctrl input: $logic_or$core/axioma_cpu/axioma_cpu.v:273$164_Y
+  found state code: 2'10
+  found ctrl input: \program_ready
+  found state code: 2'01
+  found ctrl output: $procmux$309_CMP
+  found ctrl output: $procmux$180_CMP
+  found ctrl output: $procmux$170_CMP
+  found ctrl output: $procmux$307_CMP
+  ctrl inputs: { $logic_or$core/axioma_cpu/axioma_cpu.v:273$164_Y \dec_unsupported_instruction \dec_instruction_decoded \program_ready \data_ready }
+  ctrl outputs: { $procmux$309_CMP $procmux$307_CMP $procmux$180_CMP $procmux$170_CMP \next_state }
+  transition:       2'00 5'---0- ->       2'00 6'010000
+  transition:       2'00 5'---1- ->       2'01 6'010001
+  transition:       2'10 5'----0 ->       2'10 6'000110
+  transition:       2'10 5'----1 ->       2'00 6'000100
+  transition:       2'01 5'-00-- ->       2'00 6'001000
+  transition:       2'01 5'-10-- ->       2'11 6'001011
+  transition:       2'01 5'0-1-- ->       2'00 6'001000
+  transition:       2'01 5'1-1-- ->       2'10 6'001010
+  transition:       2'11 5'----- ->       2'11 6'100011
+
+8.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+Optimizing FSM `$fsm$\cpu_state$2180' from module `\axioma_cpu'.
+
+8.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+Removed 11 unused cells and 11 unused wires.
+<suppressed ~12 debug messages>
+
+8.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+Optimizing FSM `$fsm$\cpu_state$2180' from module `\axioma_cpu'.
+  Removing unused output signal \next_state [0].
+  Removing unused output signal \next_state [1].
+
+8.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+Recoding FSM `$fsm$\cpu_state$2180' from module `\axioma_cpu' using `auto' encoding:
+  mapping auto encoding to `one-hot` for this FSM.
+  00 -> ---1
+  10 -> --1-
+  01 -> -1--
+  11 -> 1---
+
+8.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+
+FSM `$fsm$\cpu_state$2180' from module `\axioma_cpu':
+-------------------------------------
+
+  Information on FSM $fsm$\cpu_state$2180 (\cpu_state):
+
+  Number of input signals:    5
+  Number of output signals:   4
+  Number of state bits:       4
+
+  Input signals:
+    0: \data_ready
+    1: \program_ready
+    2: \dec_instruction_decoded
+    3: \dec_unsupported_instruction
+    4: $logic_or$core/axioma_cpu/axioma_cpu.v:273$164_Y
+
+  Output signals:
+    0: $procmux$170_CMP
+    1: $procmux$180_CMP
+    2: $procmux$307_CMP
+    3: $procmux$309_CMP
+
+  State encoding:
+    0:     4'---1  <RESET STATE>
+    1:     4'--1-
+    2:     4'-1--
+    3:     4'1---
+
+  Transition Table (state_in, ctrl_in, state_out, ctrl_out):
+      0:     0 5'---0-   ->     0 4'0100
+      1:     0 5'---1-   ->     2 4'0100
+      2:     1 5'----1   ->     0 4'0001
+      3:     1 5'----0   ->     1 4'0001
+      4:     2 5'-00--   ->     0 4'0010
+      5:     2 5'0-1--   ->     0 4'0010
+      6:     2 5'1-1--   ->     1 4'0010
+      7:     2 5'-10--   ->     3 4'0010
+      8:     3 5'-----   ->     3 4'1000
+
+-------------------------------------
+
+8.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+Mapping FSM `$fsm$\cpu_state$2180' from module `\axioma_cpu'.
+
+9. Executing MEMORY pass.
+
+9.1. Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).
+
+9.2. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+Removed 0 unused cells and 7 unused wires.
+<suppressed ~2 debug messages>
+
+9.3. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+
+9.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+
+9.5. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+9.6. Executing MEMORY_MAP pass (converting $mem cells to logic and flip-flops).
+
+10. Executing TECHMAP pass (map to technology primitives).
+
+10.1. Executing Verilog-2005 frontend: <techmap.v>
+Parsing Verilog input from `<techmap.v>' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+10.2. Continuing TECHMAP pass.
+Using extmapper simplemap for cells of type $eq.
+Using template $paramod\_90_pmux\WIDTH=8\S_WIDTH=32 for cells of type $pmux.
+Using extmapper simplemap for cells of type $logic_not.
+Using extmapper simplemap for cells of type $mux.
+Using extmapper simplemap for cells of type $adff.
+Using extmapper simplemap for cells of type $reduce_or.
+Using extmapper simplemap for cells of type $and.
+Running "alumacc" on wrapper $extern:wrap:$add:A_SIGNED=0:A_WIDTH=9:B_SIGNED=0:B_WIDTH=9:Y_WIDTH=9:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$add:A_SIGNED=0:A_WIDTH=9:B_SIGNED=0:B_WIDTH=9:Y_WIDTH=9:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$add:A_SIGNED=0:A_WIDTH=9:B_SIGNED=0:B_WIDTH=9:Y_WIDTH=9:394426c56d1a028ba8fdd5469b163e04011def47.
+Running "alumacc" on wrapper $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=9:B_SIGNED=0:B_WIDTH=9:Y_WIDTH=9:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=9:B_SIGNED=0:B_WIDTH=9:Y_WIDTH=9:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=9:B_SIGNED=0:B_WIDTH=9:Y_WIDTH=9:394426c56d1a028ba8fdd5469b163e04011def47.
+Using extmapper simplemap for cells of type $or.
+Using extmapper simplemap for cells of type $not.
+Using extmapper simplemap for cells of type $logic_or.
+Using extmapper simplemap for cells of type $xor.
+Running "alumacc" on wrapper $extern:wrap:$neg:A_SIGNED=0:A_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$neg:A_SIGNED=0:A_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$neg:A_SIGNED=0:A_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47.
+Using extmapper simplemap for cells of type $reduce_bool.
+Running "alumacc" on wrapper $extern:wrap:$add:A_SIGNED=0:A_WIDTH=8:B_SIGNED=0:B_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$add:A_SIGNED=0:A_WIDTH=8:B_SIGNED=0:B_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$add:A_SIGNED=0:A_WIDTH=8:B_SIGNED=0:B_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47.
+Running "alumacc" on wrapper $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=8:B_SIGNED=0:B_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=8:B_SIGNED=0:B_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$sub:A_SIGNED=0:A_WIDTH=8:B_SIGNED=0:B_WIDTH=8:Y_WIDTH=8:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $paramod\_90_pmux\WIDTH=1\S_WIDTH=10 for cells of type $pmux.
+Using template $paramod\_90_pmux\WIDTH=1\S_WIDTH=3 for cells of type $pmux.
+Using template $paramod\_90_pmux\WIDTH=1\S_WIDTH=7 for cells of type $pmux.
+Using template $paramod\_90_pmux\WIDTH=8\S_WIDTH=16 for cells of type $pmux.
+Using template $paramod\_90_alu\A_SIGNED=0\B_SIGNED=0\A_WIDTH=9\B_WIDTH=9\Y_WIDTH=9 for cells of type $alu.
+Using template $paramod\_90_alu\A_SIGNED=0\B_SIGNED=0\A_WIDTH=0\B_WIDTH=8\Y_WIDTH=8 for cells of type $alu.
+Using template $paramod\_90_alu\A_SIGNED=0\B_SIGNED=0\A_WIDTH=8\B_WIDTH=8\Y_WIDTH=8 for cells of type $alu.
+Using template $paramod\_90_lcu\WIDTH=9 for cells of type $lcu.
+Using extmapper simplemap for cells of type $pos.
+Using template $paramod\_90_lcu\WIDTH=8 for cells of type $lcu.
+Using template $paramod\_90_pmux\WIDTH=1\S_WIDTH=2 for cells of type $pmux.
+Using template $paramod\_90_pmux\WIDTH=5\S_WIDTH=2 for cells of type $pmux.
+Running "alumacc" on wrapper $extern:wrap:$add:A_SIGNED=0:A_WIDTH=16:B_SIGNED=0:B_WIDTH=18:Y_WIDTH=18:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$add:A_SIGNED=0:A_WIDTH=16:B_SIGNED=0:B_WIDTH=18:Y_WIDTH=18:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$add:A_SIGNED=0:A_WIDTH=16:B_SIGNED=0:B_WIDTH=18:Y_WIDTH=18:394426c56d1a028ba8fdd5469b163e04011def47.
+Using extmapper simplemap for cells of type $logic_and.
+Running "alumacc" on wrapper $extern:wrap:$add:A_SIGNED=0:A_WIDTH=16:B_SIGNED=0:B_WIDTH=16:Y_WIDTH=16:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $extern:wrap:$add:A_SIGNED=0:A_WIDTH=16:B_SIGNED=0:B_WIDTH=16:Y_WIDTH=16:394426c56d1a028ba8fdd5469b163e04011def47 for cells of type $extern:wrap:$add:A_SIGNED=0:A_WIDTH=16:B_SIGNED=0:B_WIDTH=16:Y_WIDTH=16:394426c56d1a028ba8fdd5469b163e04011def47.
+Using template $paramod\_90_alu\A_SIGNED=0\B_SIGNED=0\A_WIDTH=16\B_WIDTH=18\Y_WIDTH=18 for cells of type $alu.
+Using template $paramod\_90_alu\A_SIGNED=0\B_SIGNED=0\A_WIDTH=16\B_WIDTH=16\Y_WIDTH=16 for cells of type $alu.
+Using template $paramod\_90_lcu\WIDTH=18 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=16 for cells of type $lcu.
+No more expansions possible.
+<suppressed ~1886 debug messages>
+
+11. Executing OPT pass (performing simple optimizations).
+
+11.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_alu.
+<suppressed ~356 debug messages>
+Optimizing module axioma_cpu.
+<suppressed ~181 debug messages>
+Optimizing module axioma_decoder.
+<suppressed ~465 debug messages>
+Optimizing module axioma_registers.
+<suppressed ~481 debug messages>
+
+11.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_alu'.
+<suppressed ~384 debug messages>
+Finding identical cells in module `\axioma_cpu'.
+<suppressed ~42 debug messages>
+Finding identical cells in module `\axioma_decoder'.
+<suppressed ~477 debug messages>
+Finding identical cells in module `\axioma_registers'.
+<suppressed ~1323 debug messages>
+Removed a total of 742 cells.
+
+11.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \axioma_alu..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Running muxtree optimizer on module \axioma_cpu..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Running muxtree optimizer on module \axioma_decoder..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Running muxtree optimizer on module \axioma_registers..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+11.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \axioma_alu.
+  Optimizing cells in module \axioma_cpu.
+  Optimizing cells in module \axioma_decoder.
+  Optimizing cells in module \axioma_registers.
+Performed a total of 0 changes.
+
+11.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_alu'.
+Finding identical cells in module `\axioma_cpu'.
+Finding identical cells in module `\axioma_decoder'.
+Finding identical cells in module `\axioma_registers'.
+Removed a total of 0 cells.
+
+11.6. Executing OPT_RMDFF pass (remove dff with constant values).
+Removing $auto$simplemap.cc:496:simplemap_adff$8783 ($_DFF_PN0_) from module axioma_cpu.
+Removing $auto$simplemap.cc:496:simplemap_adff$8784 ($_DFF_PN0_) from module axioma_cpu.
+Replaced 2 DFF cells.
+
+11.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+Removed 105 unused cells and 1261 unused wires.
+<suppressed ~109 debug messages>
+
+11.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_alu.
+Optimizing module axioma_cpu.
+Optimizing module axioma_decoder.
+Optimizing module axioma_registers.
+
+11.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+11.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \axioma_alu..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Running muxtree optimizer on module \axioma_cpu..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Running muxtree optimizer on module \axioma_decoder..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Running muxtree optimizer on module \axioma_registers..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+11.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \axioma_alu.
+  Optimizing cells in module \axioma_cpu.
+  Optimizing cells in module \axioma_decoder.
+  Optimizing cells in module \axioma_registers.
+Performed a total of 0 changes.
+
+11.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\axioma_alu'.
+Finding identical cells in module `\axioma_cpu'.
+Finding identical cells in module `\axioma_decoder'.
+Finding identical cells in module `\axioma_registers'.
+Removed a total of 0 cells.
+
+11.13. Executing OPT_RMDFF pass (remove dff with constant values).
+
+11.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \axioma_alu..
+Finding unused cells or wires in module \axioma_cpu..
+Finding unused cells or wires in module \axioma_decoder..
+Finding unused cells or wires in module \axioma_registers..
+
+11.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module axioma_alu.
+Optimizing module axioma_cpu.
+Optimizing module axioma_decoder.
+Optimizing module axioma_registers.
+
+11.16. Finished OPT passes. (There is nothing left to do.)
+
+12. Printing statistics.
+
+=== axioma_alu ===
+
+   Number of wires:                297
+   Number of wire bits:            873
+   Number of public wires:          20
+   Number of public wire bits:      61
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                723
+     $_AND_                        253
+     $_MUX_                         21
+     $_NOT_                         44
+     $_OR_                         306
+     $_XOR_                         99
+
+=== axioma_cpu ===
+
+   Number of wires:                237
+   Number of wire bits:            834
+   Number of public wires:          63
+   Number of public wire bits:     344
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                530
+     $_AND_                        128
+     $_DFF_PN0_                     61
+     $_DFF_PN1_                      1
+     $_MUX_                        175
+     $_NOT_                         11
+     $_OR_                          66
+     $_XOR_                         85
+     axioma_alu                      1
+     axioma_decoder                  1
+     axioma_registers                1
+
+=== axioma_decoder ===
+
+   Number of wires:                116
+   Number of wire bits:            600
+   Number of public wires:          30
+   Number of public wire bits:     135
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                294
+     $_AND_                          7
+     $_MUX_                        236
+     $_NOT_                          8
+     $_OR_                          36
+     $_XOR_                          7
+
+=== axioma_registers ===
+
+   Number of wires:                431
+   Number of wire bits:           2324
+   Number of public wires:          51
+   Number of public wire bits:     429
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               2149
+     $_AND_                        512
+     $_DFF_PN0_                    256
+     $_MUX_                        576
+     $_NOT_                         64
+     $_OR_                         726
+     $_XOR_                         15
+
+=== design hierarchy ===
+
+   axioma_cpu                        1
+     axioma_alu                      1
+     axioma_decoder                  1
+     axioma_registers                1
+
+   Number of wires:               1081
+   Number of wire bits:           4631
+   Number of public wires:         164
+   Number of public wire bits:     969
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               3693
+     $_AND_                        900
+     $_DFF_PN0_                    317
+     $_DFF_PN1_                      1
+     $_MUX_                       1008
+     $_NOT_                        127
+     $_OR_                        1134
+     $_XOR_                        206
+
+13. Printing statistics.
+
+=== axioma_alu ===
+
+   Number of wires:                297
+   Number of wire bits:            873
+   Number of public wires:          20
+   Number of public wire bits:      61
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                723
+     $_AND_                        253
+     $_MUX_                         21
+     $_NOT_                         44
+     $_OR_                         306
+     $_XOR_                         99
+
+=== axioma_cpu ===
+
+   Number of wires:                237
+   Number of wire bits:            834
+   Number of public wires:          63
+   Number of public wire bits:     344
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                530
+     $_AND_                        128
+     $_DFF_PN0_                     61
+     $_DFF_PN1_                      1
+     $_MUX_                        175
+     $_NOT_                         11
+     $_OR_                          66
+     $_XOR_                         85
+     axioma_alu                      1
+     axioma_decoder                  1
+     axioma_registers                1
+
+=== axioma_decoder ===
+
+   Number of wires:                116
+   Number of wire bits:            600
+   Number of public wires:          30
+   Number of public wire bits:     135
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                294
+     $_AND_                          7
+     $_MUX_                        236
+     $_NOT_                          8
+     $_OR_                          36
+     $_XOR_                          7
+
+=== axioma_registers ===
+
+   Number of wires:                431
+   Number of wire bits:           2324
+   Number of public wires:          51
+   Number of public wire bits:     429
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               2149
+     $_AND_                        512
+     $_DFF_PN0_                    256
+     $_MUX_                        576
+     $_NOT_                         64
+     $_OR_                         726
+     $_XOR_                         15
+
+=== design hierarchy ===
+
+   axioma_cpu                        1
+     axioma_alu                      1
+     axioma_decoder                  1
+     axioma_registers                1
+
+   Number of wires:               1081
+   Number of wire bits:           4631
+   Number of public wires:         164
+   Number of public wire bits:     969
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               3693
+     $_AND_                        900
+     $_DFF_PN0_                    317
+     $_DFF_PN1_                      1
+     $_MUX_                       1008
+     $_NOT_                        127
+     $_OR_                        1134
+     $_XOR_                        206
+
+14. Executing Verilog backend.
+Dumping module `\axioma_alu'.
+Dumping module `\axioma_cpu'.
+Dumping module `\axioma_decoder'.
+Dumping module `\axioma_registers'.
+
+15. Executing EDIF backend.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4825.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4826.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4827.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4828.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4829.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4830.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4831.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$4832.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5449.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5450.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5451.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5452.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5453.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5454.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5455.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_registers.$auto$simplemap.cc:277:simplemap_mux$5456.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_cpu.$auto$simplemap.cc:277:simplemap_mux$8508.B driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_cpu.$auto$simplemap.cc:277:simplemap_mux$8535.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_cpu.$auto$simplemap.cc:277:simplemap_mux$8536.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_cpu.$auto$simplemap.cc:277:simplemap_mux$8831.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_cpu.$auto$simplemap.cc:277:simplemap_mux$8838.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Bit 0 of cell port axioma_cpu.$auto$simplemap.cc:277:simplemap_mux$8845.A driven by 1'x will be left unconnected in EDIF output.
+Warning: Exporting x-bit on (portRef (member debug_reg_r16 7)) as zero bit.
+Warning: Exporting x-bit on (portRef (member debug_reg_r17 7)) as zero bit.
+
+16. Executing JSON backend.
+ERROR: Command syntax error: Unexpected argument.
+> echo "AxiomaCore-328 synthesis completed successfully"
+>      ^

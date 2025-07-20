@@ -1,0 +1,46 @@
+# AxiomaCore-328 Synthesis Script for Yosys
+# Optimized for Sky130 PDK and OpenLane flow
+
+# Read Verilog source files
+read_verilog core/axioma_registers/axioma_registers.v
+read_verilog core/axioma_alu/axioma_alu.v  
+read_verilog core/axioma_decoder/axioma_decoder.v
+read_verilog core/axioma_cpu/axioma_cpu.v
+
+# Set top module
+hierarchy -top axioma_cpu
+
+# Process procedures (always blocks)
+proc
+
+# Optimize design
+opt
+
+# Finite state machine extraction and optimization
+fsm
+
+# Memory optimization
+memory
+
+# Technology mapping (generic)
+techmap
+
+# Final optimization
+opt
+
+# Display statistics
+stat
+
+# Generate synthesis report
+tee -o synthesis/synthesis_report.txt stat
+
+# Write synthesized netlist
+write_verilog synthesis/axioma_cpu_syn.v
+
+# Write EDIF for place and route tools
+write_edif synthesis/axioma_cpu.edif
+
+# Write JSON for OpenLane
+write_json synthesis/axioma_cpu.json
+
+echo "AxiomaCore-328 synthesis completed successfully"

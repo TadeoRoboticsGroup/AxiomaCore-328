@@ -1,0 +1,153 @@
+# AxiomaCore-328 Board Definitions
+# Compatible con Arduino AVR Core
+# © 2025 AxiomaCore Project
+
+menu.cpu=Processor
+menu.clock=Clock
+
+##############################################################
+
+axioma328.name=AxiomaCore-328
+
+axioma328.upload.tool=avrdude
+axioma328.upload.protocol=arduino
+axioma328.upload.maximum_size=32256
+axioma328.upload.maximum_data_size=2048
+axioma328.upload.speed=115200
+
+axioma328.bootloader.tool=avrdude
+axioma328.bootloader.low_fuses=0xFF
+axioma328.bootloader.high_fuses=0xDE
+axioma328.bootloader.extended_fuses=0xFD
+axioma328.bootloader.unlock_bits=0x3F
+axioma328.bootloader.lock_bits=0x0F
+axioma328.bootloader.file=optiboot/optiboot_axioma328.hex
+
+axioma328.build.mcu=atmega328p
+axioma328.build.f_cpu=16000000L
+axioma328.build.board=AVR_AXIOMA328
+axioma328.build.core=arduino
+axioma328.build.variant=axioma328
+
+##############################################################
+
+axioma328_uno.name=AxiomaCore-328 Uno R4
+
+axioma328_uno.upload.tool=avrdude
+axioma328_uno.upload.protocol=arduino
+axioma328_uno.upload.maximum_size=32256
+axioma328_uno.upload.maximum_data_size=2048
+axioma328_uno.upload.speed=115200
+
+axioma328_uno.bootloader.tool=avrdude
+axioma328_uno.bootloader.low_fuses=0xFF
+axioma328_uno.bootloader.high_fuses=0xDE
+axioma328_uno.bootloader.extended_fuses=0xFD
+axioma328_uno.bootloader.unlock_bits=0x3F
+axioma328_uno.bootloader.lock_bits=0x0F
+axioma328_uno.bootloader.file=optiboot/optiboot_axioma328_uno.hex
+
+axioma328_uno.build.mcu=atmega328p
+axioma328_uno.build.f_cpu=16000000L
+axioma328_uno.build.board=AVR_AXIOMA328_UNO
+axioma328_uno.build.core=arduino
+axioma328_uno.build.variant=axioma328
+
+##############################################################
+
+axioma328_nano.name=AxiomaCore-328 Nano Plus
+
+axioma328_nano.upload.tool=avrdude
+axioma328_nano.upload.protocol=arduino
+axioma328_nano.upload.maximum_size=32256
+axioma328_nano.upload.maximum_data_size=2048
+axioma328_nano.upload.speed=115200
+
+axioma328_nano.bootloader.tool=avrdude
+axioma328_nano.bootloader.low_fuses=0xFF
+axioma328_nano.bootloader.high_fuses=0xDE
+axioma328_nano.bootloader.extended_fuses=0xFD
+axioma328_nano.bootloader.unlock_bits=0x3F
+axioma328_nano.bootloader.lock_bits=0x0F
+axioma328_nano.bootloader.file=optiboot/optiboot_axioma328_nano.hex
+
+axioma328_nano.build.mcu=atmega328p
+axioma328_nano.build.f_cpu=16000000L
+axioma328_nano.build.board=AVR_AXIOMA328_NANO
+axioma328_nano.build.core=arduino
+axioma328_nano.build.variant=axioma328
+
+##############################################################
+
+axioma328_pro.name=AxiomaCore-328 Pro
+
+axioma328_pro.menu.clock=Clock Source
+axioma328_pro.menu.clock.16MHz_external=16 MHz External
+axioma328_pro.menu.clock.20MHz_external=20 MHz External  
+axioma328_pro.menu.clock.25MHz_external=25 MHz External
+axioma328_pro.menu.clock.8MHz_internal=8 MHz Internal
+
+axioma328_pro.upload.tool=avrdude
+axioma328_pro.upload.protocol=arduino
+axioma328_pro.upload.maximum_size=32256
+axioma328_pro.upload.maximum_data_size=2048
+axioma328_pro.upload.speed=115200
+
+axioma328_pro.bootloader.tool=avrdude
+axioma328_pro.bootloader.unlock_bits=0x3F
+axioma328_pro.bootloader.lock_bits=0x0F
+
+# 16 MHz External
+axioma328_pro.menu.clock.16MHz_external.build.f_cpu=16000000L
+axioma328_pro.menu.clock.16MHz_external.bootloader.low_fuses=0xFF
+axioma328_pro.menu.clock.16MHz_external.bootloader.high_fuses=0xDE
+axioma328_pro.menu.clock.16MHz_external.bootloader.extended_fuses=0xFD
+axioma328_pro.menu.clock.16MHz_external.bootloader.file=optiboot/optiboot_axioma328_16mhz.hex
+
+# 20 MHz External  
+axioma328_pro.menu.clock.20MHz_external.build.f_cpu=20000000L
+axioma328_pro.menu.clock.20MHz_external.bootloader.low_fuses=0xFF
+axioma328_pro.menu.clock.20MHz_external.bootloader.high_fuses=0xDE
+axioma328_pro.menu.clock.20MHz_external.bootloader.extended_fuses=0xFD
+axioma328_pro.menu.clock.20MHz_external.bootloader.file=optiboot/optiboot_axioma328_20mhz.hex
+
+# 25 MHz External
+axioma328_pro.menu.clock.25MHz_external.build.f_cpu=25000000L
+axioma328_pro.menu.clock.25MHz_external.bootloader.low_fuses=0xFF
+axioma328_pro.menu.clock.25MHz_external.bootloader.high_fuses=0xDE
+axioma328_pro.menu.clock.25MHz_external.bootloader.extended_fuses=0xFD
+axioma328_pro.menu.clock.25MHz_external.bootloader.file=optiboot/optiboot_axioma328_25mhz.hex
+
+# 8 MHz Internal
+axioma328_pro.menu.clock.8MHz_internal.build.f_cpu=8000000L
+axioma328_pro.menu.clock.8MHz_internal.bootloader.low_fuses=0xE2
+axioma328_pro.menu.clock.8MHz_internal.bootloader.high_fuses=0xDE
+axioma328_pro.menu.clock.8MHz_internal.bootloader.extended_fuses=0xFD
+axioma328_pro.menu.clock.8MHz_internal.bootloader.file=optiboot/optiboot_axioma328_8mhz.hex
+
+axioma328_pro.build.mcu=atmega328p
+axioma328_pro.build.board=AVR_AXIOMA328_PRO
+axioma328_pro.build.core=arduino
+axioma328_pro.build.variant=axioma328
+
+##############################################################
+
+axioma328_breakout.name=AxiomaCore-328 Breakout (Minimal)
+
+axioma328_breakout.upload.tool=avrdude
+axioma328_breakout.upload.protocol=usbasp
+axioma328_breakout.upload.maximum_size=32768
+axioma328_breakout.upload.maximum_data_size=2048
+
+axioma328_breakout.bootloader.tool=avrdude
+axioma328_breakout.bootloader.low_fuses=0xFF
+axioma328_breakout.bootloader.high_fuses=0xDF
+axioma328_breakout.bootloader.extended_fuses=0xFD
+axioma328_breakout.bootloader.unlock_bits=0x3F
+axioma328_breakout.bootloader.lock_bits=0x0F
+
+axioma328_breakout.build.mcu=atmega328p
+axioma328_breakout.build.f_cpu=16000000L
+axioma328_breakout.build.board=AVR_AXIOMA328_BREAKOUT
+axioma328_breakout.build.core=arduino
+axioma328_breakout.build.variant=axioma328

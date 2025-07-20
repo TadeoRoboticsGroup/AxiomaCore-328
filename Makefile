@@ -35,14 +35,20 @@ SOURCES_V4 = $(SOURCES_V2) \
              peripherals/axioma_spi/axioma_spi.v \
              peripherals/axioma_i2c/axioma_i2c.v \
              peripherals/axioma_adc/axioma_adc.v \
+             $(MEMORY_DIR)/axioma_eeprom_ctrl/axioma_eeprom_ctrl.v \
              clock_reset/axioma_clock_system.v \
              $(CORE_DIR)/axioma_cpu/axioma_cpu_v4.v
+
+# Archivos fuente Fase 5 (optimización)
+SOURCES_V5 = $(SOURCES_V4) \
+             $(CORE_DIR)/axioma_cpu/axioma_cpu_v5.v
 
 # Testbenches
 TESTBENCH_V1 = $(TB_DIR)/axioma_cpu_tb.v
 TESTBENCH_V2 = $(TB_DIR)/axioma_cpu_v2_tb.v
 TESTBENCH_V3 = $(TB_DIR)/axioma_cpu_v3_tb.v
 TESTBENCH_V4 = $(TB_DIR)/axioma_cpu_v4_tb.v
+TESTBENCH_V5 = $(TB_DIR)/axioma_cpu_v5_tb.v
 
 # Herramientas
 IVERILOG = iverilog
@@ -51,13 +57,13 @@ GTKWAVE = gtkwave
 YOSYS = yosys
 
 # Targets principales
-.PHONY: all clean test_v1 test_v2 cpu_v1 cpu_v2 synthesize_v2 view_waves help phase1 phase2
+.PHONY: all clean test_v1 test_v2 test_v3 test_v4 test_v5 cpu_v1 cpu_v2 cpu_v3 cpu_v4 cpu_v5 synthesize_v2 synthesize_v5 view_waves help phase1 phase2 phase3 phase4 phase5
 
-all: phase4
+all: phase5
 
 help:
-	@echo "AxiomaCore-328 Build System v2"
-	@echo "=============================="
+	@echo "AxiomaCore-328 Build System v3 - Fase 5"
+	@echo "========================================"
 	@echo "FASE 1 (Básico):"
 	@echo "  make phase1       - Núcleo básico Fase 1"
 	@echo "  make cpu_v1       - Compilar CPU v1"
@@ -81,13 +87,21 @@ help:
 	@echo "  make test_v4      - Test CPU v4 + todos periféricos"
 	@echo "  make test_v4_view - Test v4 + GTKWave"
 	@echo ""
+	@echo "FASE 5 (Optimización) 🚀:"
+	@echo "  make phase5       - Sistema optimizado Fase 5"
+	@echo "  make cpu_v5       - Compilar CPU v5 optimizado"
+	@echo "  make test_v5      - Test CPU v5 + benchmarks"
+	@echo "  make test_v5_view - Test v5 + GTKWave"
+	@echo ""
 	@echo "SÍNTESIS:"
 	@echo "  make synthesize_v2 - Síntesis Fase 2"
+	@echo "  make synthesize_v5 - Síntesis optimizada Fase 5"
 	@echo "  make area_report   - Reporte de área"
+	@echo "  make timing_report - Reporte de timing"
 	@echo ""
 	@echo "UTILIDADES:"
 	@echo "  make clean        - Limpiar archivos"
-	@echo "  make info_v2      - Info Fase 2"
+	@echo "  make info_v5      - Info Fase 5"
 	@echo "  make stats        - Estadísticas proyecto"
 
 # ============= FASE 1 =============
@@ -139,6 +153,26 @@ test_v4_view: test_v4
 	@echo "🔍 Abriendo GTKWave para v4..."
 	$(GTKWAVE) axioma_cpu_v4_tb.vcd &
 
+# ============= FASE 5 =============
+phase5: cpu_v5 test_v5
+	@echo "🚀 AxiomaCore-328 Fase 5 completada - Sistema optimizado listo para tape-out!"
+
+cpu_v5: axioma_cpu_v5_sim
+	@echo "✅ CPU v5 (optimizado) compilado exitosamente"
+
+axioma_cpu_v5_sim: $(SOURCES_V5) $(TESTBENCH_V5)
+	@echo "🔨 Compilando AxiomaCore-328 v5 (Sistema Optimizado)..."
+	$(IVERILOG) -o axioma_cpu_v5_sim -I$(CORE_DIR) -I$(MEMORY_DIR) -I$(INT_DIR) -Iperipherals -Iclock_reset $(SOURCES_V5) $(TESTBENCH_V5)
+
+test_v5: axioma_cpu_v5_sim
+	@echo "🧪 Ejecutando testbench optimizado v5 (benchmarks de performance)..."
+	$(VVP) axioma_cpu_v5_sim
+	@echo "✅ Test optimizado v5 finalizado"
+
+test_v5_view: test_v5
+	@echo "🔍 Abriendo GTKWave para v5..."
+	$(GTKWAVE) axioma_cpu_v5_tb.vcd &
+
 cpu_v3: axioma_cpu_v3_sim
 	@echo "✅ CPU v3 (con periféricos) compilado exitosamente"
 
@@ -188,9 +222,36 @@ $(SYN_DIR)/axioma_syn_v2.ys:
 	@echo "tee -o $(SYN_DIR)/area_report.txt stat -width" >> $(SYN_DIR)/axioma_syn_v2.ys
 	@echo "write_verilog $(SYN_DIR)/axioma_cpu_v2_syn.v" >> $(SYN_DIR)/axioma_syn_v2.ys
 
+synthesize_v5: $(SOURCES_V5)
+	@echo "⚙️  Ejecutando síntesis optimizada Fase 5 con Yosys..."
+	@mkdir -p $(SYN_DIR)
+	$(YOSYS) -s synthesis/axioma_syn_v5.ys
+
+$(SYN_DIR)/axioma_syn_v5.ys:
+	@mkdir -p $(SYN_DIR)
+	@echo "# AxiomaCore-328 v5 Optimized Synthesis Script" > $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "read_verilog $(SOURCES_V5)" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "hierarchy -top axioma_cpu_v5" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "proc; opt; fsm; opt; memory; opt" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "techmap; opt" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "# Optimization passes for Phase 5" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "opt -full; opt_clean" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "opt_merge; opt_muxtree; opt_reduce" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "stat -width" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "tee -o $(SYN_DIR)/area_report_v5.txt stat -width" >> $(SYN_DIR)/axioma_syn_v5.ys
+	@echo "check; write_verilog $(SYN_DIR)/axioma_cpu_v5_syn.v" >> $(SYN_DIR)/axioma_syn_v5.ys
+
 area_report: synthesize_v2
 	@echo "📊 Reporte de área:"
 	@cat $(SYN_DIR)/area_report.txt | grep -E "(cells|wires|cells by type)"
+
+area_report_v5: synthesize_v5
+	@echo "📊 Reporte de área optimizado v5:"
+	@cat $(SYN_DIR)/area_report_v5.txt | grep -E "(cells|wires|cells by type)"
+
+timing_report: synthesize_v5
+	@echo "📊 Reporte de timing v5:"
+	@echo "Análisis estático de timing en desarrollo..."
 
 # ============= TESTS ESPECÍFICOS =============
 test_decoder_v2: $(CORE_DIR)/axioma_decoder/axioma_decoder_v2.v
@@ -251,6 +312,40 @@ info_v2:
 	@echo "  ✅ Memory Access: Indirect with X/Y/Z pointers"
 	@echo ""
 
+info_v5:
+	@echo "AxiomaCore-328 v5: Optimized AVR-Compatible Microcontroller"
+	@echo "============================================================"
+	@echo "Arquitectura: AVR de 8 bits - Sistema Optimizado"
+	@echo "Tecnología: SkyWater Sky130 PDK"
+	@echo "Herramientas: 100% Open Source"
+	@echo "Estado: Fase 5 - Sistema Optimizado para Tape-out"
+	@echo ""
+	@echo "Componentes Fase 5:"
+	@echo "  ✅ AxiomaCPU v5 - Núcleo optimizado performance/área"
+	@echo "  ✅ Instruction Set expandido - 50%+ compatibilidad AVR"
+	@echo "  ✅ Pipeline optimizado - CPI reducido"
+	@echo "  ✅ Memory System completo - Flash 32KB + SRAM 2KB + EEPROM 1KB"
+	@echo "  ✅ 9 Periféricos avanzados - GPIO, UART, SPI, I2C, ADC, Timers"
+	@echo "  ✅ PWM multicanal - 6 salidas independientes"
+	@echo "  ✅ Clock System avanzado - Múltiples fuentes y prescalers"
+	@echo "  ✅ Sistema de interrupciones - 26 vectores priorizados"
+	@echo ""
+	@echo "Optimizaciones Fase 5:"
+	@echo "  🚀 Target 25+ MHz operation"
+	@echo "  ⚡ CPI optimizado < 2.0"
+	@echo "  📐 Área optimizada < 3.5mm²"
+	@echo "  🔋 Potencia < 8mW @ 16MHz"
+	@echo "  🎯 Síntesis completa OpenLane"
+	@echo "  📊 Timing analysis y optimization"
+	@echo ""
+	@echo "Nuevas Instrucciones v5:"
+	@echo "  ✅ BLD/BST - Bit Load/Store operations"
+	@echo "  ✅ SWAP - Nibble swap in register"
+	@echo "  ✅ MUL family - Multiplication support"
+	@echo "  ✅ Extended addressing - Displaced modes"
+	@echo "  ✅ Power management - SLEEP/WDR"
+	@echo ""
+
 # ============= ESTADÍSTICAS =============
 stats:
 	@echo "📊 Estadísticas del proyecto AxiomaCore-328:"
@@ -267,7 +362,7 @@ stats:
 # ============= LIMPIEZA =============
 clean:
 	@echo "🧹 Limpiando archivos generados..."
-	rm -f axioma_cpu_v1_sim axioma_cpu_v2_sim
+	rm -f axioma_cpu_v1_sim axioma_cpu_v2_sim axioma_cpu_v3_sim axioma_cpu_v4_sim axioma_cpu_v5_sim
 	rm -f test_decoder_v2 test_flash test_sram test_interrupt
 	rm -f *.vcd
 	rm -f *.out

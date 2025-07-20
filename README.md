@@ -1,4 +1,8 @@
+<div align="center">
+
 # AxiomaCore-328: Open Source AVR-Compatible Microcontroller 🚀
+
+<img src="/images/AxiomaCore.jpg"/>
 
 [![Lenguaje Verilog](https://img.shields.io/badge/HDL-Verilog-ff6600?logo=verilog)](#)
 [![Herramienta Yosys](https://img.shields.io/badge/Síntesis-Yosys-yellowgreen)](#)
@@ -17,6 +21,8 @@
 [![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker)](#)
 [![Sistema Operativo](https://img.shields.io/badge/Ubuntu-20.04-E95420?logo=ubuntu)](#)
 [![Licencia](https://img.shields.io/badge/Licencia-Apache--2.0-blue)](#)
+
+</div>
 
 
 ## FASE 9 COMPLETADA - READY FOR TAPE-OUT 🏭

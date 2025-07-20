@@ -1,4 +1,24 @@
 # AxiomaCore-328: Open Source AVR-Compatible Microcontroller 🚀
+
+[![Lenguaje Verilog](https://img.shields.io/badge/HDL-Verilog-ff6600?logo=verilog)](#)
+[![Herramienta Yosys](https://img.shields.io/badge/Síntesis-Yosys-yellowgreen)](#)
+[![Herramienta OpenLane](https://img.shields.io/badge/Place%20%26%20Route-OpenLane-blueviolet)](#)
+[![PDK Sky130](https://img.shields.io/badge/PDK-Sky130-7b1fa2)](#)
+[![Simulación Icarus Verilog](https://img.shields.io/badge/Simulación-Icarus--Verilog-8a2be2)](#)
+[![GTKWave](https://img.shields.io/badge/Waveform-GTKWave-ff69b4)](#)
+[![Diseño Layout](https://img.shields.io/badge/Layout-Magic-orange)](#)
+[![Verificación Netgen](https://img.shields.io/badge/Verificación-Netgen-00bcd4)](#)
+[![EDA KLayout](https://img.shields.io/badge/GDSII-KLayout-1976d2)](#)
+[![Arduino Compatible](https://img.shields.io/badge/Arduino-Compatible-00979D?logo=arduino)](#)
+[![Toolchain AVR-GCC](https://img.shields.io/badge/Compilador-avr--gcc-blue)](#)
+[![Programador AVRDUDE](https://img.shields.io/badge/Programador-avrdude-00599c)](#)
+[![Optiboot](https://img.shields.io/badge/Bootloader-Optiboot-brightgreen)](#)
+[![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25?logo=gnubash)](#)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker)](#)
+[![Sistema Operativo](https://img.shields.io/badge/Ubuntu-20.04-E95420?logo=ubuntu)](#)
+[![Licencia](https://img.shields.io/badge/Licencia-Apache--2.0-blue)](#)
+
+
 ## FASE 9 COMPLETADA - READY FOR TAPE-OUT 🏭
 
 ## 🎯 Visión General

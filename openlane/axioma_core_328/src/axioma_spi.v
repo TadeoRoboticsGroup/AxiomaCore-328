@@ -79,6 +79,14 @@ module axioma_spi (
     reg [7:0] tx_data;
     reg [7:0] rx_data;
     reg data_ready;
+    
+    // Slave mode edge detection
+    reg spi_sck_prev, spi_ss_prev;
+    wire spi_sck_edge, spi_ss_falling;
+    
+    // Edge detection logic
+    assign spi_sck_edge = (spi_sck != spi_sck_prev);
+    assign spi_ss_falling = (spi_ss_prev && !spi_ss);
 
     // Configuración del divisor de clock
     always @(*) begin
@@ -167,21 +175,23 @@ module axioma_spi (
                 reg_spsr[7] <= 1'b0; // Clear SPIF
             end
             
-            // Máquina de estados SPI (Master mode)
-            if (spcr_spe && spcr_mstr) begin
-                case (spi_state)
-                    SPI_IDLE: begin
-                        spi_clock_out <= spcr_cpol; // Clock idle state
-                        spi_ss_out <= 1'b1;         // SS idle high
-                        
-                        if (data_ready) begin
-                            spi_state <= SPI_START;
-                            shift_register <= tx_data;
-                            bit_counter <= 4'h0;
-                            data_ready <= 1'b0;
-                            spi_ss_out <= 1'b0;     // Assert SS
+            // Máquina de estados SPI Master/Slave mode
+            if (spcr_spe) begin
+                if (spcr_mstr) begin
+                    // ===== MASTER MODE =====
+                    case (spi_state)
+                        SPI_IDLE: begin
+                            spi_clock_out <= spcr_cpol; // Clock idle state
+                            spi_ss_out <= 1'b1;         // SS idle high
+                            
+                            if (data_ready) begin
+                                spi_state <= SPI_START;
+                                shift_register <= tx_data;
+                                bit_counter <= 4'h0;
+                                data_ready <= 1'b0;
+                                spi_ss_out <= 1'b0;     // Assert SS
+                            end
                         end
-                    end
                     
                     SPI_START: begin
                         if (spi_clock_tick) begin
@@ -255,16 +265,106 @@ module axioma_spi (
                         end
                     end
                     
-                    SPI_COMPLETE: begin
-                        spi_state <= SPI_IDLE;
-                        spi_ss_out <= 1'b1;         // Deassert SS
-                        reg_spdr <= rx_data;         // Update data register
-                        reg_spsr[7] <= 1'b1;        // Set SPIF
-                        transfer_complete <= 1'b1;
-                    end
-                endcase
+                        SPI_COMPLETE: begin
+                            spi_state <= SPI_IDLE;
+                            spi_ss_out <= 1'b1;         // Deassert SS
+                            reg_spdr <= rx_data;         // Update data register
+                            reg_spsr[7] <= 1'b1;        // Set SPIF
+                            transfer_complete <= 1'b1;
+                        end
+                    endcase
+                end else begin
+                    // ===== SLAVE MODE =====
+                    // Edge detection for slave mode
+                    spi_sck_prev <= spi_sck;
+                    spi_ss_prev <= spi_ss;
+                    
+                    case (spi_state)
+                        SPI_IDLE: begin
+                            if (spi_ss_falling) begin
+                                // SS asserted, start transfer
+                                spi_state <= SPI_TRANSFER;
+                                shift_register <= reg_spdr;  // Load tx data
+                                bit_counter <= 4'h0;
+                                // Setup first bit immediately (slave outputs on MISO)
+                                if (spcr_dord) begin
+                                    spi_mosi_out <= reg_spdr[0]; // LSB first
+                                end else begin
+                                    spi_mosi_out <= reg_spdr[7]; // MSB first
+                                end
+                            end
+                        end
+                        
+                        SPI_TRANSFER: begin
+                            if (spi_ss) begin
+                                // SS deasserted, abort transfer
+                                spi_state <= SPI_IDLE;
+                            end else if (spi_sck_edge) begin
+                                // Clock edge detected
+                                if (!spcr_cpha) begin
+                                    // CPHA = 0: Sample on first edge, setup on second
+                                    if ((spi_sck && !spcr_cpol) || (!spi_sck && spcr_cpol)) begin
+                                        // Sample edge - read MOSI
+                                        if (spcr_dord) begin
+                                            rx_data <= {spi_mosi, rx_data[7:1]};
+                                        end else begin
+                                            rx_data <= {rx_data[6:0], spi_mosi};
+                                        end
+                                        bit_counter <= bit_counter + 4'h1;
+                                        if (bit_counter == 4'h7) begin
+                                            spi_state <= SPI_COMPLETE;
+                                        end
+                                    end else begin
+                                        // Setup edge - output next MISO bit
+                                        if (bit_counter < 4'h8) begin
+                                            if (spcr_dord) begin
+                                                shift_register <= {1'b0, shift_register[7:1]};
+                                                spi_mosi_out <= shift_register[1];
+                                            end else begin
+                                                shift_register <= {shift_register[6:0], 1'b0};
+                                                spi_mosi_out <= shift_register[6];
+                                            end
+                                        end
+                                    end
+                                end else begin
+                                    // CPHA = 1: Setup on first edge, sample on second
+                                    if ((spi_sck && !spcr_cpol) || (!spi_sck && spcr_cpol)) begin
+                                        // Setup edge - output MISO bit
+                                        if (bit_counter < 4'h8) begin
+                                            if (spcr_dord) begin
+                                                spi_mosi_out <= shift_register[0];
+                                                shift_register <= {1'b0, shift_register[7:1]};
+                                            end else begin
+                                                spi_mosi_out <= shift_register[7];
+                                                shift_register <= {shift_register[6:0], 1'b0};
+                                            end
+                                        end
+                                    end else begin
+                                        // Sample edge - read MOSI
+                                        if (spcr_dord) begin
+                                            rx_data <= {spi_mosi, rx_data[7:1]};
+                                        end else begin
+                                            rx_data <= {rx_data[6:0], spi_mosi};
+                                        end
+                                        bit_counter <= bit_counter + 4'h1;
+                                        if (bit_counter == 4'h7) begin
+                                            spi_state <= SPI_COMPLETE;
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        
+                        SPI_COMPLETE: begin
+                            spi_state <= SPI_IDLE;
+                            reg_spdr <= rx_data;         // Update data register
+                            reg_spsr[7] <= 1'b1;        // Set SPIF
+                            transfer_complete <= 1'b1;
+                        end
+                    endcase
+                end
             end else begin
-                // SPI disabled or slave mode
+                // SPI disabled
                 spi_state <= SPI_IDLE;
                 spi_clock_out <= spcr_cpol;
                 spi_ss_out <= 1'b1;
@@ -292,9 +392,12 @@ module axioma_spi (
     end
 
     // Salidas SPI
-    assign spi_mosi = spcr_spe ? spi_mosi_out : 1'bz;
-    assign spi_sck = (spcr_spe && spcr_mstr) ? spi_clock_out : 1'bz;
-    assign spi_ss = (spcr_spe && spcr_mstr) ? spi_ss_out : 1'bz;
+    assign spi_mosi = (spcr_spe && spcr_mstr) ? spi_mosi_out : 1'bz;  // Master outputs on MOSI
+    assign spi_sck = (spcr_spe && spcr_mstr) ? spi_clock_out : 1'bz;  // Master controls clock
+    assign spi_ss = (spcr_spe && spcr_mstr) ? spi_ss_out : 1'bz;      // Master controls SS
+    
+    // Note: In slave mode, device should output on MISO pin
+    // This requires additional pin mapping in the top-level module
 
     // Interrupciones
     assign spi_interrupt = spsr_spif && spcr_spie;

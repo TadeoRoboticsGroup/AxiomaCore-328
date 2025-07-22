@@ -1,10 +1,10 @@
 {
-  "DESIGN_NAME": "axioma_cpu_v5",
+  "DESIGN_NAME": "axioma_cpu",
   "VERILOG_FILES": [
-    "dir::src/axioma_cpu_v5.v",
-    "dir::src/axioma_decoder_v3.v", 
-    "dir::src/axioma_alu_v2.v",
-    "dir::src/axioma_interrupt_v2.v",
+    "dir::src/axioma_cpu.v",
+    "dir::src/axioma_decoder.v", 
+    "dir::src/axioma_alu.v",
+    "dir::src/axioma_interrupt.v",
     "dir::src/axioma_registers.v",
     "dir::src/axioma_flash_ctrl.v",
     "dir::src/axioma_sram_ctrl.v",
@@ -15,9 +15,15 @@
     "dir::src/axioma_i2c.v",
     "dir::src/axioma_adc.v",
     "dir::src/axioma_pwm.v",
+    "dir::src/axioma_prescaler.v",
+    "dir::src/axioma_pwm_generator.v",
     "dir::src/axioma_timer0.v",
     "dir::src/axioma_timer1.v",
-    "dir::src/axioma_clock_system.v"
+    "dir::src/axioma_timer2.v",
+    "dir::src/axioma_analog_comp.v",
+    "dir::src/axioma_watchdog.v",
+    "dir::src/axioma_clock_system.v",
+    "dir::src/axioma_system_tick.v"
   ],
   "CLOCK_PERIOD": 40.0,
   "CLOCK_PORT": "clk_ext",

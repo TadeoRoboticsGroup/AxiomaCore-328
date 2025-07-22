@@ -2,10 +2,40 @@
 # Optimized for Sky130 PDK and OpenLane flow
 
 # Read Verilog source files
-read_verilog core/axioma_registers/axioma_registers.v
-read_verilog core/axioma_alu/axioma_alu.v  
-read_verilog core/axioma_decoder/axioma_decoder.v
-read_verilog core/axioma_cpu/axioma_cpu.v
+# Core modules
+read_verilog ../core/axioma_registers/axioma_registers.v
+read_verilog ../core/axioma_alu/axioma_alu.v  
+read_verilog ../core/axioma_decoder/axioma_decoder.v
+read_verilog ../core/axioma_cpu/axioma_cpu.v
+
+# Clock and reset modules
+read_verilog ../clock_reset/axioma_clock_system.v
+read_verilog ../clock_reset/axioma_system_tick.v
+
+# Interrupt module
+read_verilog ../axioma_interrupt/axioma_interrupt.v
+
+# Memory controllers
+read_verilog ../memory/axioma_flash_ctrl/axioma_flash_ctrl.v
+read_verilog ../memory/axioma_eeprom_ctrl/axioma_eeprom_ctrl.v
+read_verilog ../memory/axioma_sram_ctrl/axioma_sram_ctrl.v
+
+# Peripheral modules
+read_verilog ../peripherals/axioma_gpio/axioma_gpio.v
+read_verilog ../peripherals/axioma_uart/axioma_uart.v
+read_verilog ../peripherals/axioma_spi/axioma_spi.v
+read_verilog ../peripherals/axioma_i2c/axioma_i2c.v
+read_verilog ../peripherals/axioma_adc/axioma_adc.v
+read_verilog ../peripherals/axioma_pwm/axioma_pwm.v
+read_verilog ../peripherals/axioma_analog_comp.v
+read_verilog ../peripherals/axioma_watchdog.v
+
+# Timer modules
+read_verilog ../peripherals/axioma_timers/axioma_prescaler.v
+read_verilog ../peripherals/axioma_timers/axioma_pwm_generator.v
+read_verilog ../peripherals/axioma_timers/axioma_timer0.v
+read_verilog ../peripherals/axioma_timers/axioma_timer1.v
+read_verilog ../peripherals/axioma_timers/axioma_timer2.v
 
 # Set top module
 hierarchy -top axioma_cpu
@@ -43,4 +73,4 @@ write_edif synthesis/axioma_cpu.edif
 # Write JSON for OpenLane
 write_json synthesis/axioma_cpu.json
 
-echo "AxiomaCore-328 synthesis completed successfully"
+# AxiomaCore-328 synthesis completed successfully

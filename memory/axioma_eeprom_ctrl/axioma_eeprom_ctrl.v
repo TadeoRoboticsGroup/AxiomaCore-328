@@ -147,7 +147,7 @@ module axioma_eeprom_ctrl (
                 
                 EEPROM_READ: begin
                     timing_counter <= timing_counter + 16'h0001;
-                    if (timing_counter >= READ_time) begin
+                    if (timing_counter >= READ_TIME) begin
                         read_data <= eeprom_memory[eeprom_address];
                         reg_eedr <= eeprom_memory[eeprom_address];
                         eeprom_state <= EEPROM_IDLE;

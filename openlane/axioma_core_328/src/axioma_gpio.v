@@ -33,6 +33,11 @@ module axioma_gpio (
     output wire [7:0] portd_ddr,       // Registro DDR dirección
     output wire [7:0] portd_pin_out,   // Salida de pines
     
+    // Pin change interrupts
+    output wire pcint0_req,            // Pin change interrupt PORTB
+    output wire pcint1_req,            // Pin change interrupt PORTC  
+    output wire pcint2_req,            // Pin change interrupt PORTD
+    
     // Debug y estado
     output wire [7:0] debug_portb_state,
     output wire [7:0] debug_portc_state,
@@ -64,6 +69,14 @@ module axioma_gpio (
     reg [7:0] reg_portd;               // PORTD - Datos de salida
     reg [7:0] reg_ddrd;                // DDRD - Dirección
     reg [7:0] reg_pind;                // PIND - Estado de pines de entrada
+    
+    // Pin change interrupt logic
+    reg [7:0] pinb_prev;               // Previous state of PINB
+    reg [6:0] pinc_prev;               // Previous state of PINC
+    reg [7:0] pind_prev;               // Previous state of PIND
+    wire [7:0] pinb_change;            // Pin change detection
+    wire [6:0] pinc_change;            // Pin change detection
+    wire [7:0] pind_change;            // Pin change detection
 
     // Lógica de lectura/escritura de registros I/O
     always @(posedge clk or negedge reset_n) begin
@@ -81,8 +94,17 @@ module axioma_gpio (
             reg_ddrd <= 8'h00;
             reg_pind <= 8'h00;
             
+            // Initialize pin change detection
+            pinb_prev <= 8'h00;
+            pinc_prev <= 7'h00;
+            pind_prev <= 8'h00;
+            
         end else begin
             // Actualizar registros PIN con los valores de entrada
+            pinb_prev <= reg_pinb;  // Store previous state
+            pinc_prev <= reg_pinc;
+            pind_prev <= reg_pind;
+            
             reg_pinb <= portb_pin;
             reg_pinc <= portc_pin;
             reg_pind <= portd_pin;
@@ -163,6 +185,16 @@ module axioma_gpio (
     assign portd_port = reg_portd;
     assign portd_ddr = reg_ddrd;
 
+    // Pin change interrupt detection
+    assign pinb_change = reg_pinb ^ pinb_prev;
+    assign pinc_change = reg_pinc ^ pinc_prev;
+    assign pind_change = reg_pind ^ pind_prev;
+    
+    // Generate pin change interrupt requests
+    assign pcint0_req = |pinb_change;  // Any change in PORTB
+    assign pcint1_req = |pinc_change;  // Any change in PORTC
+    assign pcint2_req = |pind_change;  // Any change in PORTD
+    
     // Debug
     assign debug_portb_state = {reg_ddrb[7:4], reg_portb[3:0]};
     assign debug_portc_state = {1'b0, reg_ddrc[6:4], reg_portc[3:0]};

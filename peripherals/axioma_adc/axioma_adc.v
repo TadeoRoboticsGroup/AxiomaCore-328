@@ -82,6 +82,7 @@ module axioma_adc (
     // Estados internos
     reg [2:0] adc_state;
     reg [9:0] adc_result;
+    reg [7:0] adc_input_voltage;
     reg [7:0] conversion_counter;
     reg [3:0] current_channel;
     reg conversion_complete;
@@ -222,8 +223,6 @@ module axioma_adc (
                                 // Conversión ADC real usando SAR (Successive Approximation)
                                 if (current_channel < 4'd8) begin
                                     // Conversión real basada en entrada analógica y referencia
-                                    reg [7:0] adc_input_voltage;
-                                    
                                     // Obtener voltaje del canal actual (8-bit representation)
                                     case (current_channel[2:0])
                                         3'd0: adc_input_voltage = adc_channels[0] ? 8'd255 : 8'd0;

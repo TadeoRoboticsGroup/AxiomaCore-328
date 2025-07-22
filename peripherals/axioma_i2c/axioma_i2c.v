@@ -35,20 +35,20 @@ module axioma_i2c (
     localparam ADDR_TWCR = 6'h36;      // 0xBC - TWI Control Register
 
     // Estados I2C
-    localparam TWI_IDLE           = 5'h00;
-    localparam TWI_START          = 5'h08;
-    localparam TWI_REP_START      = 5'h10;
-    localparam TWI_MT_SLA_ACK     = 5'h18;  // Master Transmit Slave Address ACK
-    localparam TWI_MT_SLA_NACK    = 5'h20;  // Master Transmit Slave Address NACK
-    localparam TWI_MT_DATA_ACK    = 5'h28;  // Master Transmit Data ACK
-    localparam TWI_MT_DATA_NACK   = 5'h30;  // Master Transmit Data NACK
-    localparam TWI_MR_SLA_ACK     = 5'h40;  // Master Receive Slave Address ACK
-    localparam TWI_MR_SLA_NACK    = 5'h48;  // Master Receive Slave Address NACK
-    localparam TWI_MR_DATA_ACK    = 5'h50;  // Master Receive Data ACK
-    localparam TWI_MR_DATA_NACK   = 5'h58;  // Master Receive Data NACK
-    localparam TWI_SR_SLA_ACK     = 5'h60;  // Slave Receive Own Address ACK
-    localparam TWI_ST_SLA_ACK     = 5'hA8;  // Slave Transmit Address ACK
-    localparam TWI_BUS_ERROR      = 5'h00;  // Bus Error
+    localparam TWI_IDLE           = 8'h00;
+    localparam TWI_START          = 8'h08;
+    localparam TWI_REP_START      = 8'h10;
+    localparam TWI_MT_SLA_ACK     = 8'h18;  // Master Transmit Slave Address ACK
+    localparam TWI_MT_SLA_NACK    = 8'h20;  // Master Transmit Slave Address NACK
+    localparam TWI_MT_DATA_ACK    = 8'h28;  // Master Transmit Data ACK
+    localparam TWI_MT_DATA_NACK   = 8'h30;  // Master Transmit Data NACK
+    localparam TWI_MR_SLA_ACK     = 8'h40;  // Master Receive Slave Address ACK
+    localparam TWI_MR_SLA_NACK    = 8'h48;  // Master Receive Slave Address NACK
+    localparam TWI_MR_DATA_ACK    = 8'h50;  // Master Receive Data ACK
+    localparam TWI_MR_DATA_NACK   = 8'h58;  // Master Receive Data NACK
+    localparam TWI_SR_SLA_ACK     = 8'h60;  // Slave Receive Own Address ACK
+    localparam TWI_ST_SLA_ACK     = 8'hA8;  // Slave Transmit Address ACK
+    localparam TWI_BUS_ERROR      = 8'h00;  // Bus Error
 
     // Registros I2C
     reg [7:0] reg_twbr;               // Bit Rate Register
@@ -400,7 +400,7 @@ module axioma_i2c (
                             timing_counter <= 3'h0;
                             if (timing_counter >= 3'h2) begin
                                 sda_out <= 1'b1;     // Stop condition
-                                reg_twsr[7:3] <= 5'hF8; // No state info
+                                reg_twsr[7:3] <= 5'h1F; // No state info
                             end
                             timing_counter <= timing_counter + 3'h1;
                         end

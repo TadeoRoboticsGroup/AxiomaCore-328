@@ -1,0 +1,2627 @@
+$date
+	Mon Jul 21 23:39:28 2025
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module axioma_cpu_tb_basic $end
+$var wire 1 ! uart_tx $end
+$var wire 8 " status_reg [7:0] $end
+$var wire 1 # spi_ss $end
+$var wire 1 $ spi_sck $end
+$var wire 1 % spi_mosi $end
+$var wire 1 & sda $end
+$var wire 1 ' scl $end
+$var wire 8 ( portd_out [7:0] $end
+$var wire 8 ) portd_ddr [7:0] $end
+$var wire 7 * portc_out [6:0] $end
+$var wire 7 + portc_ddr [6:0] $end
+$var wire 8 , portb_out [7:0] $end
+$var wire 8 - portb_ddr [7:0] $end
+$var wire 1 . oc2b_pin $end
+$var wire 1 / oc2a_pin $end
+$var wire 1 0 oc1b_pin $end
+$var wire 1 1 oc1a_pin $end
+$var wire 1 2 oc0b_pin $end
+$var wire 1 3 oc0a_pin $end
+$var wire 16 4 debug_stack_pointer [15:0] $end
+$var wire 8 5 debug_sreg [7:0] $end
+$var wire 16 6 debug_pc [15:0] $end
+$var wire 1 7 debug_interrupt_active $end
+$var wire 16 8 debug_instruction [15:0] $end
+$var wire 1 9 cpu_halted $end
+$var reg 8 : adc_channels [7:0] $end
+$var reg 1 ; aref_voltage $end
+$var reg 1 < avcc_voltage $end
+$var reg 1 = bootloader_enable $end
+$var reg 1 > clk_32khz $end
+$var reg 1 ? clk_ext $end
+$var reg 4 @ clock_prescaler [3:0] $end
+$var reg 4 A clock_select [3:0] $end
+$var reg 1 B icp1_pin $end
+$var reg 1 C int0_pin $end
+$var reg 1 D int1_pin $end
+$var reg 16 E last_pc [15:0] $end
+$var reg 8 F portb_pin [7:0] $end
+$var reg 7 G portc_pin [6:0] $end
+$var reg 8 H portd_pin [7:0] $end
+$var reg 1 I power_on_reset_n $end
+$var reg 1 J reset_ext_n $end
+$var reg 1 K spi_miso $end
+$var reg 1 L uart_rx $end
+$var reg 1 M vcc_voltage_ok $end
+$scope module dut $end
+$var wire 8 N adc_channels [7:0] $end
+$var wire 1 O adc_io_active $end
+$var wire 1 ; aref_voltage $end
+$var wire 1 < avcc_voltage $end
+$var wire 1 = bootloader_enable $end
+$var wire 1 > clk_32khz $end
+$var wire 1 ? clk_ext $end
+$var wire 4 P clock_prescaler [3:0] $end
+$var wire 4 Q clock_select [3:0] $end
+$var wire 1 9 cpu_halted $end
+$var wire 16 R debug_instruction [15:0] $end
+$var wire 8 S debug_instruction_count [7:0] $end
+$var wire 1 7 debug_interrupt_active $end
+$var wire 5 T debug_interrupt_vector [4:0] $end
+$var wire 16 U debug_pc [15:0] $end
+$var wire 8 V debug_sreg [7:0] $end
+$var wire 16 W debug_stack_pointer [15:0] $end
+$var wire 16 X debug_timer1_counter [15:0] $end
+$var wire 1 Y gpio_io_active $end
+$var wire 1 Z i2c_io_active $end
+$var wire 1 B icp1_pin $end
+$var wire 1 C int0_pin $end
+$var wire 1 D int1_pin $end
+$var wire 1 [ interrupt_return $end
+$var wire 8 \ io_data_in_cpu [7:0] $end
+$var wire 1 ] io_read_cpu $end
+$var wire 1 ^ io_write_cpu $end
+$var wire 8 _ portb_pin [7:0] $end
+$var wire 7 ` portc_pin [6:0] $end
+$var wire 8 a portd_pin [7:0] $end
+$var wire 1 I power_on_reset_n $end
+$var wire 1 b pwm_io_active $end
+$var wire 16 c reg_data_16bit [15:0] $end
+$var wire 1 J reset_ext_n $end
+$var wire 1 d spi_io_active $end
+$var wire 1 K spi_miso $end
+$var wire 8 e status_reg [7:0] $end
+$var wire 1 f system_tick_io_active $end
+$var wire 8 g timer0_data_out [7:0] $end
+$var wire 1 h timer0_io_active $end
+$var wire 1 i timer1_capt $end
+$var wire 8 j timer1_data_out [7:0] $end
+$var wire 1 k timer1_io_active $end
+$var wire 1 l uart_io_active $end
+$var wire 1 L uart_rx $end
+$var wire 1 M vcc_voltage_ok $end
+$var wire 1 m use_pointer $end
+$var wire 1 n usart_udre $end
+$var wire 1 o usart_tx_complete $end
+$var wire 1 p usart_rx_complete $end
+$var wire 1 q unsupported_instruction $end
+$var wire 1 ! uart_tx $end
+$var wire 8 r uart_data_out [7:0] $end
+$var wire 1 s twi_interrupt $end
+$var wire 1 t timer2_overflow $end
+$var wire 1 u timer2_compb $end
+$var wire 1 v timer2_compa $end
+$var wire 1 w timer1_overflow $end
+$var wire 1 x timer1_compb $end
+$var wire 1 y timer1_compa $end
+$var wire 1 z timer0_overflow $end
+$var wire 1 { timer0_compb $end
+$var wire 1 | timer0_compa $end
+$var wire 8 } system_tick_data_out [7:0] $end
+$var wire 1 ~ system_clock_ready $end
+$var wire 1 !" stack_push_pc $end
+$var wire 1 "" stack_push_16bit $end
+$var wire 1 #" stack_push $end
+$var wire 1 $" stack_pop_pc $end
+$var wire 1 %" stack_pop_16bit $end
+$var wire 1 &" stack_pop $end
+$var wire 1 '" sreg_update $end
+$var wire 1 (" sreg_set_bits $end
+$var wire 8 )" sreg_mask [7:0] $end
+$var wire 1 *" sreg_clear_bits $end
+$var wire 1 # spi_ss $end
+$var wire 1 $ spi_sck $end
+$var wire 1 % spi_mosi $end
+$var wire 1 +" spi_interrupt $end
+$var wire 8 ," spi_data_out [7:0] $end
+$var wire 1 -" skip_next $end
+$var wire 1 & sda $end
+$var wire 1 ' scl $end
+$var wire 5 ." rs2_addr [4:0] $end
+$var wire 5 /" rs1_addr [4:0] $end
+$var wire 1 0" ret_en $end
+$var wire 1 1" reset_wdt_n $end
+$var wire 1 2" reset_system_n $end
+$var wire 1 3" reset_bod_n $end
+$var wire 8 4" reg_data_2 [7:0] $end
+$var wire 8 5" reg_data_1 [7:0] $end
+$var wire 1 6" rd_write_en_16bit $end
+$var wire 1 7" rd_write_en $end
+$var wire 5 8" rd_addr [4:0] $end
+$var wire 8 9" pwm_data_out [7:0] $end
+$var wire 8 :" portd_out [7:0] $end
+$var wire 8 ;" portd_ddr [7:0] $end
+$var wire 7 <" portc_out [6:0] $end
+$var wire 7 =" portc_ddr [6:0] $end
+$var wire 8 >" portb_out [7:0] $end
+$var wire 8 ?" portb_ddr [7:0] $end
+$var wire 2 @" pointer_sel [1:0] $end
+$var wire 1 A" pointer_pre_dec $end
+$var wire 1 B" pointer_post_inc $end
+$var wire 1 C" pcint2_req $end
+$var wire 1 D" pcint1_req $end
+$var wire 1 E" pcint0_req $end
+$var wire 16 F" pc_interrupt [15:0] $end
+$var wire 1 . oc2b_pin $end
+$var wire 1 / oc2a_pin $end
+$var wire 1 0 oc1b_pin $end
+$var wire 1 1 oc1a_pin $end
+$var wire 1 2 oc0b_pin $end
+$var wire 1 3 oc0a_pin $end
+$var wire 1 G" multiply_signed $end
+$var wire 16 H" multiply_result [15:0] $end
+$var wire 1 I" multiply_ready $end
+$var wire 1 J" multiply_frac $end
+$var wire 1 K" multiply_en $end
+$var wire 1 L" mem_write $end
+$var wire 1 M" mem_read $end
+$var wire 4 N" mem_mode [3:0] $end
+$var wire 8 O" mcusr_reg [7:0] $end
+$var wire 8 P" mcucr_reg [7:0] $end
+$var wire 1 Q" jump_en $end
+$var wire 22 R" jump_addr [21:0] $end
+$var wire 1 S" is_32bit_instruction $end
+$var wire 1 T" io_write_dec $end
+$var wire 1 U" io_read_dec $end
+$var wire 8 V" io_data_out_cpu [7:0] $end
+$var wire 6 W" io_addr_dec [5:0] $end
+$var wire 8 X" io_addr_cpu [7:0] $end
+$var wire 5 Y" interrupt_vector [4:0] $end
+$var wire 1 Z" interrupt_request $end
+$var wire 1 [" interrupt_acknowledge $end
+$var wire 1 \" instruction_decoded $end
+$var wire 16 ]" immediate [15:0] $end
+$var wire 8 ^" i2c_data_out [7:0] $end
+$var wire 8 _" gpio_data_out [7:0] $end
+$var wire 1 `" global_interrupt_enable $end
+$var wire 1 a" flash_write $end
+$var wire 1 b" flash_ready $end
+$var wire 1 c" flash_read $end
+$var wire 1 d" eeprom_write $end
+$var wire 1 e" eeprom_ready $end
+$var wire 1 f" eeprom_read $end
+$var wire 6 g" displacement [5:0] $end
+$var wire 8 h" debug_spi_state [7:0] $end
+$var wire 8 i" debug_multiply_result_low [7:0] $end
+$var wire 8 j" debug_multiply_result_high [7:0] $end
+$var wire 8 k" debug_i2c_state [7:0] $end
+$var wire 8 l" debug_adc_state [7:0] $end
+$var wire 1 m" clk_timer_async $end
+$var wire 1 n" clk_io $end
+$var wire 1 o" clk_cpu $end
+$var wire 1 p" clk_adc $end
+$var wire 1 q" call_en $end
+$var wire 12 r" branch_offset [11:0] $end
+$var wire 1 s" branch_en $end
+$var wire 5 t" branch_condition [4:0] $end
+$var wire 1 u" bit_test $end
+$var wire 1 v" bit_set $end
+$var wire 3 w" bit_num [2:0] $end
+$var wire 1 x" bit_clear $end
+$var wire 1 y" alu_use_immediate $end
+$var wire 16 z" alu_result_16bit [15:0] $end
+$var wire 8 {" alu_result [7:0] $end
+$var wire 6 |" alu_op [5:0] $end
+$var wire 1 }" alu_flag_z $end
+$var wire 1 ~" alu_flag_v $end
+$var wire 1 !# alu_flag_s $end
+$var wire 1 "# alu_flag_n $end
+$var wire 1 ## alu_flag_h $end
+$var wire 1 $# alu_flag_c $end
+$var wire 1 %# alu_16bit_operation $end
+$var wire 1 &# adc_interrupt $end
+$var wire 8 '# adc_data_out [7:0] $end
+$var reg 1 (# cpu_halted_reg $end
+$var reg 3 )# cpu_state [2:0] $end
+$var reg 8 *# instruction_count [7:0] $end
+$var reg 16 +# instruction_ext_reg [15:0] $end
+$var reg 16 ,# instruction_reg [15:0] $end
+$var reg 8 -# multiply_r1_data [7:0] $end
+$var reg 1 .# multiply_r1_write $end
+$var reg 16 /# pc_reg [15:0] $end
+$var reg 8 0# reg_write_data [7:0] $end
+$var reg 16 1# sp_reg [15:0] $end
+$var reg 8 2# sreg [7:0] $end
+$scope function branch_taken $end
+$var reg 5 3# condition [4:0] $end
+$var reg 8 4# status_flags [7:0] $end
+$upscope $end
+$scope function skip_condition $end
+$var reg 1 5# dummy_input $end
+$upscope $end
+$scope module adc_inst $end
+$var wire 8 6# adc_channels [7:0] $end
+$var wire 1 7# adc_clock_tick $end
+$var wire 1 &# adc_interrupt $end
+$var wire 1 8# adc_trigger $end
+$var wire 1 ; aref_voltage $end
+$var wire 1 < avcc_voltage $end
+$var wire 10 9# debug_result [9:0] $end
+$var wire 6 :# io_addr [5:0] $end
+$var wire 8 ;# io_data_in [7:0] $end
+$var wire 1 <# io_read $end
+$var wire 1 =# io_write $end
+$var wire 1 2" reset_n $end
+$var wire 8 ># debug_state [7:0] $end
+$var wire 1 p" clk $end
+$var wire 2 ?# admux_refs [1:0] $end
+$var wire 4 @# admux_mux [3:0] $end
+$var wire 1 A# admux_adlar $end
+$var wire 3 B# adcsrb_adts [2:0] $end
+$var wire 1 C# adcsrb_acme $end
+$var wire 1 D# adcsra_adsc $end
+$var wire 3 E# adcsra_adps [2:0] $end
+$var wire 1 F# adcsra_adif $end
+$var wire 1 G# adcsra_adie $end
+$var wire 1 H# adcsra_aden $end
+$var wire 1 I# adcsra_adate $end
+$var reg 8 J# adc_clock_counter [7:0] $end
+$var reg 1 K# adc_clock_enable $end
+$var reg 8 L# adc_input_voltage [7:0] $end
+$var reg 8 M# adc_prescaler [7:0] $end
+$var reg 10 N# adc_result [9:0] $end
+$var reg 3 O# adc_state [2:0] $end
+$var reg 1 P# conversion_complete $end
+$var reg 8 Q# conversion_counter [7:0] $end
+$var reg 4 R# current_channel [3:0] $end
+$var reg 8 S# io_data_out [7:0] $end
+$var reg 8 T# noise_lfsr [7:0] $end
+$var reg 8 U# reg_adch [7:0] $end
+$var reg 8 V# reg_adcl [7:0] $end
+$var reg 8 W# reg_adcsra [7:0] $end
+$var reg 8 X# reg_adcsrb [7:0] $end
+$var reg 8 Y# reg_admux [7:0] $end
+$var reg 8 Z# reg_didr0 [7:0] $end
+$var reg 1 [# start_conversion $end
+$upscope $end
+$scope module alu_inst $end
+$var wire 1 \# flag_c_in $end
+$var wire 1 ]# flag_h_in $end
+$var wire 1 ^# flag_n_in $end
+$var wire 1 _# flag_s_in $end
+$var wire 1 `# flag_v_in $end
+$var wire 1 a# flag_z_in $end
+$var wire 16 b# operand_16bit_a [15:0] $end
+$var wire 8 c# operand_b [7:0] $end
+$var wire 17 d# sub_result_8bit [16:0] $end
+$var wire 17 e# sub_result_16bit [16:0] $end
+$var wire 1 2" reset_n $end
+$var wire 8 f# operand_a [7:0] $end
+$var wire 16 g# operand_16bit_b [15:0] $end
+$var wire 1 G" multiply_signed $end
+$var wire 1 J" multiply_frac $end
+$var wire 1 K" multiply_en $end
+$var wire 1 o" clk $end
+$var wire 6 h# alu_op [5:0] $end
+$var wire 1 %# alu_16bit_operation $end
+$var wire 17 i# add_result_8bit [16:0] $end
+$var wire 17 j# add_result_16bit [16:0] $end
+$var reg 1 $# flag_c_out $end
+$var reg 1 ## flag_h_out $end
+$var reg 1 "# flag_n_out $end
+$var reg 1 !# flag_s_out $end
+$var reg 1 ~" flag_v_out $end
+$var reg 1 }" flag_z_out $end
+$var reg 16 k# multiply_a [15:0] $end
+$var reg 16 l# multiply_b [15:0] $end
+$var reg 1 m# multiply_busy $end
+$var reg 2 n# multiply_cycles [1:0] $end
+$var reg 1 I" multiply_ready $end
+$var reg 16 o# multiply_result [15:0] $end
+$var reg 32 p# multiply_temp_result [31:0] $end
+$var reg 8 q# result [7:0] $end
+$var reg 16 r# result_16bit [15:0] $end
+$upscope $end
+$scope module clock_system_inst $end
+$var wire 1 s# bod_enable $end
+$var wire 3 t# bod_level [2:0] $end
+$var wire 1 > clk_32khz $end
+$var wire 1 p" clk_adc $end
+$var wire 1 o" clk_cpu $end
+$var wire 1 ? clk_ext $end
+$var wire 1 n" clk_io $end
+$var wire 1 m" clk_timer_async $end
+$var wire 4 u# clock_prescaler [3:0] $end
+$var wire 4 v# clock_select [3:0] $end
+$var wire 4 w# debug_clock_source [3:0] $end
+$var wire 16 x# debug_wdt_counter [15:0] $end
+$var wire 6 y# io_addr [5:0] $end
+$var wire 8 z# io_data_in [7:0] $end
+$var wire 1 {# io_read $end
+$var wire 1 |# io_write $end
+$var wire 8 }# mcucr_reg [7:0] $end
+$var wire 8 ~# mcusr_reg [7:0] $end
+$var wire 1 I power_on_reset_n $end
+$var wire 1 J reset_ext_n $end
+$var wire 1 2" reset_system_n $end
+$var wire 1 !$ sleep_enable $end
+$var wire 3 "$ sleep_mode [2:0] $end
+$var wire 1 ~ system_clock_ready $end
+$var wire 1 M vcc_voltage_ok $end
+$var wire 1 #$ wdt_enable $end
+$var wire 4 $$ wdt_prescaler [3:0] $end
+$var wire 1 %$ wdt_reset_req $end
+$var wire 1 1" reset_wdt_n $end
+$var wire 1 3" reset_bod_n $end
+$var wire 4 &$ clkps [3:0] $end
+$var wire 1 '$ clkpce $end
+$var reg 8 ($ bod_counter [7:0] $end
+$var reg 1 )$ bod_reset_flag $end
+$var reg 1 *$ clk_prescaled $end
+$var reg 1 +$ clk_rc_128khz $end
+$var reg 1 ,$ clk_rc_32khz $end
+$var reg 1 -$ clk_rc_8mhz $end
+$var reg 1 .$ clk_selected $end
+$var reg 8 /$ clkpce_counter [7:0] $end
+$var reg 1 0$ clkpce_timeout $end
+$var reg 8 1$ clkpr_reg [7:0] $end
+$var reg 1 2$ clock_stable $end
+$var reg 8 3$ io_data_out [7:0] $end
+$var reg 8 4$ mcucr_internal [7:0] $end
+$var reg 8 5$ mcusr_internal [7:0] $end
+$var reg 8 6$ osccal_reg [7:0] $end
+$var reg 8 7$ prescaler_counter [7:0] $end
+$var reg 16 8$ rc_128khz_counter [15:0] $end
+$var reg 16 9$ rc_32khz_counter [15:0] $end
+$var reg 8 :$ rc_8mhz_cal_counter [7:0] $end
+$var reg 8 ;$ rc_8mhz_counter [7:0] $end
+$var reg 1 <$ system_reset_n $end
+$var reg 16 =$ wdt_counter [15:0] $end
+$var reg 1 >$ wdt_reset_flag $end
+$var reg 1 ?$ wdt_timeout $end
+$upscope $end
+$scope module decoder_inst $end
+$var wire 1 o" clk $end
+$var wire 16 @$ instruction [15:0] $end
+$var wire 16 A$ instruction_ext [15:0] $end
+$var wire 1 B$ instruction_valid $end
+$var wire 16 C$ k16_imm [15:0] $end
+$var wire 1 2" reset_n $end
+$var wire 5 D$ rr_5bit [4:0] $end
+$var wire 4 E$ rr_4bit [3:0] $end
+$var wire 3 F$ rr_3bit [2:0] $end
+$var wire 2 G$ rd_word [1:0] $end
+$var wire 5 H$ rd_5bit [4:0] $end
+$var wire 4 I$ rd_4bit [3:0] $end
+$var wire 3 J$ rd_3bit [2:0] $end
+$var wire 6 K$ q6_disp [5:0] $end
+$var wire 8 L$ opcode_h8 [7:0] $end
+$var wire 6 M$ opcode_h6 [5:0] $end
+$var wire 4 N$ opcode_h4 [3:0] $end
+$var wire 10 O$ opcode_h10 [9:0] $end
+$var wire 8 P$ k8_imm [7:0] $end
+$var wire 7 Q$ k7_imm [6:0] $end
+$var wire 6 R$ k6_imm [5:0] $end
+$var wire 5 S$ k5_imm [4:0] $end
+$var wire 22 T$ k22_imm [21:0] $end
+$var wire 12 U$ k12_imm [11:0] $end
+$var reg 1 %# alu_16bit_operation $end
+$var reg 6 V$ alu_op [5:0] $end
+$var reg 1 y" alu_use_immediate $end
+$var reg 1 x" bit_clear $end
+$var reg 3 W$ bit_num [2:0] $end
+$var reg 1 v" bit_set $end
+$var reg 1 u" bit_test $end
+$var reg 5 X$ branch_condition [4:0] $end
+$var reg 1 s" branch_en $end
+$var reg 12 Y$ branch_offset [11:0] $end
+$var reg 1 q" call_en $end
+$var reg 16 Z$ debug_opcode [15:0] $end
+$var reg 6 [$ displacement [5:0] $end
+$var reg 1 f" eeprom_read $end
+$var reg 1 d" eeprom_write $end
+$var reg 1 c" flash_read $end
+$var reg 1 a" flash_write $end
+$var reg 16 \$ immediate [15:0] $end
+$var reg 1 \" instruction_decoded $end
+$var reg 6 ]$ io_addr [5:0] $end
+$var reg 1 U" io_read $end
+$var reg 1 T" io_write $end
+$var reg 1 S" is_32bit_instruction $end
+$var reg 22 ^$ jump_addr [21:0] $end
+$var reg 1 Q" jump_en $end
+$var reg 4 _$ mem_mode [3:0] $end
+$var reg 1 M" mem_read $end
+$var reg 1 L" mem_write $end
+$var reg 1 K" multiply_en $end
+$var reg 1 J" multiply_frac $end
+$var reg 1 G" multiply_signed $end
+$var reg 1 B" pointer_post_inc $end
+$var reg 1 A" pointer_pre_dec $end
+$var reg 2 `$ pointer_sel [1:0] $end
+$var reg 5 a$ rd_addr [4:0] $end
+$var reg 1 7" rd_write_en $end
+$var reg 1 6" rd_write_en_16bit $end
+$var reg 1 0" ret_en $end
+$var reg 5 b$ rs1_addr [4:0] $end
+$var reg 5 c$ rs2_addr [4:0] $end
+$var reg 1 -" skip_next $end
+$var reg 1 *" sreg_clear_bits $end
+$var reg 8 d$ sreg_mask [7:0] $end
+$var reg 1 (" sreg_set_bits $end
+$var reg 1 '" sreg_update $end
+$var reg 1 &" stack_pop $end
+$var reg 1 %" stack_pop_16bit $end
+$var reg 1 $" stack_pop_pc $end
+$var reg 1 #" stack_push $end
+$var reg 1 "" stack_push_16bit $end
+$var reg 1 !" stack_push_pc $end
+$var reg 1 q unsupported_instruction $end
+$var reg 1 m use_pointer $end
+$scope function word_reg_addr $end
+$var reg 2 e$ wd [1:0] $end
+$upscope $end
+$upscope $end
+$scope module eeprom_controller_inst $end
+$var wire 1 o" clk $end
+$var wire 10 f$ debug_address [9:0] $end
+$var wire 1 e" eeprom_ready $end
+$var wire 6 g$ io_addr [5:0] $end
+$var wire 8 h$ io_data_in [7:0] $end
+$var wire 1 i$ io_read $end
+$var wire 1 j$ io_write $end
+$var wire 1 2" reset_n $end
+$var wire 10 k$ eeprom_address [9:0] $end
+$var wire 1 l$ eecr_eerie $end
+$var wire 1 m$ eecr_eere $end
+$var wire 1 n$ eecr_eepm1 $end
+$var wire 1 o$ eecr_eepm0 $end
+$var wire 1 p$ eecr_eepe $end
+$var wire 1 q$ eecr_eempe $end
+$var wire 8 r$ debug_state [7:0] $end
+$var reg 1 s$ eeprom_busy $end
+$var reg 3 t$ eeprom_state [2:0] $end
+$var reg 8 u$ io_data_out [7:0] $end
+$var reg 1 v$ operation_complete $end
+$var reg 8 w$ read_data [7:0] $end
+$var reg 8 x$ reg_eearh [7:0] $end
+$var reg 8 y$ reg_eearl [7:0] $end
+$var reg 8 z$ reg_eecr [7:0] $end
+$var reg 8 {$ reg_eedr [7:0] $end
+$var reg 16 |$ timing_counter [15:0] $end
+$var integer 32 }$ i [31:0] $end
+$upscope $end
+$scope module flash_controller_inst $end
+$var wire 16 ~$ boot_addr [15:0] $end
+$var wire 16 !% boot_data [15:0] $end
+$var wire 1 = boot_enable $end
+$var wire 1 "% boot_erase $end
+$var wire 1 #% boot_write $end
+$var wire 1 o" clk $end
+$var wire 16 $% debug_last_addr [15:0] $end
+$var wire 16 %% debug_last_data [15:0] $end
+$var wire 6 &% page_addr [5:0] $end
+$var wire 1 a" page_buffer_load $end
+$var wire 1 '% page_write_enable $end
+$var wire 16 (% prog_addr [15:0] $end
+$var wire 1 )% prog_read $end
+$var wire 1 2" reset_n $end
+$var reg 1 *% boot_ready $end
+$var reg 1 +% bootloader_active $end
+$var reg 6 ,% buffer_word_count [5:0] $end
+$var reg 16 -% current_addr [15:0] $end
+$var reg 16 .% current_data [15:0] $end
+$var reg 1 /% flash_busy $end
+$var reg 16 0% flash_size [15:0] $end
+$var reg 3 1% flash_state [2:0] $end
+$var reg 1 2% flash_write_enable $end
+$var reg 3 3% next_state [2:0] $end
+$var reg 8 4% operation_timer [7:0] $end
+$var reg 1 5% page_buffer_loaded $end
+$var reg 16 6% prog_data [15:0] $end
+$var reg 1 b" prog_ready $end
+$var integer 32 7% i [31:0] $end
+$scope function is_bootloader_protected $end
+$var reg 16 8% addr [15:0] $end
+$upscope $end
+$upscope $end
+$scope module gpio_inst $end
+$var wire 1 n" clk $end
+$var wire 6 9% io_addr [5:0] $end
+$var wire 8 :% io_data_in [7:0] $end
+$var wire 1 ;% io_read $end
+$var wire 1 <% io_write $end
+$var wire 8 =% pinb_change [7:0] $end
+$var wire 7 >% pinc_change [6:0] $end
+$var wire 8 ?% pind_change [7:0] $end
+$var wire 8 @% portb_ddr [7:0] $end
+$var wire 8 A% portb_pin [7:0] $end
+$var wire 8 B% portb_port [7:0] $end
+$var wire 7 C% portc_ddr [6:0] $end
+$var wire 7 D% portc_pin [6:0] $end
+$var wire 7 E% portc_port [6:0] $end
+$var wire 8 F% portd_ddr [7:0] $end
+$var wire 8 G% portd_pin [7:0] $end
+$var wire 8 H% portd_port [7:0] $end
+$var wire 1 2" reset_n $end
+$var wire 8 I% portd_pin_out [7:0] $end
+$var wire 7 J% portc_pin_out [6:0] $end
+$var wire 8 K% portb_pin_out [7:0] $end
+$var wire 1 C" pcint2_req $end
+$var wire 1 D" pcint1_req $end
+$var wire 1 E" pcint0_req $end
+$var wire 8 L% debug_portd_state [7:0] $end
+$var wire 8 M% debug_portc_state [7:0] $end
+$var wire 8 N% debug_portb_state [7:0] $end
+$var reg 8 O% io_data_out [7:0] $end
+$var reg 8 P% pinb_prev [7:0] $end
+$var reg 7 Q% pinc_prev [6:0] $end
+$var reg 8 R% pind_prev [7:0] $end
+$var reg 8 S% reg_ddrb [7:0] $end
+$var reg 7 T% reg_ddrc [6:0] $end
+$var reg 8 U% reg_ddrd [7:0] $end
+$var reg 8 V% reg_pinb [7:0] $end
+$var reg 7 W% reg_pinc [6:0] $end
+$var reg 8 X% reg_pind [7:0] $end
+$var reg 8 Y% reg_portb [7:0] $end
+$var reg 7 Z% reg_portc [6:0] $end
+$var reg 8 [% reg_portd [7:0] $end
+$scope begin portb_pins[0] $end
+$upscope $end
+$scope begin portb_pins[1] $end
+$upscope $end
+$scope begin portb_pins[2] $end
+$upscope $end
+$scope begin portb_pins[3] $end
+$upscope $end
+$scope begin portb_pins[4] $end
+$upscope $end
+$scope begin portb_pins[5] $end
+$upscope $end
+$scope begin portb_pins[6] $end
+$upscope $end
+$scope begin portb_pins[7] $end
+$upscope $end
+$scope begin portc_pins[0] $end
+$upscope $end
+$scope begin portc_pins[1] $end
+$upscope $end
+$scope begin portc_pins[2] $end
+$upscope $end
+$scope begin portc_pins[3] $end
+$upscope $end
+$scope begin portc_pins[4] $end
+$upscope $end
+$scope begin portc_pins[5] $end
+$upscope $end
+$scope begin portc_pins[6] $end
+$upscope $end
+$scope begin portd_pins[0] $end
+$upscope $end
+$scope begin portd_pins[1] $end
+$upscope $end
+$scope begin portd_pins[2] $end
+$upscope $end
+$scope begin portd_pins[3] $end
+$upscope $end
+$scope begin portd_pins[4] $end
+$upscope $end
+$scope begin portd_pins[5] $end
+$upscope $end
+$scope begin portd_pins[6] $end
+$upscope $end
+$scope begin portd_pins[7] $end
+$upscope $end
+$upscope $end
+$scope module i2c_inst $end
+$var wire 1 n" clk $end
+$var wire 8 \% debug_data [7:0] $end
+$var wire 6 ]% io_addr [5:0] $end
+$var wire 8 ^% io_data_in [7:0] $end
+$var wire 1 _% io_read $end
+$var wire 1 `% io_write $end
+$var wire 1 2" reset_n $end
+$var wire 1 a% scl_tick $end
+$var wire 1 s twi_interrupt $end
+$var wire 5 b% twsr_tws [4:0] $end
+$var wire 2 c% twsr_twps [1:0] $end
+$var wire 1 d% twcr_twwc $end
+$var wire 1 e% twcr_twsto $end
+$var wire 1 f% twcr_twsta $end
+$var wire 1 g% twcr_twint $end
+$var wire 1 h% twcr_twie $end
+$var wire 1 i% twcr_twen $end
+$var wire 1 j% twcr_twea $end
+$var wire 1 & sda $end
+$var wire 1 ' scl $end
+$var wire 8 k% debug_state [7:0] $end
+$var reg 1 l% ack_received $end
+$var reg 1 m% ack_to_send $end
+$var reg 1 n% arbitration_lost $end
+$var reg 4 o% bit_counter [3:0] $end
+$var reg 1 p% bus_busy $end
+$var reg 1 q% data_ready $end
+$var reg 1 r% interrupt_flag $end
+$var reg 8 s% io_data_out [7:0] $end
+$var reg 8 t% reg_twar [7:0] $end
+$var reg 8 u% reg_twbr [7:0] $end
+$var reg 8 v% reg_twcr [7:0] $end
+$var reg 8 w% reg_twdr [7:0] $end
+$var reg 8 x% reg_twsr [7:0] $end
+$var reg 8 y% rx_data [7:0] $end
+$var reg 8 z% scl_clock_counter [7:0] $end
+$var reg 8 {% scl_clock_div [7:0] $end
+$var reg 1 |% scl_clock_enable $end
+$var reg 1 }% scl_oe $end
+$var reg 1 ~% scl_out $end
+$var reg 1 !& sda_oe $end
+$var reg 1 "& sda_out $end
+$var reg 8 #& shift_register [7:0] $end
+$var reg 1 $& start_condition $end
+$var reg 1 %& stop_condition $end
+$var reg 3 && timing_counter [2:0] $end
+$var reg 5 '& twi_state [4:0] $end
+$var reg 8 (& tx_data [7:0] $end
+$upscope $end
+$scope module interrupt_controller_inst $end
+$var wire 1 &# adc_complete $end
+$var wire 1 )& analog_comp $end
+$var wire 1 o" clk $end
+$var wire 5 *& debug_current_priority [4:0] $end
+$var wire 1 e" ee_ready $end
+$var wire 1 +& global_interrupt_enable $end
+$var wire 1 C int0_pin $end
+$var wire 1 D int1_pin $end
+$var wire 1 [" interrupt_acknowledge $end
+$var wire 1 ,& interrupt_disable_write $end
+$var wire 1 -& interrupt_enable_write $end
+$var wire 1 [ interrupt_return $end
+$var wire 6 .& io_addr [5:0] $end
+$var wire 8 /& io_data_in [7:0] $end
+$var wire 1 ] io_read $end
+$var wire 1 ^ io_write $end
+$var wire 16 0& pc_current [15:0] $end
+$var wire 1 E" pcint0_req $end
+$var wire 1 D" pcint1_req $end
+$var wire 1 C" pcint2_req $end
+$var wire 1 2" reset_n $end
+$var wire 1 b" spm_ready $end
+$var wire 1 i timer1_capt $end
+$var wire 1 s twi_interrupt $end
+$var wire 1 1& wdt_interrupt $end
+$var wire 1 n usart_udre $end
+$var wire 1 o usart_tx_complete $end
+$var wire 1 p usart_rx_complete $end
+$var wire 1 t timer2_ovf $end
+$var wire 1 u timer2_compb $end
+$var wire 1 v timer2_compa $end
+$var wire 1 w timer1_ovf $end
+$var wire 1 x timer1_compb $end
+$var wire 1 y timer1_compa $end
+$var wire 1 z timer0_ovf $end
+$var wire 1 { timer0_compb $end
+$var wire 1 | timer0_compa $end
+$var wire 1 +" spi_stc $end
+$var wire 8 2& debug_pending_mask [7:0] $end
+$var wire 8 3& debug_active_interrupts [7:0] $end
+$var reg 5 4& current_priority [4:0] $end
+$var reg 1 5& has_pending_interrupt $end
+$var reg 5 6& highest_priority [4:0] $end
+$var reg 1 7& int0_edge $end
+$var reg 1 8& int0_prev $end
+$var reg 1 9& int1_edge $end
+$var reg 1 :& int1_prev $end
+$var reg 1 ;& interrupt_active $end
+$var reg 26 <& interrupt_enable [25:0] $end
+$var reg 26 =& interrupt_pending [25:0] $end
+$var reg 1 Z" interrupt_request $end
+$var reg 5 >& interrupt_vector [4:0] $end
+$var reg 8 ?& io_data_out [7:0] $end
+$var reg 8 @& nested_count [7:0] $end
+$var reg 16 A& pc_interrupt [15:0] $end
+$var reg 8 B& reg_eicra [7:0] $end
+$var reg 8 C& reg_eifr [7:0] $end
+$var reg 8 D& reg_eimsk [7:0] $end
+$var reg 8 E& reg_pcicr [7:0] $end
+$var reg 8 F& reg_pcifr [7:0] $end
+$var reg 8 G& reg_pcmsk0 [7:0] $end
+$var reg 8 H& reg_pcmsk1 [7:0] $end
+$var reg 8 I& reg_pcmsk2 [7:0] $end
+$var reg 8 J& reg_tifr0 [7:0] $end
+$var reg 8 K& reg_tifr1 [7:0] $end
+$var reg 8 L& reg_tifr2 [7:0] $end
+$var reg 8 M& reg_timsk0 [7:0] $end
+$var reg 8 N& reg_timsk1 [7:0] $end
+$var reg 8 O& reg_timsk2 [7:0] $end
+$var reg 3 P& stack_pointer [2:0] $end
+$scope function vector_address $end
+$var reg 5 Q& vector [4:0] $end
+$upscope $end
+$scope begin $ivl_for_loop0 $end
+$var integer 32 R& i [31:0] $end
+$upscope $end
+$upscope $end
+$scope module pwm_inst $end
+$var wire 8 S& addr [7:0] $end
+$var wire 1 n" clk $end
+$var wire 1 b cs $end
+$var wire 8 T& data_in [7:0] $end
+$var wire 1 3 pwm0_a $end
+$var wire 1 2 pwm0_b $end
+$var wire 1 1 pwm1_a $end
+$var wire 1 0 pwm1_b $end
+$var wire 1 / pwm2_a $end
+$var wire 1 . pwm2_b $end
+$var wire 1 U& re $end
+$var wire 1 2" rst_n $end
+$var wire 1 | timer0_compa $end
+$var wire 1 { timer0_compb $end
+$var wire 1 z timer0_ovf $end
+$var wire 1 y timer1_compa $end
+$var wire 1 x timer1_compb $end
+$var wire 1 w timer1_ovf $end
+$var wire 1 v timer2_compa $end
+$var wire 1 u timer2_compb $end
+$var wire 1 t timer2_ovf $end
+$var wire 1 V& we $end
+$var wire 2 W& wgm2 [1:0] $end
+$var wire 4 X& wgm1 [3:0] $end
+$var wire 2 Y& wgm0 [1:0] $end
+$var wire 1 Z& timer2_clk_en $end
+$var wire 1 [& timer1_clk_en $end
+$var wire 1 \& timer0_clk_en $end
+$var wire 3 ]& cs2 [2:0] $end
+$var wire 3 ^& cs1 [2:0] $end
+$var wire 3 _& cs0 [2:0] $end
+$var wire 2 `& com2b [1:0] $end
+$var wire 2 a& com2a [1:0] $end
+$var wire 2 b& com1b [1:0] $end
+$var wire 2 c& com1a [1:0] $end
+$var wire 2 d& com0b [1:0] $end
+$var wire 2 e& com0a [1:0] $end
+$var reg 8 f& data_out [7:0] $end
+$var reg 8 g& ocr0a [7:0] $end
+$var reg 8 h& ocr0b [7:0] $end
+$var reg 16 i& ocr1a [15:0] $end
+$var reg 16 j& ocr1b [15:0] $end
+$var reg 8 k& ocr2a [7:0] $end
+$var reg 8 l& ocr2b [7:0] $end
+$var reg 11 m& prescaler0_cnt [10:0] $end
+$var reg 11 n& prescaler1_cnt [10:0] $end
+$var reg 11 o& prescaler2_cnt [10:0] $end
+$var reg 1 p& pwm0_a_reg $end
+$var reg 1 q& pwm0_b_reg $end
+$var reg 1 r& pwm1_a_reg $end
+$var reg 1 s& pwm1_b_reg $end
+$var reg 1 t& pwm2_a_reg $end
+$var reg 1 u& pwm2_b_reg $end
+$var reg 8 v& tccr0a [7:0] $end
+$var reg 8 w& tccr0b [7:0] $end
+$var reg 8 x& tccr1a [7:0] $end
+$var reg 8 y& tccr1b [7:0] $end
+$var reg 8 z& tccr2a [7:0] $end
+$var reg 8 {& tccr2b [7:0] $end
+$var reg 8 |& tcnt0 [7:0] $end
+$var reg 16 }& tcnt1 [15:0] $end
+$var reg 8 ~& tcnt2 [7:0] $end
+$var reg 1 !' timer0_compare_a $end
+$var reg 1 "' timer0_compare_b $end
+$var reg 1 #' timer0_overflow $end
+$var reg 1 $' timer1_compare_a $end
+$var reg 1 %' timer1_compare_b $end
+$var reg 1 &' timer1_overflow $end
+$var reg 1 '' timer2_compare_a $end
+$var reg 1 (' timer2_compare_b $end
+$var reg 1 )' timer2_overflow $end
+$upscope $end
+$scope module registers_inst $end
+$var wire 1 o" clk $end
+$var wire 5 *' rd_addr [4:0] $end
+$var wire 8 +' rd_data [7:0] $end
+$var wire 1 ,' rd_write_en $end
+$var wire 1 2" reset_n $end
+$var wire 5 -' rs1_addr [4:0] $end
+$var wire 8 .' rs1_data [7:0] $end
+$var wire 5 /' rs2_addr [4:0] $end
+$var wire 8 0' rs2_data [7:0] $end
+$var wire 16 1' x_pointer_in [15:0] $end
+$var wire 1 2' x_write_en $end
+$var wire 16 3' y_pointer_in [15:0] $end
+$var wire 1 4' y_write_en $end
+$var wire 16 5' z_pointer_in [15:0] $end
+$var wire 1 6' z_write_en $end
+$var wire 16 7' z_pointer [15:0] $end
+$var wire 16 8' y_pointer [15:0] $end
+$var wire 16 9' x_pointer [15:0] $end
+$var integer 32 :' i [31:0] $end
+$upscope $end
+$scope module spi_inst $end
+$var wire 1 n" clk $end
+$var wire 8 ;' debug_shift_reg [7:0] $end
+$var wire 6 <' io_addr [5:0] $end
+$var wire 8 =' io_data_in [7:0] $end
+$var wire 1 >' io_read $end
+$var wire 1 ?' io_write $end
+$var wire 1 2" reset_n $end
+$var wire 1 @' spi_clock_tick $end
+$var wire 1 +" spi_interrupt $end
+$var wire 1 K spi_miso $end
+$var wire 1 A' spi_sck_edge $end
+$var wire 1 B' spi_ss_falling $end
+$var wire 1 C' spsr_wcol $end
+$var wire 1 D' spsr_spif $end
+$var wire 1 E' spsr_spi2x $end
+$var wire 1 # spi_ss $end
+$var wire 1 $ spi_sck $end
+$var wire 1 % spi_mosi $end
+$var wire 2 F' spcr_spr [1:0] $end
+$var wire 1 G' spcr_spie $end
+$var wire 1 H' spcr_spe $end
+$var wire 1 I' spcr_mstr $end
+$var wire 1 J' spcr_dord $end
+$var wire 1 K' spcr_cpol $end
+$var wire 1 L' spcr_cpha $end
+$var wire 8 M' debug_state [7:0] $end
+$var reg 4 N' bit_counter [3:0] $end
+$var reg 1 O' data_ready $end
+$var reg 8 P' io_data_out [7:0] $end
+$var reg 8 Q' reg_spcr [7:0] $end
+$var reg 8 R' reg_spdr [7:0] $end
+$var reg 8 S' reg_spsr [7:0] $end
+$var reg 8 T' rx_data [7:0] $end
+$var reg 8 U' shift_register [7:0] $end
+$var reg 8 V' spi_clock_counter [7:0] $end
+$var reg 8 W' spi_clock_div [7:0] $end
+$var reg 1 X' spi_clock_enable $end
+$var reg 1 Y' spi_clock_out $end
+$var reg 1 Z' spi_mosi_out $end
+$var reg 1 [' spi_sck_prev $end
+$var reg 1 \' spi_ss_out $end
+$var reg 1 ]' spi_ss_prev $end
+$var reg 3 ^' spi_state [2:0] $end
+$var reg 1 _' transfer_complete $end
+$var reg 8 `' tx_data [7:0] $end
+$var reg 1 a' write_collision $end
+$upscope $end
+$scope module system_tick_inst $end
+$var wire 1 o" clk $end
+$var wire 16 b' debug_prescaler_count [15:0] $end
+$var wire 1 c' debug_tick_active $end
+$var wire 6 d' io_addr [5:0] $end
+$var wire 8 e' io_data_in [7:0] $end
+$var wire 1 f' io_read $end
+$var wire 1 g' io_write $end
+$var wire 1 2" reset_n $end
+$var wire 1 h' system_tick_1ms $end
+$var wire 1 i' system_tick_1us $end
+$var wire 1 j' tick_enable $end
+$var wire 1 k' tick_enabled $end
+$var reg 8 l' io_data_out [7:0] $end
+$var reg 32 m' micros_counter [31:0] $end
+$var reg 32 n' millis_counter [31:0] $end
+$var reg 16 o' prescaler_1ms [15:0] $end
+$var reg 6 p' prescaler_1us [5:0] $end
+$var reg 1 q' tick_1ms_reg $end
+$var reg 1 r' tick_1us_reg $end
+$var reg 8 s' tick_control [7:0] $end
+$upscope $end
+$scope module uart_inst $end
+$var wire 1 n" clk $end
+$var wire 16 t' debug_baud_counter [15:0] $end
+$var wire 6 u' io_addr [5:0] $end
+$var wire 8 v' io_data_in [7:0] $end
+$var wire 1 w' io_read $end
+$var wire 1 x' io_write $end
+$var wire 1 2" reset_n $end
+$var wire 1 L uart_rx $end
+$var wire 1 ! uart_tx $end
+$var wire 1 p usart_rx_complete $end
+$var wire 1 o usart_tx_complete $end
+$var wire 1 n usart_udre $end
+$var wire 1 y' ucsr0c_usbs $end
+$var wire 2 z' ucsr0c_upm [1:0] $end
+$var wire 2 {' ucsr0c_umsel [1:0] $end
+$var wire 2 |' ucsr0c_ucsz [1:0] $end
+$var wire 1 }' ucsr0c_ucpol $end
+$var wire 1 ~' ucsr0b_udrie $end
+$var wire 1 !( ucsr0b_ucsz2 $end
+$var wire 1 "( ucsr0b_txen $end
+$var wire 1 #( ucsr0b_txcie $end
+$var wire 1 $( ucsr0b_txb8 $end
+$var wire 1 %( ucsr0b_rxen $end
+$var wire 1 &( ucsr0b_rxcie $end
+$var wire 1 '( ucsr0b_rxb8 $end
+$var wire 1 (( ucsr0a_upe $end
+$var wire 1 )( ucsr0a_udre $end
+$var wire 1 *( ucsr0a_u2x $end
+$var wire 1 +( ucsr0a_txc $end
+$var wire 1 ,( ucsr0a_rxc $end
+$var wire 1 -( ucsr0a_mpcm $end
+$var wire 1 .( ucsr0a_fe $end
+$var wire 1 /( ucsr0a_dor $end
+$var wire 8 0( debug_state [7:0] $end
+$var wire 16 1( baud_divisor [15:0] $end
+$var reg 16 2( baud_counter [15:0] $end
+$var reg 1 3( baud_tick $end
+$var reg 8 4( io_data_out [7:0] $end
+$var reg 8 5( reg_ubrr0h [7:0] $end
+$var reg 8 6( reg_ubrr0l [7:0] $end
+$var reg 8 7( reg_ucsr0a [7:0] $end
+$var reg 8 8( reg_ucsr0b [7:0] $end
+$var reg 8 9( reg_ucsr0c [7:0] $end
+$var reg 8 :( reg_udr0 [7:0] $end
+$var reg 4 ;( rx_bit_count [3:0] $end
+$var reg 8 <( rx_buffer [7:0] $end
+$var reg 1 =( rx_buffer_full $end
+$var reg 1 >( rx_data_ready $end
+$var reg 2 ?( rx_sample_count [1:0] $end
+$var reg 8 @( rx_shift_reg [7:0] $end
+$var reg 3 A( rx_state [2:0] $end
+$var reg 1 B( tx_active $end
+$var reg 4 C( tx_bit_count [3:0] $end
+$var reg 1 D( tx_output $end
+$var reg 8 E( tx_shift_reg [7:0] $end
+$var reg 3 F( tx_state [2:0] $end
+$upscope $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+b0 F(
+b0 E(
+1D(
+b0 C(
+0B(
+b0 A(
+b0 @(
+b0 ?(
+0>(
+0=(
+b0 <(
+b0 ;(
+b0 :(
+b110 9(
+b0 8(
+b100000 7(
+b1100111 6(
+b0 5(
+b0 4(
+03(
+b0 2(
+b1100111 1(
+b0 0(
+0/(
+0.(
+0-(
+0,(
+0+(
+0*(
+1)(
+0((
+0'(
+0&(
+0%(
+0$(
+0#(
+0"(
+0!(
+0~'
+0}'
+b11 |'
+b0 {'
+b0 z'
+0y'
+0x'
+0w'
+b0 v'
+b0 u'
+b0 t'
+b1 s'
+0r'
+0q'
+b0 p'
+b0 o'
+b0 n'
+b0 m'
+b0 l'
+1k'
+1j'
+0i'
+0h'
+0g'
+0f'
+b0 e'
+b0 d'
+1c'
+b0 b'
+0a'
+b0 `'
+0_'
+b0 ^'
+x]'
+1\'
+x['
+0Z'
+0Y'
+0X'
+b100 W'
+b0 V'
+b0 U'
+b0 T'
+b0 S'
+b0 R'
+b0 Q'
+b0 P'
+0O'
+b0 N'
+b0 M'
+0L'
+0K'
+0J'
+0I'
+0H'
+0G'
+b0 F'
+0E'
+0D'
+0C'
+xB'
+xA'
+0@'
+0?'
+0>'
+b0 ='
+b0 <'
+b0 ;'
+b100000 :'
+b0 9'
+b0 8'
+b0 7'
+06'
+b0 5'
+04'
+b0 3'
+02'
+b0 1'
+b0 0'
+b0 /'
+b0 .'
+b0 -'
+0,'
+b0 +'
+b0 *'
+0)'
+0('
+0''
+0&'
+0%'
+0$'
+0#'
+0"'
+0!'
+b0 ~&
+b0 }&
+b0 |&
+b0 {&
+b0 z&
+b0 y&
+b0 x&
+b0 w&
+b0 v&
+0u&
+0t&
+0s&
+0r&
+0q&
+0p&
+b0 o&
+b0 n&
+b0 m&
+b0 l&
+b0 k&
+b0 j&
+b0 i&
+b0 h&
+b0 g&
+b0 f&
+b0 e&
+b0 d&
+b0 c&
+b0 b&
+b0 a&
+b0 `&
+b0 _&
+b0 ^&
+b0 ]&
+0\&
+0[&
+0Z&
+b0 Y&
+b0 X&
+b0 W&
+0V&
+0U&
+b0 T&
+b0 S&
+b11010 R&
+bx Q&
+b0 P&
+b0 O&
+b0 N&
+b0 M&
+b0 L&
+b0 K&
+b0 J&
+b0 I&
+b0 H&
+b0 G&
+b0 F&
+b0 E&
+b0 D&
+b0 C&
+b0 B&
+b0 A&
+b0 @&
+b0 ?&
+b0 >&
+b10000000000000000000000000 =&
+b0 <&
+0;&
+1:&
+09&
+18&
+07&
+b11001 6&
+15&
+b0 4&
+b0 3&
+b10000 2&
+01&
+b0 0&
+b0 /&
+b0 .&
+0-&
+0,&
+0+&
+b0 *&
+0)&
+b0 (&
+b0 '&
+b0 &&
+0%&
+0$&
+b0 #&
+1"&
+0!&
+1~%
+0}%
+0|%
+b0 {%
+b0 z%
+b0 y%
+b11111000 x%
+b0 w%
+b0 v%
+b0 u%
+b11111110 t%
+b0 s%
+0r%
+0q%
+0p%
+b0 o%
+0n%
+0m%
+0l%
+b1 k%
+0j%
+0i%
+0h%
+0g%
+0f%
+0e%
+0d%
+b0 c%
+b11111 b%
+0a%
+0`%
+0_%
+b0 ^%
+b0 ]%
+b0 \%
+b0 [%
+b0 Z%
+b0 Y%
+b0 X%
+b0 W%
+b0 V%
+b0 U%
+b0 T%
+b0 S%
+b0 R%
+b0 Q%
+b0 P%
+b0 O%
+b0 N%
+b0 M%
+b0 L%
+bz K%
+bz J%
+bz I%
+b0 H%
+b0 G%
+b0 F%
+b0 E%
+b0 D%
+b0 C%
+b0 B%
+b0 A%
+b0 @%
+b0 ?%
+b0 >%
+b0 =%
+0<%
+0;%
+b0 :%
+b0 9%
+bx 8%
+b1000000 7%
+bx 6%
+05%
+b0 4%
+b1 3%
+02%
+b0 1%
+b100000000000000 0%
+0/%
+b0 .%
+b0 -%
+b0 ,%
+0+%
+1*%
+1)%
+b0 (%
+0'%
+b0 &%
+b0 %%
+b0 $%
+0#%
+0"%
+b0 !%
+b0 ~$
+b10000000000 }$
+b0 |$
+b0 {$
+b0 z$
+b0 y$
+b0 x$
+b0 w$
+0v$
+b0 u$
+b0 t$
+0s$
+b0 r$
+0q$
+0p$
+0o$
+0n$
+0m$
+0l$
+b0 k$
+0j$
+0i$
+b0 h$
+b0 g$
+b0 f$
+bx e$
+b0 d$
+b0 c$
+b0 b$
+b0 a$
+b0 `$
+b0 _$
+b0 ^$
+b0 ]$
+b0 \$
+b0 [$
+b0 Z$
+b0 Y$
+b0 X$
+b0 W$
+b111111 V$
+b0 U$
+b0 T$
+b0 S$
+b0 R$
+b0 Q$
+b0 P$
+b0 O$
+b0 N$
+b0 M$
+b0 L$
+b0 K$
+b0 J$
+b0 I$
+b0 H$
+b0 G$
+b0 F$
+b0 E$
+b0 D$
+b0 C$
+0B$
+b0 A$
+b0 @$
+0?$
+0>$
+b0 =$
+0<$
+b0 ;$
+b10000000 :$
+b0 9$
+b0 8$
+b0 7$
+b10000000 6$
+b1 5$
+b1000000 4$
+b0 3$
+02$
+b0 1$
+00$
+b0 /$
+0.$
+0-$
+0,$
+0+$
+0*$
+0)$
+b0 ($
+0'$
+b0 &$
+0%$
+b0 $$
+0#$
+b0 "$
+0!$
+b1 ~#
+b1000000 }#
+z|#
+z{#
+bz z#
+bz y#
+b0 x#
+b1 w#
+b1 v#
+b1 u#
+b10 t#
+1s#
+b0 r#
+b0 q#
+b0 p#
+b0 o#
+b0 n#
+0m#
+bx l#
+bx k#
+bx j#
+b0 i#
+b111111 h#
+b0 g#
+b0 f#
+bx e#
+b0 d#
+b0 c#
+bz b#
+0a#
+0`#
+0_#
+0^#
+0]#
+0\#
+0[#
+b0 Z#
+b0 Y#
+b0 X#
+b0 W#
+b0 V#
+b0 U#
+b10100101 T#
+b0 S#
+b0 R#
+b0 Q#
+0P#
+b0 O#
+b0 N#
+b10 M#
+bx L#
+0K#
+b0 J#
+0I#
+0H#
+0G#
+0F#
+b0 E#
+0D#
+0C#
+b0 B#
+0A#
+b0 @#
+b0 ?#
+b0 >#
+0=#
+0<#
+b0 ;#
+b0 :#
+b0 9#
+08#
+07#
+b10000000 6#
+x5#
+bx 4#
+bx 3#
+b0 2#
+b10000111111111 1#
+b0 0#
+b0 /#
+0.#
+b0 -#
+b0 ,#
+b0 +#
+b0 *#
+b0 )#
+0(#
+b0 '#
+0&#
+0%#
+0$#
+0##
+0"#
+0!#
+0~"
+1}"
+b111111 |"
+b0 {"
+b0 z"
+0y"
+0x"
+b0 w"
+0v"
+0u"
+b0 t"
+0s"
+b0 r"
+0q"
+0p"
+0o"
+0n"
+0m"
+b0 l"
+b1 k"
+b0 j"
+b0 i"
+b0 h"
+b0 g"
+0f"
+0e"
+0d"
+0c"
+1b"
+0a"
+0`"
+b0 _"
+b0 ^"
+b0 ]"
+0\"
+0["
+0Z"
+b0 Y"
+b0 X"
+b0 W"
+b0 V"
+0U"
+0T"
+0S"
+b0 R"
+0Q"
+b1000000 P"
+b1 O"
+b0 N"
+0M"
+0L"
+0K"
+0J"
+0I"
+b0 H"
+0G"
+b0 F"
+0E"
+0D"
+0C"
+0B"
+0A"
+b0 @"
+b0 ?"
+b0 >"
+b0 ="
+b0 <"
+b0 ;"
+b0 :"
+b0 9"
+b0 8"
+07"
+06"
+b0 5"
+b0 4"
+13"
+02"
+11"
+00"
+b0 /"
+b0 ."
+0-"
+b0 ,"
+0+"
+0*"
+b0 )"
+0("
+0'"
+0&"
+0%"
+0$"
+0#"
+0""
+0!"
+0~
+b0 }
+0|
+0{
+0z
+0y
+0x
+0w
+0v
+0u
+0t
+0s
+b0 r
+0q
+0p
+0o
+0n
+0m
+0l
+0k
+bz j
+zi
+0h
+bz g
+0f
+b0 e
+0d
+bz c
+0b
+b0 a
+b0 `
+b0 _
+0^
+0]
+b0 \
+0[
+0Z
+0Y
+b0 X
+b10000111111111 W
+b0 V
+b0 U
+b0 T
+b0 S
+b0 R
+b1 Q
+b1 P
+0O
+b10000000 N
+1M
+1L
+0K
+0J
+0I
+b0 H
+b0 G
+b0 F
+b0 E
+0D
+0C
+0B
+b1 A
+b1 @
+0?
+0>
+0=
+1<
+1;
+b10000000 :
+09
+b0 8
+07
+b0 6
+b0 5
+b10000111111111 4
+03
+02
+01
+00
+0/
+0.
+b0 -
+b0 ,
+b0 +
+b0 *
+b0 )
+b0 (
+z'
+z&
+z%
+z$
+z#
+b0 "
+1!
+$end
+#20000
+1?
+#40000
+0?
+#60000
+1?
+#80000
+0?
+#100000
+1?
+#120000
+0?
+#140000
+1?
+#160000
+0?
+#180000
+b1 9$
+b1 8$
+b1 ;$
+1I
+1?
+#200000
+0?
+#220000
+b10 9$
+b10 8$
+b10 ;$
+1?
+#240000
+0?
+#260000
+b11 9$
+b11 8$
+b11 ;$
+1?
+#280000
+0?
+#300000
+b100 9$
+b100 8$
+b100 ;$
+1?
+#320000
+0?
+#340000
+b101 9$
+b101 8$
+b101 ;$
+1?
+#360000
+0?
+#380000
+b110 9$
+b110 8$
+b110 ;$
+12"
+1<$
+1J
+1?
+#400000
+0?
+#420000
+b111 9$
+b111 8$
+b111 ;$
+1?
+#440000
+0?
+#460000
+b1000 9$
+b1000 8$
+b1000 ;$
+1?
+#480000
+0?
+#500000
+b1001 9$
+b1001 8$
+b1001 ;$
+1?
+#520000
+0?
+#540000
+b1010 9$
+b1010 8$
+b1010 ;$
+1?
+#560000
+0?
+#580000
+b1011 9$
+b1011 8$
+b1011 ;$
+1?
+#600000
+0?
+#620000
+b1100 9$
+b1100 8$
+b1100 ;$
+1?
+#640000
+0?
+#660000
+b1101 9$
+b1101 8$
+b1101 ;$
+1?
+#680000
+0?
+#700000
+b1110 9$
+b1110 8$
+b1110 ;$
+1?
+#720000
+0?
+#740000
+b1111 9$
+b1111 8$
+b1111 ;$
+1?
+#760000
+0?
+#780000
+b10000 9$
+b10000 8$
+b10000 ;$
+1?
+#800000
+0?
+#820000
+b10001 9$
+b10001 8$
+b10001 ;$
+1?
+#840000
+0?
+#860000
+b10010 9$
+b10010 8$
+b10010 ;$
+1?
+#880000
+0?
+#900000
+b10011 9$
+b10011 8$
+b10011 ;$
+1?
+#920000
+0?
+#940000
+b10100 9$
+b10100 8$
+b10100 ;$
+1?
+#960000
+0?
+#980000
+b10101 9$
+b10101 8$
+b10101 ;$
+1?
+#1000000
+0?
+#1020000
+b10110 9$
+b10110 8$
+b10110 ;$
+1?
+#1040000
+0?
+#1060000
+b10111 9$
+b10111 8$
+b10111 ;$
+1?
+#1080000
+0?
+#1100000
+b11000 9$
+b11000 8$
+b11000 ;$
+1?
+#1120000
+0?
+#1140000
+b11001 9$
+b11001 8$
+b11001 ;$
+1?
+#1160000
+0?
+#1180000
+b11010 9$
+b11010 8$
+b11010 ;$
+1?
+#1200000
+0?
+#1220000
+b11011 9$
+b11011 8$
+b11011 ;$
+1?
+#1240000
+0?
+#1260000
+b11100 9$
+b11100 8$
+b11100 ;$
+1?
+#1280000
+0?
+#1300000
+b11101 9$
+b11101 8$
+b11101 ;$
+1?
+#1320000
+0?
+#1340000
+b11110 9$
+b11110 8$
+b11110 ;$
+1?
+#1360000
+0?
+#1380000
+b11111 9$
+b11111 8$
+b11111 ;$
+1?
+#1400000
+0?
+#1420000
+b100000 9$
+b100000 8$
+b100000 ;$
+1?
+#1440000
+0?
+#1460000
+b100001 9$
+b100001 8$
+b100001 ;$
+1?
+#1480000
+0?
+#1500000
+b100010 9$
+b100010 8$
+b100010 ;$
+1?
+#1520000
+0?
+#1540000
+b100011 9$
+b100011 8$
+b100011 ;$
+1?
+#1560000
+0?
+#1580000
+b100100 9$
+b100100 8$
+b100100 ;$
+1?
+#1600000
+0?
+#1620000
+b100101 9$
+b100101 8$
+b100101 ;$
+1?
+#1640000
+0?
+#1660000
+b100110 9$
+b100110 8$
+b100110 ;$
+1?
+#1680000
+0?
+#1700000
+b100111 9$
+b100111 8$
+b100111 ;$
+1?
+#1720000
+0?
+#1740000
+b101000 9$
+b101000 8$
+b101000 ;$
+1?
+#1760000
+0?
+#1780000
+b101001 9$
+b101001 8$
+b101001 ;$
+1?
+#1800000
+0?
+#1820000
+b101010 9$
+b101010 8$
+b101010 ;$
+1?
+#1840000
+0?
+#1860000
+b101011 9$
+b101011 8$
+b101011 ;$
+1?
+#1880000
+0?
+#1900000
+b101100 9$
+b101100 8$
+b101100 ;$
+1?
+#1920000
+0?
+#1940000
+b101101 9$
+b101101 8$
+b101101 ;$
+1?
+#1960000
+0?
+#1980000
+b101110 9$
+b101110 8$
+b101110 ;$
+1?
+#2000000
+0?
+#2020000
+b101111 9$
+b101111 8$
+b101111 ;$
+1?
+#2040000
+0?
+#2060000
+b110000 9$
+b110000 8$
+b110000 ;$
+1?
+#2080000
+0?
+#2100000
+b110001 9$
+b110001 8$
+b110001 ;$
+1?
+#2120000
+0?
+#2140000
+b110010 9$
+b110010 8$
+b110010 ;$
+1?
+#2160000
+0?
+#2180000
+b110011 9$
+b110011 8$
+b110011 ;$
+1?
+#2200000
+0?
+#2220000
+b110100 9$
+b110100 8$
+b110100 ;$
+1?
+#2240000
+0?
+#2260000
+b110101 9$
+b110101 8$
+b110101 ;$
+1?
+#2280000
+0?
+#2300000
+b110110 9$
+b110110 8$
+b110110 ;$
+1?
+#2320000
+0?
+#2340000
+b110111 9$
+b110111 8$
+b110111 ;$
+1?
+#2360000
+0?
+#2380000
+b111000 9$
+b111000 8$
+b111000 ;$
+b10101010 H
+b10101010 a
+b10101010 G%
+b101010 G
+b101010 `
+b101010 D%
+b1010101 F
+b1010101 _
+b1010101 A%
+1?
+#2400000
+0?
+#2420000
+b111001 9$
+b111001 8$
+b111001 ;$
+1?
+#2440000
+0?
+#2460000
+b111010 9$
+b111010 8$
+b111010 ;$
+1?
+#2480000
+0?
+#2500000
+b111011 9$
+b111011 8$
+b111011 ;$
+1?
+#2520000
+0?
+#2540000
+b111100 9$
+b111100 8$
+b111100 ;$
+1?
+#2560000
+0?
+#2580000
+b111101 9$
+b111101 8$
+b111101 ;$
+1?
+#2600000
+0?
+#2620000
+b111110 9$
+b111110 8$
+b111110 ;$
+1?
+#2640000
+0?
+#2660000
+b111111 9$
+b111111 8$
+b111111 ;$
+1?
+#2680000
+0?
+#2700000
+b1000000 9$
+b1000000 8$
+b1000000 ;$
+1?
+#2720000
+0?
+#2740000
+b1000001 9$
+b1000001 8$
+b1000001 ;$
+1?
+#2760000
+0?
+#2780000
+b1000010 9$
+b1000010 8$
+b1000010 ;$
+1?
+#2800000
+0?
+#2820000
+b1000011 9$
+b1000011 8$
+b1000011 ;$
+1?
+#2840000
+0?
+#2860000
+b1000100 9$
+b1000100 8$
+b1000100 ;$
+1?
+#2880000
+0?
+#2900000
+b1000101 9$
+b1000101 8$
+b1000101 ;$
+1?
+#2920000
+0?
+#2940000
+b1000110 9$
+b1000110 8$
+b1000110 ;$
+1?
+#2960000
+0?
+#2980000
+b1000111 9$
+b1000111 8$
+b1000111 ;$
+1?
+#3000000
+0?
+#3020000
+b1001000 9$
+b1001000 8$
+b1001000 ;$
+1?
+#3040000
+0?
+#3060000
+b1001001 9$
+b1001001 8$
+b1001001 ;$
+1?
+#3080000
+0?
+#3100000
+b1001010 9$
+b1001010 8$
+b1001010 ;$
+1?
+#3120000
+0?
+#3140000
+b1001011 9$
+b1001011 8$
+b1001011 ;$
+1?
+#3160000
+0?
+#3180000
+b1001100 9$
+b1001100 8$
+b1001100 ;$
+1?
+#3200000
+0?
+#3220000
+b1001101 9$
+b1001101 8$
+b1001101 ;$
+1?
+#3240000
+0?
+#3260000
+b1001110 9$
+b1001110 8$
+b1001110 ;$
+1?
+#3280000
+0?
+#3300000
+b1001111 9$
+b1001111 8$
+b1001111 ;$
+1?
+#3320000
+0?
+#3340000
+b1010000 9$
+b1010000 8$
+b1010000 ;$
+1?
+#3360000
+0?
+#3380000
+b1010001 9$
+b1010001 8$
+b1010001 ;$
+1?
+#3400000
+0?
+#3420000
+b1010010 9$
+b1010010 8$
+b1010010 ;$
+1?
+#3440000
+0?
+#3460000
+b1010011 9$
+b1010011 8$
+b1010011 ;$
+1?
+#3480000
+0?
+#3500000
+b1010100 9$
+b1010100 8$
+b1010100 ;$
+1?
+#3520000
+0?
+#3540000
+b1010101 9$
+b1010101 8$
+b1010101 ;$
+1?
+#3560000
+0?
+#3580000
+b1010110 9$
+b1010110 8$
+b1010110 ;$
+1?
+#3600000
+0?
+#3620000
+b1010111 9$
+b1010111 8$
+b1010111 ;$
+1?
+#3640000
+0?
+#3660000
+b1011000 9$
+b1011000 8$
+b1011000 ;$
+1?
+#3680000
+0?
+#3700000
+b1011001 9$
+b1011001 8$
+b1011001 ;$
+1?
+#3720000
+0?
+#3740000
+b1011010 9$
+b1011010 8$
+b1011010 ;$
+1?
+#3760000
+0?
+#3780000
+b1011011 9$
+b1011011 8$
+b1011011 ;$
+1?
+#3800000
+0?
+#3820000
+b1011100 9$
+b1011100 8$
+b1011100 ;$
+1?
+#3840000
+0?
+#3860000
+b1011101 9$
+b1011101 8$
+b1011101 ;$
+1?
+#3880000
+0?
+#3900000
+b1011110 9$
+b1011110 8$
+b1011110 ;$
+1?
+#3906000
+1m"
+1>
+#3920000
+0?
+#3940000
+b1011111 9$
+b1011111 8$
+b1011111 ;$
+1?
+#3960000
+0?
+#3980000
+b1100000 9$
+b1100000 8$
+b1100000 ;$
+1?
+#4000000
+0?
+#4020000
+b1100001 9$
+b1100001 8$
+b1100001 ;$
+1?
+#4040000
+0?
+#4060000
+b1100010 9$
+b1100010 8$
+b1100010 ;$
+1?
+#4080000
+0?
+#4100000
+b1100011 9$
+b1100011 8$
+b1100011 ;$
+1?
+#4120000
+0?
+#4140000
+b1100100 9$
+b1100100 8$
+b1100100 ;$
+1?
+#4160000
+0?
+#4180000
+b1100101 9$
+b1100101 8$
+b1100101 ;$
+1?
+#4200000
+0?
+#4220000
+b1100110 9$
+b1100110 8$
+b1100110 ;$
+1?
+#4240000
+0?
+#4260000
+b1100111 9$
+b1100111 8$
+b1100111 ;$
+1?
+#4280000
+0?
+#4300000
+b1101000 9$
+b1101000 8$
+b1101000 ;$
+1?
+#4320000
+0?
+#4340000
+b1101001 9$
+b1101001 8$
+b1101001 ;$
+1?
+#4360000
+0?
+#4380000
+b1101010 9$
+b1101010 8$
+b1101010 ;$
+1?
+#4400000
+0?
+#4420000
+b1101011 9$
+b1101011 8$
+b1101011 ;$
+1?
+#4440000
+0?
+#4460000
+b1101100 9$
+b1101100 8$
+b1101100 ;$
+1?
+#4480000
+0?
+#4500000
+b1101101 9$
+b1101101 8$
+b1101101 ;$
+1?
+#4520000
+0?
+#4540000
+b1101110 9$
+b1101110 8$
+b1101110 ;$
+1?
+#4560000
+0?
+#4580000
+b1101111 9$
+b1101111 8$
+b1101111 ;$
+1?
+#4600000
+0?
+#4620000
+b1110000 9$
+b1110000 8$
+b1110000 ;$
+1?
+#4640000
+0?
+#4660000
+b1110001 9$
+b1110001 8$
+b1110001 ;$
+1?
+#4680000
+0?
+#4700000
+b1110010 9$
+b1110010 8$
+b1110010 ;$
+1?
+#4720000
+0?
+#4740000
+b1110011 9$
+b1110011 8$
+b1110011 ;$
+1?
+#4760000
+0?
+#4780000
+b1110100 9$
+b1110100 8$
+b1110100 ;$
+1?
+#4800000
+0?
+#4820000
+b1110101 9$
+b1110101 8$
+b1110101 ;$
+1?
+#4840000
+0?
+#4860000
+b1110110 9$
+b1110110 8$
+b1110110 ;$
+1?
+#4880000
+0?
+#4900000
+b1110111 9$
+b1110111 8$
+b1110111 ;$
+1?
+#4920000
+0?
+#4940000
+b1111000 9$
+b1111000 8$
+b1111000 ;$
+1?
+#4960000
+0?
+#4980000
+b1111001 9$
+b1111001 8$
+b1111001 ;$
+1?
+#5000000
+0?
+#5020000
+b1111010 9$
+b1111010 8$
+b1111010 ;$
+1?
+#5040000
+0?
+#5060000
+b1111011 9$
+b1111011 8$
+b1111011 ;$
+1?
+#5080000
+0?
+#5100000
+b1111100 9$
+b1111100 8$
+b1111100 ;$
+1?
+#5120000
+0?
+#5140000
+1C"
+b10101010 ?%
+1D"
+b101010 >%
+1E"
+b1010101 =%
+1\"
+b0 3%
+b1 o&
+b1 n&
+b1 m&
+b1 t'
+b1 2(
+b10101010 X%
+b101010 W%
+b1010101 V%
+1B$
+0)%
+b1 )#
+b1 b'
+b1 o'
+b1 p'
+b1 1%
+19&
+17&
+0:&
+08&
+bx %%
+bx .%
+1~
+12$
+1n"
+1o"
+1*$
+b1001010 T#
+1.$
+1p"
+b1111101 9$
+1+$
+b0 8$
+b1111101 ;$
+1?
+#5160000
+0?
+#5180000
+b1111110 9$
+b1 8$
+b1111110 ;$
+1?

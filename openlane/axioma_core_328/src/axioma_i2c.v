@@ -35,20 +35,20 @@ module axioma_i2c (
     localparam ADDR_TWCR = 6'h36;      // 0xBC - TWI Control Register
 
     // Estados I2C
-    localparam TWI_IDLE           = 5'h00;
-    localparam TWI_START          = 5'h08;
-    localparam TWI_REP_START      = 5'h10;
-    localparam TWI_MT_SLA_ACK     = 5'h18;  // Master Transmit Slave Address ACK
-    localparam TWI_MT_SLA_NACK    = 5'h20;  // Master Transmit Slave Address NACK
-    localparam TWI_MT_DATA_ACK    = 5'h28;  // Master Transmit Data ACK
-    localparam TWI_MT_DATA_NACK   = 5'h30;  // Master Transmit Data NACK
-    localparam TWI_MR_SLA_ACK     = 5'h40;  // Master Receive Slave Address ACK
-    localparam TWI_MR_SLA_NACK    = 5'h48;  // Master Receive Slave Address NACK
-    localparam TWI_MR_DATA_ACK    = 5'h50;  // Master Receive Data ACK
-    localparam TWI_MR_DATA_NACK   = 5'h58;  // Master Receive Data NACK
-    localparam TWI_SR_SLA_ACK     = 5'h60;  // Slave Receive Own Address ACK
-    localparam TWI_ST_SLA_ACK     = 5'hA8;  // Slave Transmit Address ACK
-    localparam TWI_BUS_ERROR      = 5'h00;  // Bus Error
+    localparam TWI_IDLE           = 8'h00;
+    localparam TWI_START          = 8'h08;
+    localparam TWI_REP_START      = 8'h10;
+    localparam TWI_MT_SLA_ACK     = 8'h18;  // Master Transmit Slave Address ACK
+    localparam TWI_MT_SLA_NACK    = 8'h20;  // Master Transmit Slave Address NACK
+    localparam TWI_MT_DATA_ACK    = 8'h28;  // Master Transmit Data ACK
+    localparam TWI_MT_DATA_NACK   = 8'h30;  // Master Transmit Data NACK
+    localparam TWI_MR_SLA_ACK     = 8'h40;  // Master Receive Slave Address ACK
+    localparam TWI_MR_SLA_NACK    = 8'h48;  // Master Receive Slave Address NACK
+    localparam TWI_MR_DATA_ACK    = 8'h50;  // Master Receive Data ACK
+    localparam TWI_MR_DATA_NACK   = 8'h58;  // Master Receive Data NACK
+    localparam TWI_SR_SLA_ACK     = 8'h60;  // Slave Receive Own Address ACK
+    localparam TWI_ST_SLA_ACK     = 8'hA8;  // Slave Transmit Address ACK
+    localparam TWI_BUS_ERROR      = 8'h00;  // Bus Error
 
     // Registros I2C
     reg [7:0] reg_twbr;               // Bit Rate Register
@@ -80,12 +80,15 @@ module axioma_i2c (
     reg [4:0] twi_state;
     reg [7:0] shift_register;
     reg [3:0] bit_counter;
+    reg [2:0] timing_counter;        // Para timing I2C preciso
     reg sda_out, scl_out;
     reg sda_oe, scl_oe;              // Output enable
     reg start_condition, stop_condition;
     reg ack_received, ack_to_send;
     reg data_ready;
     reg interrupt_flag;
+    reg bus_busy;                    // Detectar bus ocupado
+    reg arbitration_lost;            // Pérdida de arbitraje
 
     // Buffer de datos
     reg [7:0] tx_data, rx_data;
@@ -133,6 +136,7 @@ module axioma_i2c (
             twi_state <= TWI_IDLE;
             shift_register <= 8'h00;
             bit_counter <= 4'h0;
+            timing_counter <= 3'h0;
             sda_out <= 1'b1;
             scl_out <= 1'b1;
             sda_oe <= 1'b0;
@@ -143,6 +147,8 @@ module axioma_i2c (
             ack_to_send <= 1'b0;
             data_ready <= 1'b0;
             interrupt_flag <= 1'b0;
+            bus_busy <= 1'b0;
+            arbitration_lost <= 1'b0;
             tx_data <= 8'h00;
             rx_data <= 8'h00;
             
@@ -189,7 +195,16 @@ module axioma_i2c (
                     TWI_IDLE: begin
                         sda_oe <= 1'b0;
                         scl_oe <= 1'b0;
+                        bus_busy <= 1'b0;
                         
+                        // Detect start condition from external master
+                        if (!sda && scl && !start_condition) begin
+                            bus_busy <= 1'b1;
+                            twi_state <= TWI_START;
+                            reg_twsr[7:3] <= TWI_START;
+                        end
+                        
+                        // Generate start condition if requested (master mode)
                         if (start_condition) begin
                             twi_state <= TWI_START;
                             sda_oe <= 1'b1;
@@ -198,15 +213,46 @@ module axioma_i2c (
                             scl_out <= 1'b0;
                             reg_twsr[7:3] <= TWI_START;
                             interrupt_flag <= 1'b1;
+                            bus_busy <= 1'b1;
                         end
                     end
                     
                     TWI_START: begin
-                        if (data_ready && scl_tick) begin
+                        if (data_ready && scl_tick && sda_oe) begin
+                            // Master mode - transmit address
                             twi_state <= TWI_MT_SLA_ACK;
                             shift_register <= tx_data;
                             bit_counter <= 4'h0;
                             data_ready <= 1'b0;
+                        end else if (scl_tick && !sda_oe) begin
+                            // Slave mode - receive address
+                            if (bit_counter < 4'h8) begin
+                                scl_out <= ~scl_out;
+                                if (scl_out) begin
+                                    rx_data <= {rx_data[6:0], sda};
+                                    bit_counter <= bit_counter + 4'h1;
+                                end
+                            end else begin
+                                // Check if address matches
+                                if ((rx_data[7:1] == reg_twar[7:1]) || 
+                                    (rx_data[7:1] == 7'h00 && reg_twar[0])) begin // General call
+                                    // Address matches - send ACK and enter slave mode
+                                    sda_oe <= 1'b1;
+                                    sda_out <= 1'b0; // ACK
+                                    if (rx_data[0]) begin // Read bit set
+                                        twi_state <= TWI_ST_SLA_ACK;
+                                        reg_twsr[7:3] <= TWI_ST_SLA_ACK;
+                                    end else begin // Write bit
+                                        twi_state <= TWI_SR_SLA_ACK;
+                                        reg_twsr[7:3] <= TWI_SR_SLA_ACK;
+                                    end
+                                    interrupt_flag <= 1'b1;
+                                end else begin
+                                    // Address doesn't match - release bus
+                                    twi_state <= TWI_IDLE;
+                                end
+                                bit_counter <= 4'h0;
+                            end
                         end
                     end
                     
@@ -285,6 +331,64 @@ module axioma_i2c (
                         end
                     end
                     
+                    // ===== SLAVE MODE STATES =====
+                    TWI_SR_SLA_ACK: begin
+                        // Slave receiver mode - own address received with ACK
+                        if (scl_tick) begin
+                            if (bit_counter < 4'h8) begin
+                                // Receive data bits
+                                scl_out <= ~scl_out;
+                                if (scl_out) begin
+                                    rx_data <= {rx_data[6:0], sda};
+                                    bit_counter <= bit_counter + 4'h1;
+                                end
+                            end else begin
+                                // Send ACK if TWEA=1
+                                sda_oe <= 1'b1;
+                                sda_out <= ~twcr_twea;
+                                reg_twdr <= rx_data;
+                                reg_twsr[7:3] <= twcr_twea ? TWI_SR_SLA_ACK : TWI_MR_DATA_NACK;
+                                interrupt_flag <= 1'b1;
+                                bit_counter <= 4'h0;
+                            end
+                        end
+                    end
+                    
+                    TWI_ST_SLA_ACK: begin
+                        // Slave transmitter mode - own address received with ACK
+                        if (data_ready && scl_tick) begin
+                            if (bit_counter < 4'h8) begin
+                                // Transmit data bits
+                                sda_out <= shift_register[7];
+                                shift_register <= {shift_register[6:0], 1'b0};
+                                bit_counter <= bit_counter + 4'h1;
+                                scl_out <= ~scl_out;
+                            end else begin
+                                // Check ACK from master
+                                sda_oe <= 1'b0;
+                                if (!sda) begin
+                                    reg_twsr[7:3] <= TWI_ST_SLA_ACK;
+                                end else begin
+                                    reg_twsr[7:3] <= TWI_MR_DATA_NACK;
+                                end
+                                interrupt_flag <= 1'b1;
+                                data_ready <= 1'b0;
+                                bit_counter <= 4'h0;
+                                sda_oe <= 1'b1;
+                            end
+                        end
+                    end
+                    
+                    // ===== ERROR HANDLING =====
+                    TWI_BUS_ERROR: begin
+                        // Bus error recovery
+                        twi_state <= TWI_IDLE;
+                        sda_oe <= 1'b0;
+                        scl_oe <= 1'b0;
+                        reg_twsr[7:3] <= TWI_BUS_ERROR;
+                        interrupt_flag <= 1'b1;
+                    end
+                    
                     default: begin
                         if (stop_condition) begin
                             twi_state <= TWI_IDLE;
@@ -292,8 +396,13 @@ module axioma_i2c (
                             scl_oe <= 1'b1;
                             sda_out <= 1'b0;
                             scl_out <= 1'b1;
-                            #1 sda_out <= 1'b1;     // Stop condition
-                            reg_twsr[7:3] <= 5'hF8; // No state info
+                            // Generate stop condition with proper timing
+                            timing_counter <= 3'h0;
+                            if (timing_counter >= 3'h2) begin
+                                sda_out <= 1'b1;     // Stop condition
+                                reg_twsr[7:3] <= 5'h1F; // No state info
+                            end
+                            timing_counter <= timing_counter + 3'h1;
                         end
                     end
                 endcase

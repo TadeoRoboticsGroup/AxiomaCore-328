@@ -31,6 +31,13 @@ module axioma_clock_system (
     input wire sleep_enable,           // Modo sleep habilitado
     input wire [2:0] sleep_mode,       // Tipo de sleep mode
     
+    // Interfaz I/O para registros de control
+    input wire [5:0] io_addr,          // Dirección I/O
+    input wire [7:0] io_data_in,       // Datos de escritura
+    output reg [7:0] io_data_out,      // Datos de lectura
+    input wire io_read,                // Habilitación lectura
+    input wire io_write,               // Habilitación escritura
+    
     // Salidas de clock
     output wire clk_cpu,               // Clock para CPU
     output wire clk_io,                // Clock para periféricos I/O
@@ -67,6 +74,18 @@ module axioma_clock_system (
     localparam SLEEP_STANDBY      = 3'b110;
     localparam SLEEP_EXT_STANDBY  = 3'b111;
 
+    // Direcciones I/O para registros de control
+    localparam ADDR_CLKPR  = 8'h61;   // 0x61 - Clock Prescaler Register
+    localparam ADDR_OSCCAL = 8'h66;   // 0x66 - Oscillator Calibration Register
+
+    // Registros de control ATmega328P
+    reg [7:0] clkpr_reg;              // Clock Prescaler Register
+    reg [7:0] osccal_reg;             // Oscillator Calibration Register
+    
+    // Bits de CLKPR
+    wire clkpce = clkpr_reg[7];       // Clock Prescaler Change Enable
+    wire [3:0] clkps = clkpr_reg[3:0]; // Clock Prescaler Select Bits
+    
     // Osciladores internos
     reg clk_rc_8mhz;
     reg clk_rc_128khz;
@@ -74,6 +93,7 @@ module axioma_clock_system (
     reg [7:0] rc_8mhz_counter;
     reg [15:0] rc_128khz_counter;
     reg [15:0] rc_32khz_counter;
+    reg [7:0] rc_8mhz_cal_counter;    // Contador para calibración
 
     // Clock seleccionado
     reg clk_selected;
@@ -97,7 +117,7 @@ module axioma_clock_system (
     reg system_reset_n;
     reg clock_stable;
 
-    // Generación de osciladores internos
+    // Generación de osciladores internos con calibración
     always @(posedge clk_ext or negedge power_on_reset_n) begin
         if (!power_on_reset_n) begin
             clk_rc_8mhz <= 1'b0;
@@ -106,14 +126,18 @@ module axioma_clock_system (
             rc_8mhz_counter <= 8'h00;
             rc_128khz_counter <= 16'h0000;
             rc_32khz_counter <= 16'h0000;
+            rc_8mhz_cal_counter <= 8'h80; // Valor inicial centrado
         end else begin
-            // RC 8MHz (aproximado, dividir clock externo)
-            if (rc_8mhz_counter >= 8'd1) begin  // Asumiendo 16MHz externo
+            // RC 8MHz calibrado con OSCCAL
+            if (rc_8mhz_counter >= rc_8mhz_cal_counter) begin
                 rc_8mhz_counter <= 8'h00;
                 clk_rc_8mhz <= ~clk_rc_8mhz;
             end else begin
                 rc_8mhz_counter <= rc_8mhz_counter + 8'h01;
             end
+            
+            // Aplicar calibración OSCCAL al RC 8MHz
+            rc_8mhz_cal_counter <= osccal_reg;
             
             // RC 128kHz
             if (rc_128khz_counter >= 16'd124) begin  // 16MHz/128kHz = 125
@@ -145,14 +169,14 @@ module axioma_clock_system (
         endcase
     end
 
-    // Prescaler de clock
+    // Prescaler de clock usando CLKPR register
     always @(posedge clk_selected or negedge system_reset_n) begin
         if (!system_reset_n) begin
             prescaler_counter <= 8'h00;
             clk_prescaled <= 1'b0;
         end else begin
             if (!sleep_enable || sleep_mode == SLEEP_IDLE) begin
-                case (clock_prescaler)
+                case (clkps)  // Usar CLKPS de registro CLKPR
                     4'b0000: begin  // /1
                         clk_prescaled <= clk_selected;
                     end
@@ -308,6 +332,60 @@ module axioma_clock_system (
     assign mcusr_reg = mcusr_internal;
     assign mcucr_reg = mcucr_internal;
     assign system_clock_ready = clock_stable;
+
+    // I/O Register access para CLKPR y OSCCAL
+    reg clkpce_timeout;
+    reg [7:0] clkpce_counter;
+    
+    always @(posedge clk_prescaled or negedge system_reset_n) begin
+        if (!system_reset_n) begin
+            clkpr_reg <= 8'h00;
+            osccal_reg <= 8'h80;  // Valor de calibración por defecto
+            clkpce_timeout <= 1'b0;
+            clkpce_counter <= 8'h00;
+        end else begin
+            // CLKPCE timeout (4 cycles después de escribir CLKPCE)
+            if (clkpce && !clkpce_timeout) begin
+                clkpce_counter <= clkpce_counter + 8'h01;
+                if (clkpce_counter >= 8'd3) begin
+                    clkpce_timeout <= 1'b1;
+                    clkpr_reg[7] <= 1'b0;  // Clear CLKPCE
+                    clkpce_counter <= 8'h00;
+                end
+            end else if (!clkpce) begin
+                clkpce_timeout <= 1'b0;
+                clkpce_counter <= 8'h00;
+            end
+            
+            // Escribir registros I/O
+            if (io_write) begin
+                case (io_addr)
+                    ADDR_CLKPR: begin
+                        if (clkpce || io_data_in[7]) begin  // CLKPCE habilitado o escribiendo CLKPCE
+                            clkpr_reg <= io_data_in;
+                            if (io_data_in[7]) begin
+                                clkpce_timeout <= 1'b0;
+                                clkpce_counter <= 8'h00;
+                            end
+                        end
+                    end
+                    ADDR_OSCCAL: osccal_reg <= io_data_in;
+                endcase
+            end
+        end
+    end
+    
+    // I/O Register read
+    always @(*) begin
+        io_data_out = 8'h00;
+        if (io_read) begin
+            case (io_addr)
+                ADDR_CLKPR:  io_data_out = clkpr_reg;
+                ADDR_OSCCAL: io_data_out = osccal_reg;
+                default:     io_data_out = 8'h00;
+            endcase
+        end
+    end
 
     // Debug
     assign debug_clock_source = clock_select;

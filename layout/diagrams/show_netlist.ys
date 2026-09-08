@@ -1,2 +1,0 @@
-read_json synthesis/axioma_cpu.json
-show -format dot -prefix layout/diagrams/axioma_cpu

@@ -188,7 +188,47 @@ Presupuesto de área estimado en Sky130: ~6–7 mm² con 32 KB de memoria de pro
 | [`docs/02-legal.md`](docs/02-legal.md) | Política clean-room y análisis de licencias |
 | [`docs/03-verificacion.md`](docs/03-verificacion.md) | Estrategia de verificación en seis capas |
 | [`docs/04-herramientas.md`](docs/04-herramientas.md) | Instalación y uso de la cadena de herramientas |
+| `docs/05-register-map.md` | Mapa de registros y vectores. **Generado** con `make regmap` |
 | [`docs/requerimiento-v1-original.md`](docs/requerimiento-v1-original.md) | Requerimiento original, preservado sin cambios |
+| [`legacy/README.md`](legacy/README.md) | Qué hay en el código heredado y por qué se conserva |
+
+---
+
+## Estructura del repositorio
+
+```
+rtl/      core · bus · mem (backends sim/fpga_bram/sky130_sram) · periph · soc · fpga
+sim/      tb · cocotb · golden (diferencial vs simavr) · isa · perf
+fw/       bootloader · selftest · examples
+sw/       arduino · platformio · avrdude
+asic/     librelane · macros · reports
+board/    KiCad: módulo DIP-28
+tools/    generadores: gen_regmap.py · gen_ulx3s_lpf.py
+legacy/   proyecto anterior, congelado como referencia
+```
+
+Regla estructural: **cada fichero RTL existe una sola vez.** Las herramientas reciben listas de
+ficheros, nunca copias del árbol de fuentes.
+
+### Construcción
+
+```bash
+make help          # todos los objetivos
+make check-tools   # verifica la cadena de herramientas
+make regmap        # genera el mapa de registros desde iom328p.h
+make lpf           # regenera las constraints de la ULX3S
+make lint          # lint del RTL
+```
+
+Dos ficheros del proyecto se **generan** en vez de escribirse a mano, porque una transcripción
+manual se desincroniza y nadie se entera hasta que algo falla:
+
+| Generado | Desde | Garantiza |
+|----------|-------|-----------|
+| `rtl/soc/axioma_regmap.vh` y `docs/05-register-map.md` | `iom328p.h` de avr-libc | El nivel L2 de compatibilidad |
+| `rtl/fpga/ecp5/axioma_ulx3s.lpf` | Constraints oficiales de la ULX3S | Que ningún pin esté mal transcrito |
+
+La CI falla si cualquiera de los dos está desactualizado.
 
 ---
 

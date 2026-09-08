@@ -228,7 +228,7 @@ Implicaciones que hay que implementar explícitamente:
 
 El mapa se **genera automáticamente** desde `iom328p.h` de avr-libc (BSD-3-Clause) hacia:
 - `rtl/soc/axioma_regmap.vh` (constantes Verilog)
-- `docs/03-register-map.md` (documentación)
+- `docs/05-register-map.md` (documentación)
 - `sim/isa/regmap_check.py` (test de CI que falla si divergen)
 
 Esto convierte L2 de "esperemos que esté bien" en una propiedad verificada mecánicamente.
@@ -408,8 +408,8 @@ axioma328/
 │   ├── 00-PLAN.md                 este documento
 │   ├── 01-architecture.md
 │   ├── 02-isa.md                  nuestra especificación del ISA (escrita de cero)
-│   ├── 03-register-map.md         GENERADO desde iom328p.h
-│   ├── 04-compat-matrix.md        GENERADO desde los resultados de la regresión
+│   ├── 05-register-map.md         GENERADO desde iom328p.h
+│   ├── 06-compat-matrix.md        GENERADO desde los resultados de la regresión
 │   ├── 05-legal.md                política clean-room
 │   └── adr/                       registros de decisiones de arquitectura
 ├── rtl/
@@ -694,7 +694,7 @@ Estimaciones asumiendo ~15 h/semana. El camino crítico es la fase 1.
 - [ ] `git mv` de todo lo actual a `legacy/`. Purgar los `.tar.gz` del historial.
 - [ ] Crear la estructura de §6, `LICENSE` (Apache-2.0), `LICENSE-EXCEPTIONS.md`, `docs/05-legal.md`.
 - [ ] Borrar `bootloader/optiboot/`, `layout/*.gds`, `openlane/src/`.
-- [ ] Generador `tools/gen_regmap.py`: `iom328p.h` → `axioma_regmap.vh` + `docs/03-register-map.md`.
+- [ ] Generador `tools/gen_regmap.py`: `iom328p.h` → `axioma_regmap.vh` + `docs/05-register-map.md`.
 - [ ] CI mínima en GitHub Actions (lint + build).
 
 **Criterio de aceptación:** `make check-tools` pasa; el mapa de registros se genera y su test de

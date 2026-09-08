@@ -1,0 +1,45 @@
+# Simulación
+*.vcd
+*.fst
+*.vvp
+obj_dir/
+sim_build/
+__pycache__/
+*.pyc
+.pytest_cache/
+results.xml
+
+# Síntesis y P&R
+*.json
+!sw/**/*.json
+!.github/**/*.json
+*.asc
+*.bit
+*.svf
+*.config
+*.rpt
+build/
+
+# Flujo ASIC
+asic/runs/
+asic/reports/*
+!asic/reports/.gitkeep
+
+# Toolchain AVR
+*.o
+*.elf
+*.hex
+*.lst
+*.map
+*.eep
+
+# Editor y sistema
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Nunca versionar backups binarios (lección aprendida)
+*.tar.gz
+*.tar.bz2
+*.zip

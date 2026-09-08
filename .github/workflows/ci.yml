@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  OSS_CAD_VERSION: "2026-09-08"
+  OSS_CAD_STAMP: "20260908"
+
+jobs:
+  lint-and-generate:
+    name: Lint y ficheros generados
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cachear OSS CAD Suite
+        id: cache-oss
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/oss-cad-suite
+          key: oss-cad-${{ env.OSS_CAD_VERSION }}
+
+      - name: Instalar OSS CAD Suite
+        if: steps.cache-oss.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/eda && cd ~/eda
+          curl -sL -o oss.tgz \
+            "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_VERSION}/oss-cad-suite-linux-x64-${OSS_CAD_STAMP}.tgz"
+          tar xzf oss.tgz && rm oss.tgz
+
+      - name: Instalar toolchain AVR
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-avr avr-libc
+
+      - name: Mapa de registros al día
+        run: make regmap-check
+
+      - name: Constraints de la ULX3S reproducibles
+        run: |
+          make lpf
+          git diff --exit-code rtl/fpga/ecp5/axioma_ulx3s.lpf
+
+      - name: Lint del RTL
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make lint
+
+      - name: Enlaces de la documentación
+        run: |
+          python3 - <<'PY'
+          import re, os, sys
+          bad = []
+          for dp, dn, fn in os.walk('.'):
+              if '.git' in dp: continue
+              for f in fn:
+                  if not f.endswith('.md'): continue
+                  p = os.path.join(dp, f)
+                  for m in re.finditer(r'\]\((?!https?:)([^)\s#]+)', open(p, encoding='utf-8').read()):
+                      if not os.path.exists(os.path.normpath(os.path.join(dp, m.group(1)))):
+                          bad.append(f"{p} -> {m.group(1)}")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("todos los enlaces resuelven")
+          PY
+
+  # Se activa en la fase 1. Ver docs/00-PLAN.md.
+  # verify:
+  #   name: ALU exhaustiva · suite ISA · ciclos · diferencial vs simavr

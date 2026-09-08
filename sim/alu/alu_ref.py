@@ -46,10 +46,22 @@ OPS = {
 }
 
 # Clase de operación: determina el espacio de entrada que se barre.
-CLS_2OP = "2op"   # a x b x (C,Z)         -> 4 * 65536 = 262144
-CLS_1OP = "1op"   # a x (C,Z)             ->        4 * 256 =   1024
-CLS_IW  = "iw"    # a16 x k6              -> 64 * 65536 = 4194304
-CLS_MUL = "mul"   # a x b                 ->             65536
+CLS_2OP = "2op"
+CLS_1OP = "1op"
+CLS_IW  = "iw"
+CLS_MUL = "mul"
+
+# Barrido de sreg_in. No basta con recorrer C y Z: hay que entrar con H, T e I
+# PUESTOS para verificar que las operaciones que no deben tocarlos los
+# conservan. Con H=0 de entrada, una máscara que escribiera H por error daría
+# 0 en ambos lados y la comparación pasaría igualmente.
+#
+#   bit 0 C   bit 1 Z   bit 5 H   bit 6 T   bit 7 I
+SREG_SET_2OP = [0x00, 0x01, 0x02, 0x03,       # C y Z, con H/T/I a 0
+                0xE0, 0xE1, 0xE2, 0xE3]       # los mismos, con H, T e I a 1
+SREG_SET_IW  = [0x00, 0xFF]
+SREG_SET_MUL = [0x00, 0xFF]
+SREG_SET_OF  = {CLS_2OP: SREG_SET_2OP, CLS_IW: SREG_SET_IW, CLS_MUL: SREG_SET_MUL}
 
 CLASS_OF = {
     "ADD": CLS_2OP, "ADC": CLS_2OP, "SUB": CLS_2OP, "SBC": CLS_2OP,
@@ -60,8 +72,10 @@ CLASS_OF = {
     "MUL": CLS_MUL, "MULS": CLS_MUL, "MULSU": CLS_MUL,
     "FMUL": CLS_MUL, "FMULS": CLS_MUL, "FMULSU": CLS_MUL,
 }
-COUNT_OF = {CLS_2OP: 4 * 256 * 256, CLS_1OP: 4 * 256,
-            CLS_IW: 64 * 65536, CLS_MUL: 256 * 256}
+COUNT_OF = {CLS_2OP: len(SREG_SET_2OP) * 256 * 256,   #   524 288
+            CLS_1OP: 256 * 256,                       #    65 536  sreg_in completo
+            CLS_IW:  len(SREG_SET_IW) * 64 * 65536,   # 8 388 608
+            CLS_MUL: len(SREG_SET_MUL) * 256 * 256}   #   131 072
 
 
 def _s8(x):
@@ -201,12 +215,12 @@ def _np():
 
 def gen_2op(name):
     np = _np()
-    op = OPS[name]
-    cz = np.repeat(np.arange(4, dtype=np.uint8), 65536)
-    a = np.tile(np.repeat(np.arange(256, dtype=np.uint16), 256), 4)
-    b = np.tile(np.arange(256, dtype=np.uint16), 4 * 256)
-    c_in = (cz & 1).astype(np.uint16)
-    z_in = ((cz >> 1) & 1).astype(np.uint16)
+    nset = len(SREG_SET_2OP)
+    sreg = np.repeat(np.array(SREG_SET_2OP, dtype=np.uint16), 65536)
+    a = np.tile(np.repeat(np.arange(256, dtype=np.uint16), 256), nset)
+    b = np.tile(np.arange(256, dtype=np.uint16), nset * 256)
+    c_in = sreg & 1
+    z_in = (sreg >> 1) & 1
 
     zero = np.zeros_like(a)
     if name in ("ADD", "ADC"):
@@ -248,9 +262,9 @@ def gen_2op(name):
 
 def gen_1op(name):
     np = _np()
-    cz = np.repeat(np.arange(4, dtype=np.uint16), 256)
-    a = np.tile(np.arange(256, dtype=np.uint16), 4)
-    c_in = cz & 1
+    sreg = np.repeat(np.arange(256, dtype=np.uint16), 256)
+    a = np.tile(np.arange(256, dtype=np.uint16), 256)
+    c_in = sreg & 1
     zero = np.zeros_like(a)
     h = v = n = z = c = zero
 
@@ -294,8 +308,9 @@ def gen_1op(name):
 
 def gen_iw(name):
     np = _np()
-    k6 = np.repeat(np.arange(64, dtype=np.uint32), 65536)
-    a16 = np.tile(np.arange(65536, dtype=np.uint32), 64)
+    nset = len(SREG_SET_IW)
+    k6 = np.tile(np.repeat(np.arange(64, dtype=np.uint32), 65536), nset)
+    a16 = np.tile(np.arange(65536, dtype=np.uint32), nset * 64)
     r16 = ((a16 + k6) if name == "ADIW" else (a16 - k6)) & 0xFFFF
     Rdh7 = (a16 >> 15) & 1
     R15 = (r16 >> 15) & 1
@@ -313,8 +328,9 @@ def gen_iw(name):
 
 def gen_mul(name):
     np = _np()
-    a = np.repeat(np.arange(256, dtype=np.int64), 256)
-    b = np.tile(np.arange(256, dtype=np.int64), 256)
+    nset = len(SREG_SET_MUL)
+    a = np.tile(np.repeat(np.arange(256, dtype=np.int64), 256), nset)
+    b = np.tile(np.arange(256, dtype=np.int64), nset * 256)
     av = np.where(a >= 128, a - 256, a) if name in ("MULS", "MULSU", "FMULS", "FMULSU") else a
     bv = np.where(b >= 128, b - 256, b) if name in ("MULS", "FMULS") else b
     p = (av * bv) & 0xFFFF
@@ -354,17 +370,19 @@ def inputs_at(name, i):
     sim/alu/tb_alu.cpp."""
     cls = CLASS_OF[name]
     if cls == CLS_2OP:
-        cz, rem = divmod(i, 65536)
+        si, rem = divmod(i, 65536)
         a, b = divmod(rem, 256)
-        return dict(a=a, b=b, sreg_in=cz)
+        return dict(a=a, b=b, sreg_in=SREG_SET_2OP[si])
     if cls == CLS_1OP:
-        cz, a = divmod(i, 256)
-        return dict(a=a, sreg_in=cz)
+        sreg, a = divmod(i, 256)
+        return dict(a=a, sreg_in=sreg)
     if cls == CLS_IW:
-        k6, a16 = divmod(i, 65536)
-        return dict(a16=a16, k6=k6)
-    a, b = divmod(i, 256)
-    return dict(a=a, b=b)
+        si, rem = divmod(i, 64 * 65536)
+        k6, a16 = divmod(rem, 65536)
+        return dict(a16=a16, k6=k6, sreg_in=SREG_SET_IW[si])
+    si, rem = divmod(i, 65536)
+    a, b = divmod(rem, 256)
+    return dict(a=a, b=b, sreg_in=SREG_SET_MUL[si])
 
 
 def cross_check(samples=20000, seed=20260908):
@@ -381,22 +399,24 @@ def cross_check(samples=20000, seed=20260908):
         idx = set()
         # casos borde
         if cls == CLS_2OP:
-            for cz in range(4):
+            for si in range(len(SREG_SET_2OP)):
                 for a in edges8:
                     for b in edges8:
-                        idx.add(cz * 65536 + a * 256 + b)
+                        idx.add(si * 65536 + a * 256 + b)
         elif cls == CLS_1OP:
-            for cz in range(4):
+            for sreg in (0x00, 0x01, 0x02, 0x03, 0x20, 0xE3, 0xFF):
                 for a in edges8:
-                    idx.add(cz * 256 + a)
+                    idx.add(sreg * 256 + a)
         elif cls == CLS_IW:
-            for k6 in (0, 1, 32, 63):
-                for a16 in (0, 1, 0x7FFF, 0x8000, 0x8001, 0xFFFE, 0xFFFF, 0x00FF, 0x0100):
-                    idx.add(k6 * 65536 + a16)
+            for si in range(len(SREG_SET_IW)):
+                for k6 in (0, 1, 32, 63):
+                    for a16 in (0, 1, 0x7FFF, 0x8000, 0x8001, 0xFFFE, 0xFFFF, 0x00FF, 0x0100):
+                        idx.add(si * 64 * 65536 + k6 * 65536 + a16)
         else:
-            for a in edges8:
-                for b in edges8:
-                    idx.add(a * 256 + b)
+            for si in range(len(SREG_SET_MUL)):
+                for a in edges8:
+                    for b in edges8:
+                        idx.add(si * 65536 + a * 256 + b)
         # muestreo aleatorio
         for _ in range(samples // len(OPS)):
             idx.add(rnd.randrange(total))

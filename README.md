@@ -143,12 +143,17 @@ La regla del proyecto: **nada entra sin oráculo.**
 1. **Diferencial contra `simavr`** — se ejecuta el mismo `.elf` en el RTL y en simavr, y se comparan
    PC, R0–R31, SREG y SP tras cada instrucción retirada. A la primera divergencia, el comparador
    señala la instrucción y vuelca las ondas.
-2. **ALU exhaustiva** — 256 × 256 × 2 × ~20 operaciones ≈ 2,6 millones de vectores contra un modelo
-   de referencia. Cobertura del 100 %, demostrable.
-3. **Exactitud de ciclos** — la tabla del manual del ISA codificada como test.
-4. **Mapa de registros** — generado desde `iom328p.h` de avr-libc; un test de CI falla si diverge.
-5. **Sketches de Arduino reales**, NeoPixel incluido, que es el más exigente en temporización.
-6. **Formal** (SymbiYosys) sobre propiedades acotadas.
+2. **ALU exhaustiva** — 22 282 240 vectores contra un modelo de referencia transcrito del manual
+   del ISA. Espacio de entrada barrido por completo, incluido el SREG de entrada.
+3. **Tercer oráculo** — los mismos casos ejecutados sobre `simavr`, una implementación
+   independiente del núcleo AVR. Que el modelo y el RTL coincidan descarta erratas, no un error
+   conceptual cometido dos veces.
+4. **Prueba de mutación** — 18 fallos deliberados inyectados en la ALU, 18 detectados. Un banco
+   que no puede fallar no verifica nada.
+5. **Exactitud de ciclos** — la tabla del manual del ISA codificada como test.
+6. **Mapa de registros** — generado desde avr-libc; un test de CI falla si diverge.
+7. **Sketches de Arduino reales**, NeoPixel incluido, que es el más exigente en temporización.
+8. **Formal** (SymbiYosys) sobre propiedades acotadas.
 
 La matriz de compatibilidad del README se **genera** a partir de los resultados. No se escribe a mano.
 

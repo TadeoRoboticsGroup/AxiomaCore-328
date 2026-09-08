@@ -42,18 +42,20 @@ def expected_inputs(name, n):
     distintas y la comparación sería vacía."""
     cls = R.CLASS_OF[name]
     i = np.arange(n, dtype=np.uint32)
+    z8 = np.zeros(n, np.uint8)
+    z16 = np.zeros(n, np.uint16)
     if cls == R.CLS_2OP:
-        return dict(a=(i >> 8) & 0xFF, b=i & 0xFF, sreg_in=(i >> 16) & 0xFF,
-                    k6=np.zeros(n, np.uint8), a16=np.zeros(n, np.uint16))
+        si = np.array(R.SREG_SET_2OP, dtype=np.uint8)[(i >> 16)]
+        return dict(a=(i >> 8) & 0xFF, b=i & 0xFF, sreg_in=si, k6=z8, a16=z16)
     if cls == R.CLS_1OP:
-        return dict(a=i & 0xFF, b=np.zeros(n, np.uint8), sreg_in=(i >> 8) & 0xFF,
-                    k6=np.zeros(n, np.uint8), a16=np.zeros(n, np.uint16))
+        return dict(a=i & 0xFF, b=z8, sreg_in=(i >> 8) & 0xFF, k6=z8, a16=z16)
     if cls == R.CLS_IW:
-        return dict(a=np.zeros(n, np.uint8), b=np.zeros(n, np.uint8),
-                    sreg_in=np.zeros(n, np.uint8), k6=(i >> 16) & 0xFF,
-                    a16=(i & 0xFFFF).astype(np.uint16))
-    return dict(a=(i >> 8) & 0xFF, b=i & 0xFF, sreg_in=np.zeros(n, np.uint8),
-                k6=np.zeros(n, np.uint8), a16=np.zeros(n, np.uint16))
+        si = np.array(R.SREG_SET_IW, dtype=np.uint8)[(i >> 22)]
+        rem = i & 0x3FFFFF
+        return dict(a=z8, b=z8, sreg_in=si, k6=(rem >> 16) & 0xFF,
+                    a16=(rem & 0xFFFF).astype(np.uint16))
+    si = np.array(R.SREG_SET_MUL, dtype=np.uint8)[(i >> 16)]
+    return dict(a=(i >> 8) & 0xFF, b=i & 0xFF, sreg_in=si, k6=z8, a16=z16)
 
 
 def main():

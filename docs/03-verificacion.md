@@ -45,12 +45,22 @@ La ALU es de 8 bits: el espacio de entrada es enumerable **por completo**. Imple
 
 | Clase | Espacio barrido | Vectores por operación |
 |-------|-----------------|------------------------|
-| Dos operandos (ADD, ADC, SUB, SBC, AND, OR, EOR, MOV) | a × b × (C,Z) | 262 144 |
-| Un operando (COM, NEG, INC, DEC, LSR, ROR, ASR, SWAP) | a × (C,Z) | 1 024 |
-| 16 bits (ADIW, SBIW) | a16 × k6, ambos completos | 4 194 304 |
-| Multiplicación (MUL, MULS, MULSU, FMUL, FMULS, FMULSU) | a × b | 65 536 |
+| Dos operandos (ADD, ADC, SUB, SBC, AND, OR, EOR, MOV) | a × b × 8 valores de SREG | 524 288 |
+| Un operando (COM, NEG, INC, DEC, LSR, ROR, ASR, SWAP) | a × **SREG completo (256)** | 65 536 |
+| 16 bits (ADIW, SBIW) | a16 × k6, ambos completos, × 2 SREG | 8 388 608 |
+| Multiplicación (MUL, MULS, MULSU, FMUL, FMULS, FMULSU) | a × b × 2 SREG | 131 072 |
 
-**Total: 10 887 168 vectores sobre 24 operaciones. 0 fallos. 5,3 segundos.**
+**Total: 22 282 240 vectores sobre 24 operaciones. 0 fallos. 6 segundos.**
+
+### El barrido de SREG no es cosmético
+
+No basta con recorrer C y Z en la entrada. Hay que entrar con **H, T e I puestos** para verificar
+que las operaciones que no deben tocarlos los conservan. Con H = 0 de entrada, una máscara que
+escribiera H por error daría 0 en ambos lados y la comparación pasaría igualmente.
+
+Esto era un hueco real del banco: la afirmación «INC y DEC no tocan H» no estaba verificada.
+Se detectó auditando la cobertura, no ejecutando los tests. Cerrado y comprobado: inyectando esa
+máscara errónea, el barrido pasa de 0 fallos a 65 536.
 
 ### Por qué hacen falta TRES oráculos, no dos
 

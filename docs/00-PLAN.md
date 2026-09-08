@@ -705,8 +705,8 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 - [x] `alu.v` — combinacional pura, sin latches, multiplicador compartido.
 - [x] `sreg.v` — actualización enmascarada, 29 comprobaciones dirigidas.
 - [x] Modelo de referencia de la ALU en Python + **verificación exhaustiva** (Capa 2):
-      **10 887 168 vectores, 24 operaciones, 0 fallos.**
-- [x] **Tercer oráculo independiente**: contraste de los mismos 10 887 168 casos contra `simavr`
+      **22 282 240 vectores, 24 operaciones, 0 fallos.**
+- [x] **Tercer oráculo independiente**: contraste de los mismos 22 282 240 casos contra `simavr`
       ejecutando instrucciones AVR reales. Encontró un fallo que la verificación contra nuestro
       propio modelo no podía encontrar (flag H de `NEG`).
 - [x] **Prueba de mutación**: 18 fallos inyectados, 18 detectados. El banco puede fallar.

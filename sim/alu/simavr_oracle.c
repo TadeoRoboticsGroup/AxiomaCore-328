@@ -45,6 +45,17 @@ static uint16_t enc_iw(uint16_t base, int dd, int k) {
     return base | ((k & 0x30) << 2) | ((dd & 3) << 4) | (k & 0x0F);
 }
 
+// Barrido de sreg_in. Debe coincidir EXACTAMENTE con SREG_SET_* de
+// sim/alu/alu_ref.py. No basta con recorrer C y Z: hace falta entrar con H, T
+// e I puestos para verificar que las operaciones que no deben tocarlos los
+// conservan.
+static const uint8_t SREG_SET_2OP[] = {0x00,0x01,0x02,0x03, 0xE0,0xE1,0xE2,0xE3};
+static const uint8_t SREG_SET_IW[]  = {0x00, 0xFF};
+static const uint8_t SREG_SET_MUL[] = {0x00, 0xFF};
+#define N_2OP (sizeof(SREG_SET_2OP)/sizeof(SREG_SET_2OP[0]))
+#define N_IW  (sizeof(SREG_SET_IW)/sizeof(SREG_SET_IW[0]))
+#define N_MUL (sizeof(SREG_SET_MUL)/sizeof(SREG_SET_MUL[0]))
+
 typedef enum { C2OP, C1OP, CIW, CMUL } cls_t;
 
 struct OpDef { const char *name; cls_t cls; uint16_t base; int suffix; };
@@ -67,10 +78,10 @@ static const int NOPS = sizeof(OPS) / sizeof(OPS[0]);
 
 static size_t count_of(cls_t c) {
     switch (c) {
-        case C2OP: return 4u * 256 * 256;
-        case C1OP: return 4u * 256;
-        case CIW:  return 64u * 65536;
-        default:   return 256u * 256;
+        case C2OP: return (size_t)N_2OP * 256 * 256;
+        case C1OP: return 256u * 256;
+        case CIW:  return (size_t)N_IW * 64 * 65536;
+        default:   return (size_t)N_MUL * 256 * 256;
     }
 }
 
@@ -100,11 +111,16 @@ int main(int argc, char **argv) {
         for (size_t i = 0; i < total; i += stride) {
             uint32_t a = 0, b = 0, a16 = 0, k6 = 0, sreg = 0;
             switch (op->cls) {
-                case C2OP: { uint32_t cz = i >> 16, rem = i & 0xFFFF;
-                             a = rem >> 8; b = rem & 0xFF; sreg = cz; } break;
-                case C1OP: { sreg = i >> 8; a = i & 0xFF; } break;
-                case CIW:  { k6 = i >> 16; a16 = i & 0xFFFF; } break;
-                default:   { a = i >> 8; b = i & 0xFF; } break;
+                case C2OP: { uint32_t si = i >> 16, rem = i & 0xFFFF;
+                             a = rem >> 8; b = rem & 0xFF;
+                             sreg = SREG_SET_2OP[si]; } break;
+                case C1OP: { sreg = (i >> 8) & 0xFF; a = i & 0xFF; } break;
+                case CIW:  { uint32_t si = i >> 22, rem = i & 0x3FFFFF;
+                             k6 = rem >> 16; a16 = rem & 0xFFFF;
+                             sreg = SREG_SET_IW[si]; } break;
+                default:   { uint32_t si = i >> 16, rem = i & 0xFFFF;
+                             a = rem >> 8; b = rem & 0xFF;
+                             sreg = SREG_SET_MUL[si]; } break;
             }
 
             // --- codificar la instrucción ---

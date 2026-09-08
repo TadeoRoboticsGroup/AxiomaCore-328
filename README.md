@@ -1,392 +1,217 @@
 <div align="center">
 
-# AxiomaCore-328: Open Source AVR-Compatible Microcontroller
+# AxiomaCore-328
 
-<img src="/images/AxiomaCore.jpg"/>
+**Microcontrolador de 8 bits libre y abierto, compatible a nivel binario con el ATmega328P.**
+Diseñado íntegramente con herramientas libres, validado en FPGA y preparado para tape-out en un PDK abierto.
 
-[![Lenguaje Verilog](https://img.shields.io/badge/HDL-Verilog-ff6600?logo=verilog)](#)
-[![Herramienta Yosys](https://img.shields.io/badge/Síntesis-Yosys-yellowgreen)](#)
-[![Herramienta OpenLane](https://img.shields.io/badge/Place%20%26%20Route-OpenLane-blueviolet)](#)
-[![PDK Sky130](https://img.shields.io/badge/PDK-Sky130-7b1fa2)](#)
-[![Simulación Icarus Verilog](https://img.shields.io/badge/Simulación-Icarus--Verilog-8a2be2)](#)
-[![GTKWave](https://img.shields.io/badge/Waveform-GTKWave-ff69b4)](#)
-[![Diseño Layout](https://img.shields.io/badge/Layout-Magic-orange)](#)
-[![Verificación Netgen](https://img.shields.io/badge/Verificación-Netgen-00bcd4)](#)
-[![EDA KLayout](https://img.shields.io/badge/GDSII-KLayout-1976d2)](#)
-[![Arduino Compatible](https://img.shields.io/badge/Arduino-Compatible-00979D?logo=arduino)](#)
-[![Toolchain AVR-GCC](https://img.shields.io/badge/Compilador-avr--gcc-blue)](#)
-[![Programador AVRDUDE](https://img.shields.io/badge/Programador-avrdude-00599c)](#)
-[![Optiboot](https://img.shields.io/badge/Bootloader-Optiboot-brightgreen)](#)
-[![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25?logo=gnubash)](#)
-[![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker)](#)
-[![Sistema Operativo](https://img.shields.io/badge/Ubuntu-20.04-E95420?logo=ubuntu)](#)
-[![Licencia](https://img.shields.io/badge/Licencia-Apache--2.0-blue)](#)
+<img src="images/AxiomaCore.jpg" width="520"/>
 
+[![Licencia](https://img.shields.io/badge/Licencia-Apache--2.0-blue)](LICENSE)
+[![HDL](https://img.shields.io/badge/HDL-Verilog-ff6600)](#)
+[![Síntesis](https://img.shields.io/badge/Síntesis-Yosys-yellowgreen)](#)
+[![P%26R](https://img.shields.io/badge/P%26R-nextpnr-blueviolet)](#)
+[![FPGA](https://img.shields.io/badge/FPGA-Lattice%20ECP5-6a1b9a)](#)
+[![PDK](https://img.shields.io/badge/PDK-Sky130-7b1fa2)](#)
+[![Estado](https://img.shields.io/badge/Estado-en%20reconstrucción-orange)](docs/00-PLAN.md)
 
 </div>
 
-## Overview
+---
 
-**AxiomaCore-328** is the world's first completely open source AVR-compatible microcontroller, achieving 100% functional compatibility with ATmega328P using exclusively open source tools and the SkyWater Sky130 130nm PDK. This project represents a breakthrough in open hardware design, providing a complete RTL-to-GDSII implementation suitable for silicon fabrication.
+## Estado actual
 
-### Key Features
+> **Este proyecto está en reconstrucción controlada.** El README anterior describía un diseño
+> terminado y listo para producción. No lo estaba. Esta versión documenta el estado real, medido
+> con herramientas, y el plan para llegar de verdad a donde el proyecto quiere llegar.
 
-- **Complete AVR Compatibility**: 131 instructions, 26 interrupt vectors
-- **Full Peripheral Suite**: GPIO, UART, SPI, I2C, ADC, 3 Timers, PWM
-- **Harvard Architecture**: 2-stage pipeline with 32 general-purpose registers
-- **Memory System**: 32KB Flash + 2KB SRAM + 1KB EEPROM
-- **Production Ready**: Verified RTL, synthesizable design, timing closure achieved
-- **Open Source Tools**: 100% libre toolchain from specification to silicon
+| Bloque | Estado real | Evidencia |
+|--------|-------------|-----------|
+| Decodificador de instrucciones | Borrador con ~108 mnemónicos cubiertos, sin verificar | 1259 líneas, decodificación combinacional |
+| ALU | Borrador con un cerrojo inferido en `flag_s_out` | Confirmado por `yosys` |
+| Banco de registros | Borrador, sin puerto real de 16 bits | — |
+| Integración del SoC | **Rota** | `core/axioma_cpu/axioma_cpu.v:795` fija `io_data_in_cpu = 8'h00`: ningún `OUT`/`STS` puede escribir un periférico |
+| Memoria de datos | **Ausente** | `axioma_sram_ctrl.v` existe pero no está instanciado |
+| Timers 0/1/2, watchdog, comparador | **Ausentes de la jerarquía** | Sus señales están declaradas, nada las genera |
+| Verificación | **Inexistente** | Los testbenches no comparan contra ningún oráculo |
+| Síntesis Sky130 | **Nunca ejecutada** | El script no hace `dfflibmap` ni `abc -liberty`; el informe es de una jerarquía anterior |
+| Layout / GDSII | **Inexistente** | `layout/axioma_minimal.gds` son 172 bytes con un rectángulo; el otro GDS pesa 0 bytes |
+
+**Nada de esto es descartable.** El decodificador y los periféricos son un punto de partida real.
+Lo que falta es la estructura que los convierte en un chip y la verificación que lo demuestra.
+
+**➜ Lee el [plan maestro de reconstrucción](docs/00-PLAN.md) antes de tocar nada.**
 
 ---
 
-## Technical Specifications
+## Qué es exactamente este proyecto
 
-| Component | Specification | Implementation Status |
-|-----------|---------------|---------------------|
-| **CPU Core** | AVR 8-bit, 131 instructions, 25MHz | ✅ Complete |
-| **Memory** | 32KB Flash, 2KB SRAM, 1KB EEPROM | ✅ Complete |
-| **GPIO** | 23 pins, 3 ports (B/C/D) | ✅ Complete |
-| **Timers** | Timer0/1/2 with PWM support | ✅ Complete |
-| **ADC** | 10-bit, 8 channels, multiple references | ✅ Complete |
-| **Communication** | UART, SPI, I2C/TWI | ✅ Complete |
-| **Interrupts** | 26 vectors with hardware priorities | ✅ Complete |
-| **Clock System** | Multiple sources, CLKPR, OSCCAL | ✅ Complete |
-| **Power Management** | 6 sleep modes, watchdog timer | ✅ Complete |
-| **Process Technology** | SkyWater Sky130 130nm | ✅ Synthesis Ready |
+Un microcontrolador **compatible a nivel binario** con el ATmega328P: ejecuta el mismo código
+máquina, expone el mismo mapa de registros y respeta la misma cuenta de ciclos. Un sketch
+compilado para Arduino Uno corre sin recompilar.
 
----
+No es, y no puede ser, una réplica eléctrica: el PDK abierto Sky130 no ofrece 5 V ni memoria Flash
+embebida. Esa parte se resuelve en el módulo, no en el silicio.
 
-## Project Architecture
+### Contrato de compatibilidad
 
-```
-axioma_core_328/
-├── core/                         # CPU Core Components
-│   ├── axioma_cpu/               # Main CPU (131 AVR instructions)
-│   ├── axioma_alu/               # ALU with hardware multiplier
-│   ├── axioma_decoder/           # Complete instruction decoder
-│   └── axioma_registers/         # 32 registers + X/Y/Z pointers
-├── memory/                       # Memory Controllers
-│   ├── axioma_flash_ctrl/        # 32KB Flash controller
-│   ├── axioma_sram_ctrl/         # 2KB SRAM controller
-│   └── axioma_eeprom_ctrl/       # 1KB EEPROM controller
-├── peripherals/                  # Peripheral Controllers
-│   ├── axioma_gpio/              # 3-port GPIO system
-│   ├── axioma_uart/              # UART controller
-│   ├── axioma_spi/               # SPI master/slave
-│   ├── axioma_i2c/               # I2C/TWI controller
-│   ├── axioma_adc/               # 10-bit ADC
-│   ├── axioma_timers/            # Timer0, Timer1, Timer2
-│   ├── axioma_pwm/               # 6-channel PWM system
-│   ├── axioma_analog_comp/       # Analog comparator
-│   └── axioma_watchdog/          # Watchdog timer
-├── axioma_interrupt/             # Interrupt system (26 vectors)
-├── clock_reset/                  # Clock and reset management
-├── testbench/                    # Verification testbenches
-├── synthesis/                    # Synthesis scripts and reports
-└── openlane/                     # Complete RTL-to-GDSII flow
-```
+| Nivel | Qué garantiza | Objetivo |
+|-------|---------------|----------|
+| **L1 — Binaria** | 131 instrucciones, semántica exacta del SREG, PC de 14 bits, stack, interrupciones | Obligatorio |
+| **L2 — Registros** | Mismas direcciones, nombres y bits. `avr/io.h` con `-mmcu=atmega328p` funciona sin tocar nada | Obligatorio |
+| **L3 — Ciclos** | Misma cuenta de ciclos por instrucción y misma temporización de periféricos | Sí — lo necesitan `_delay_ms()`, `micros()`, NeoPixel |
+| **L4 — Eléctrica** | 5 V, DIP-28, pinout idéntico | **No en el die.** Sí en el módulo, con level shifters |
 
 ---
 
-## Quick Start Guide
+## Especificación objetivo
 
-### Prerequisites
+| Componente | Especificación |
+|------------|----------------|
+| Núcleo | AVR de 8 bits, 131 instrucciones, pipeline de 2 etapas (Harvard) |
+| Registros | 32 × 8 bits (R0–R31) + punteros X/Y/Z |
+| Memoria de programa | 32 KB (16K × 16 bits) |
+| SRAM | 2 KB · espacio de datos unificado `0x0000–0x08FF` |
+| EEPROM | 1 KB |
+| GPIO | 23 pines en 3 puertos (B/C/D), con toggle por escritura a `PINx` |
+| Timers | Timer0 y Timer2 de 8 bits, Timer1 de 16 bits con registro TEMP |
+| PWM | 6 canales |
+| Comunicación | USART, SPI maestro/esclavo, TWI (I2C) |
+| ADC | 10 bits, 8 canales (controlador SAR; comparador externo en la primera versión de silicio) |
+| Interrupciones | 26 vectores con prioridad fija |
+| Frecuencia | 8/16/20/25 MHz seleccionable · objetivo ≥ 32 MHz en ECP5 |
 
-**Required Tools:**
-- **Icarus Verilog** 10.3+ (RTL simulation)
-- **GTKWave** 3.3+ (waveform viewer)
-- **Yosys** 0.12+ (logic synthesis)
-- **Make** (build automation)
+---
 
-**Optional for Full Flow:**
-- **OpenLane** 2.0+ (place & route)
-- **Magic** 8.3+ (DRC/LVS verification)
-- **KLayout** 0.28+ (GDSII viewing)
+## Cadena de herramientas
 
-### Installation
+100 % libre, de la especificación al GDSII. Sin una sola herramienta propietaria.
+
+| Etapa | Herramienta |
+|-------|-------------|
+| Simulación RTL | Icarus Verilog · Verilator |
+| Testbenches | cocotb (Python) |
+| **Oráculo de referencia** | **simavr** |
+| Compilación de tests | avr-gcc · avr-libc |
+| Síntesis | Yosys |
+| Place & route (FPGA) | nextpnr + prjtrellis / icestorm / apicula |
+| Carga de bitstream | openFPGALoader |
+| Verificación formal | SymbiYosys |
+| RTL → GDSII | LibreLane 3.x + Sky130A (vía `ciel`) |
+| DRC / LVS | Magic · Netgen · KLayout |
+
+### Instalación
+
+Casi todo llega en un único paquete:
 
 ```bash
-# Clone repository
-git clone https://github.com/your-org/axioma_core_328.git
-cd axioma_core_328
-
-# Verify tools installation
-make check-tools
-
-# Run basic simulation
-make simulate
+mkdir -p ~/eda && cd ~/eda
+curl -LO https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2026-09-08/oss-cad-suite-linux-x64-20260908.tgz
+tar xzf oss-cad-suite-linux-x64-20260908.tgz
+echo 'source ~/eda/oss-cad-suite/environment' >> ~/.bashrc
 ```
 
-### Build Commands
+El resto:
 
-**Core Build Commands:**
 ```bash
-# Basic simulation with CPU testbench
-make sim-cpu                    # Simulate main CPU
-make sim-alu                    # Simulate ALU operations
-make sim-decoder                # Simulate instruction decoder
-
-# Peripheral simulations
-make sim-gpio                   # Test GPIO functionality
-make sim-uart                   # Test UART communication
-make sim-spi                    # Test SPI interface
-make sim-i2c                    # Test I2C/TWI interface
-make sim-adc                    # Test ADC conversion
-make sim-timers                 # Test timer operations
-make sim-interrupts             # Test interrupt system
-
-# System-level simulations
-make sim-integration            # Full system integration test
-make sim-arduino                # Arduino compatibility test
-make sim-all                    # Run complete test suite
+sudo apt install gcc-avr avr-libc avrdude simavr srecord
+python3 -m venv ~/eda/venv && source ~/eda/venv/bin/activate
+pip install cocotb cocotb-test pytest pyelftools intelhex
 ```
 
-**Synthesis Commands:**
-```bash
-# Logic synthesis
-make synthesize                 # Synthesize with Yosys
-make synth-report              # Generate synthesis report
-make synth-clean               # Clean synthesis files
-
-# OpenLane flow (requires OpenLane installation)
-make openlane-flow             # Complete RTL-to-GDSII flow
-make openlane-interactive      # Interactive OpenLane session
-make drc-check                 # Design rule check
-make lvs-check                 # Layout vs schematic check
-```
-
-**Analysis Commands:**
-```bash
-# Code analysis
-make lint                      # Verilog code linting
-make coverage                  # Code coverage analysis
-make timing                    # Timing analysis
-make power                     # Power estimation
-
-# Documentation generation
-make docs                      # Generate documentation
-make specifications           # Update technical specs
-make readme                   # Regenerate README
-```
-
-**Utility Commands:**
-```bash
-# File management
-make clean                     # Clean simulation files
-make clean-all                # Clean all generated files
-make backup                   # Create project backup
-
-# Development utilities
-make format                   # Format Verilog code
-make check-syntax            # Syntax checking
-make list-modules           # List all RTL modules
-make deps                   # Show module dependencies
-
-# Help and information
-make help                     # Show all available commands
-make info                     # Show project information
-make status                   # Show build status
-```
+Detalles y alternativas sin `sudo` en [`docs/04-herramientas.md`](docs/04-herramientas.md).
 
 ---
 
-## Detailed Component Descriptions
+## Plataforma de validación
 
-### CPU Core (axioma_cpu.v)
-- **Architecture**: Harvard with 2-stage pipeline (Fetch → Decode/Execute)
-- **Instruction Set**: Complete 131 AVR instructions
-- **Registers**: 32 × 8-bit general purpose (R0-R31) + special registers
-- **Pipeline**: Single instruction per clock (most instructions)
-- **Memory Interface**: Separate program and data buses
-- **Interrupt Handling**: 26 prioritized interrupt vectors
+| Placa | FPGA | Lógica | Memoria | Precio |
+|-------|------|--------|---------|--------|
+| **ULX3S 25F** *(recomendada)* | ECP5 LFE5U-25F | 24 k LUT4 | 1008 Kbit | ~120 USD |
+| **Colorlight 5A-75B** *(mejor precio)* | ECP5 LFE5U-25F | 24 k LUT4 | 1008 Kbit | ~20 USD |
+| Tang Nano 9K | Gowin GW1NR-9 | 8,6 k LUT4 | 468 Kbit | ~18 USD |
+| iCEBreaker | iCE40 UP5K | 5,3 k LUT4 | 128 KB SPRAM | ~70 USD |
 
-### Memory System
-- **Flash Controller**: 32KB program memory with bootloader support
-- **SRAM Controller**: 2KB data memory with stack operations
-- **EEPROM Controller**: 1KB non-volatile storage with wear leveling
-
-### Peripheral Controllers
-- **GPIO**: 23 I/O pins across 3 ports with pin change interrupts
-- **UART**: Full-duplex serial communication with error detection
-- **SPI**: Master/slave operation with all clock modes
-- **I2C/TWI**: Multi-master bus with arbitration
-- **ADC**: 10-bit successive approximation with multiple references
-- **Timers**: Three timers (8-bit Timer0/2, 16-bit Timer1) with PWM
-
-### Advanced Features
-- **Interrupt System**: Hardware-prioritized 26-vector interrupt controller
-- **Clock Management**: Multiple clock sources with prescaling (CLKPR)
-- **Power Management**: Six sleep modes for power optimization
-- **Analog Comparator**: High-speed voltage comparison with interrupt
-- **Watchdog Timer**: System reliability and reset functionality
+El SoC es el mismo para las tres familias; sólo cambian el top y los constraints en `rtl/fpga/`.
 
 ---
 
-## Verification and Testing
+## Verificación
 
-### Test Coverage
-- **Instruction Set**: 100% of 131 AVR instructions verified
-- **Peripherals**: Complete functional testing of all controllers
-- **Integration**: Multi-peripheral concurrent operation tests
-- **Timing**: Setup/hold verification across all clock domains
-- **Arduino Compatibility**: Standard Arduino sketches verified
+La regla del proyecto: **nada entra sin oráculo.**
 
-### Testbench Structure
-```bash
-testbench/
-├── axioma_cpu_tb.v             # CPU comprehensive testbench
-├── integration_tests/          # System-level tests
-├── peripheral_tests/           # Individual peripheral tests
-└── arduino_compatibility/      # Arduino sketch tests
-```
+1. **Diferencial contra `simavr`** — se ejecuta el mismo `.elf` en el RTL y en simavr, y se comparan
+   PC, R0–R31, SREG y SP tras cada instrucción retirada. A la primera divergencia, el comparador
+   señala la instrucción y vuelca las ondas.
+2. **ALU exhaustiva** — 256 × 256 × 2 × ~20 operaciones ≈ 2,6 millones de vectores contra un modelo
+   de referencia. Cobertura del 100 %, demostrable.
+3. **Exactitud de ciclos** — la tabla del manual del ISA codificada como test.
+4. **Mapa de registros** — generado desde `iom328p.h` de avr-libc; un test de CI falla si diverge.
+5. **Sketches de Arduino reales**, NeoPixel incluido, que es el más exigente en temporización.
+6. **Formal** (SymbiYosys) sobre propiedades acotadas.
 
-### Running Tests
-```bash
-# Individual component tests
-make test-cpu                   # CPU instruction set test
-make test-memory               # Memory controller tests
-make test-peripherals          # All peripheral tests
-
-# Integration testing
-make test-integration          # Full system test
-make test-arduino             # Arduino compatibility
-make test-performance         # Performance benchmarks
-
-# Regression testing
-make test-all                 # Complete test suite
-make test-nightly            # Extended test suite
-```
+La matriz de compatibilidad del README se **genera** a partir de los resultados. No se escribe a mano.
 
 ---
 
-## Arduino Compatibility
+## Uso desde el IDE
 
-### Supported Arduino Functions
-```cpp
-// Digital I/O
-pinMode(pin, mode);
-digitalWrite(pin, value);
-digitalRead(pin);
+Paquete de placas instalable desde el *Boards Manager* de Arduino IDE 2.x. No forkeamos el core de
+Arduino: `boards.txt` lo referencia con `build.core=arduino:arduino`, de modo que se respeta la LGPL
+sin redistribuir código de terceros y se mantiene la compatibilidad binaria total. También hay
+soporte para PlatformIO y para compilación directa con `avr-gcc`.
 
-// Analog I/O  
-analogRead(pin);                // 10-bit ADC
-analogWrite(pin, value);        // PWM output
-
-// Serial Communication
-Serial.begin(baudrate);
-Serial.print(data);
-Serial.available();
-Serial.read();
-
-// Timing
-delay(ms);
-delayMicroseconds(us);
-millis();
-micros();
-
-// Interrupts
-attachInterrupt(interrupt, function, mode);
-detachInterrupt(interrupt);
-```
-
-### Pin Mapping (Arduino Uno Compatible)
-- **Digital Pins**: 0-13 (0-1 UART, 3,5,6,9,10,11 PWM)
-- **Analog Pins**: A0-A5 (10-bit ADC)
-- **Special Functions**: SPI (10-13), I2C (A4-A5)
+El bootloader es **propio**, escrito desde cero contra la especificación pública del protocolo
+STK500v1, de modo que `avrdude -c arduino` funciona sin modificaciones.
 
 ---
 
-## Synthesis Results
+## Camino a silicio
 
-### Performance Metrics (Sky130 130nm)
-- **Maximum Frequency**: 25MHz (verified timing closure)
-- **Gate Count**: 3,693 standard cells
-- **Flip-Flops**: 1,081 sequential elements
-- **Memory**: 35KB total (Flash + SRAM + EEPROM)
-- **Die Area**: ~3.2mm² (estimated)
-- **Power**: <50mW @ 25MHz (estimated)
+| Vía | Proceso | Coste | Cuándo |
+|-----|---------|-------|--------|
+| Tiny Tapeout | Sky130 / IHP SG13G2 / GF180 | 100–500 USD | Primera prueba de silicio real; núcleo con memoria externa |
+| **ChipFoundry chipIgnite** | Sky130 | 14 950 USD | Objetivo real: 100 piezas QFN, ~5 meses, área de usuario de 10,3 mm² |
 
-### OpenLane Configuration
-- **PDK**: SkyWater Sky130A
-- **Standard Cells**: sky130_fd_sc_hd (high density)
-- **Clock Period**: 40ns (25MHz)
-- **Die Size**: 3000×3000 µm
-- **Utilization**: 40% (conservative for first tapeout)
+Presupuesto de área estimado en Sky130: ~6–7 mm² con 32 KB de memoria de programa, ~3,5 mm² con
+16 KB. Detalles en el [plan maestro](docs/00-PLAN.md).
 
 ---
 
-## Development Workflow
+## Documentación
 
-### Code Organization
-- **RTL Style**: Consistent Verilog coding standards
-- **Modularity**: Hierarchical design with clear interfaces  
-- **Documentation**: Comprehensive inline comments
-- **Version Control**: Git with structured commit messages
-
-### Quality Assurance
-- **Linting**: Automated Verilog code checking
-- **Coverage**: Functional and code coverage analysis
-- **Reviews**: Peer review process for all changes
-- **Testing**: Continuous integration with regression tests
-
-### Contributing Guidelines
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/new-feature`)
-3. Implement changes with appropriate tests
-4. Run full test suite (`make test-all`)
-5. Submit pull request with detailed description
-6. Address review feedback and iterate
+| Documento | Contenido |
+|-----------|-----------|
+| [`docs/00-PLAN.md`](docs/00-PLAN.md) | **Plan maestro de reconstrucción.** Empieza aquí. |
+| [`requerimiento.md`](requerimiento.md) | Requerimiento oficial del proyecto, v2.0 |
+| [`docs/01-arquitectura.md`](docs/01-arquitectura.md) | Microarquitectura, mapa de memoria, vectores, tabla de ciclos |
+| [`docs/02-legal.md`](docs/02-legal.md) | Política clean-room y análisis de licencias |
+| [`docs/03-verificacion.md`](docs/03-verificacion.md) | Estrategia de verificación en seis capas |
+| [`docs/04-herramientas.md`](docs/04-herramientas.md) | Instalación y uso de la cadena de herramientas |
+| [`docs/requerimiento-v1-original.md`](docs/requerimiento-v1-original.md) | Requerimiento original, preservado sin cambios |
 
 ---
 
-## License and Legal
+## Licencia
 
-### MIT License
-This project is released under the MIT License, allowing for both commercial and non-commercial use. See `LICENSE` file for complete terms.
+**Apache-2.0** para RTL, testbenches, scripts y firmware — elegida por su concesión explícita de
+patentes, importante en hardware. El diseño físico y las PCB irán bajo **CERN-OHL-P v2**, y la
+documentación bajo **CC-BY-4.0**. Ver [`LICENSE`](LICENSE), [`NOTICE`](NOTICE) y
+[`LICENSE-EXCEPTIONS.md`](LICENSE-EXCEPTIONS.md).
 
-### Patent Notice
-This implementation is inspired by the AVR instruction set architecture. AVR is a trademark of Microchip Technology Inc. This project is an independent implementation for educational and research purposes.
+Este es un proyecto **clean-room**: se implementa desde documentación pública del conjunto de
+instrucciones. No contiene RTL, layouts ni texto de datasheet de terceros. Las reglas están en
+[`docs/02-legal.md`](docs/02-legal.md) y son de obligado cumplimiento para cualquier contribución.
 
-### Attribution
-When using AxiomaCore-328 in publications or products, please cite:
-```
-AxiomaCore-328: Open Source AVR-Compatible Microcontroller
-https://github.com/your-org/axioma_core_328
-```
-
----
-
-## Support and Community
-
-### Documentation
-- **Design Requirements**: Original requirements in `requerimiento.md`
-- **Example Programs**: Arduino-compatible examples in `/examples`
-- **Technical Reference**: Complete specifications in this README
-
-### Community Resources
-- **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: Technical discussions and questions
-- **Wiki**: Community-maintained documentation and tutorials
-
-### Professional Support
-For commercial deployments or professional support needs, contact the development team through the GitHub repository or project website.
+> AVR es una marca registrada de Microchip Technology Inc. Arduino es una marca registrada de
+> Arduino SA. AxiomaCore-328 es una implementación independiente, sin relación ni respaldo de
+> dichas compañías.
 
 ---
 
-## Acknowledgments
+## Agradecimientos
 
-### Open Source Community
-- **SkyWater Technology**: Sky130 open source PDK
-- **The OpenROAD Project**: OpenLane RTL-to-GDSII flow
-- **Yosys Team**: Open source synthesis tools
-- **Icarus Verilog**: RTL simulation environment
-
-### Technical Contributors
-This project builds upon decades of open source EDA tool development and the pioneering work of the open hardware community in creating accessible silicon design flows.
-
----
-
-**AxiomaCore-328**: Democratizing microcontroller design through open source hardware and tools.
-
-*Last updated: January 2025*
+SkyWater Technology y Google por el PDK Sky130 abierto · la FOSSi Foundation por LibreLane · el
+equipo de YosysHQ por Yosys, nextpnr y la OSS CAD Suite · el proyecto OpenROAD · Icarus Verilog ·
+Verilator · simavr · y la comunidad de hardware abierto que hizo que todo esto sea posible con un
+portátil y sin licencias.

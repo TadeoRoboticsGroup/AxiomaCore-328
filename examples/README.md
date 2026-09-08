@@ -1,64 +1,87 @@
-# AxiomaCore-328 Example Programs
+# Programas de ejemplo
 
-This directory contains example programs demonstrating AxiomaCore-328 functionality and Arduino IDE compatibility.
+Sketches de Arduino que sirven a la vez de **demostración** y de **suite de compatibilidad**. Cada
+uno ejercita una parte concreta del contrato de compatibilidad definido en
+[`../requerimiento.md`](../requerimiento.md).
 
-## Available Examples
-
-### basic_blink.ino
-**Description**: Basic LED blinking example demonstrating Arduino compatibility.
-**Features**: 
-- Built-in LED control (pin 13)
-- Serial debugging output
-- System information display
-
-**Usage**:
-```bash
-# Load in Arduino IDE with AxiomaCore-328 board selected
-# Serial Monitor: 115200 bps
-```
-
-### pwm_demo.ino
-**Description**: Comprehensive demonstration of 6 PWM channels.
-**Features**:
-- 6 simultaneous PWM channels (pins 3, 5, 6, 9, 10, 11)
-- Multiple visual patterns (fade, chase, wave, random)
-- Automatic pattern switching
-
-**Hardware Setup**:
-```
-Pins 3, 5, 6, 9, 10, 11 → LEDs with 220Ω resistors
-```
-
-### communication_test.ino
-**Description**: Complete test of UART, SPI, and I2C protocols.
-**Features**:
-- UART speed testing (9600-115200 bps)
-- SPI loopback testing
-- I2C device scanning
-- Simultaneous protocol operation
-
-**Hardware Setup**:
-```
-SPI Loopback: Pin 11 (MOSI) → Pin 12 (MISO) via 1kΩ resistor
-I2C Pull-ups: 4.7kΩ resistors on A4 (SDA) and A5 (SCL)
-```
-
-## Quick Start
-
-1. Install AxiomaCore-328 board package in Arduino IDE
-2. Select **Tools > Board > AxiomaCore-328**
-3. Choose appropriate example and upload
-4. Open Serial Monitor at 115200 bps
-
-## Testing Sequence
-
-1. **basic_blink.ino** - Verify hardware and Arduino compatibility
-2. **pwm_demo.ino** - Test PWM functionality and visual patterns
-3. **communication_test.ino** - Validate communication protocols
-
-For detailed technical documentation, see the main project README.md.
+> **Estado:** estos sketches todavía no se pueden ejecutar. El paquete de placas para el Arduino
+> IDE llega en la **fase 4** del [plan maestro](../docs/00-PLAN.md). Hasta entonces sirven como
+> especificación de lo que debe funcionar y como corpus para la
+> [capa 5 de verificación](../docs/03-verificacion.md).
 
 ---
 
-**License**: MIT  
-**Compatibility**: Arduino IDE 2.x with AxiomaCore-328 board package
+## Sketches
+
+### `basic_blink.ino`
+LED parpadeante con salida por consola serie.
+
+| Ejercita | Nivel |
+|----------|-------|
+| GPIO del puerto B, Timer0, `delay()`, `millis()` | L1 · L2 · L3 |
+| USART a 115200 bps | L2 |
+
+Es el primer hito de hardware del proyecto: cuando este sketch parpadea un LED en la FPGA, la
+fase 2 está cerrada.
+
+---
+
+### `pwm_demo.ino`
+Los 6 canales PWM simultáneos, con patrones de fundido, barrido y onda.
+
+| Ejercita | Nivel |
+|----------|-------|
+| `analogWrite()` sobre Timer0, Timer1 y Timer2 | L2 · L3 |
+| Modos Fast PWM y Phase-Correct | L2 |
+| Prescaler compartido entre Timer0 y Timer1 | L3 |
+
+**Montaje:** pines 3, 5, 6, 9, 10 y 11 → LED con resistencia de 220 Ω.
+
+---
+
+### `communication_test.ino`
+Prueba conjunta de USART, SPI y TWI.
+
+| Ejercita | Nivel |
+|----------|-------|
+| USART de 9600 a 115200 bps, generador de baudios | L2 · L3 |
+| SPI maestro en bucle cerrado | L2 |
+| Escaneo del bus I2C, arbitraje TWI | L2 |
+| Operación simultánea de los tres protocolos | L1 · L2 |
+
+**Montaje:** bucle SPI del pin 11 (MOSI) al 12 (MISO) con 1 kΩ. Pull-ups de 4,7 kΩ en A4 (SDA) y
+A5 (SCL).
+
+---
+
+## Sketches pendientes de añadir
+
+La suite de compatibilidad completa (fase 4) incorpora además:
+
+| Sketch | Por qué está en la lista |
+|--------|--------------------------|
+| `Servo` | Timer1 de 16 bits y el registro TEMP — la trampa nº 4 |
+| `SoftwareSerial` | Exactitud de ciclos en bucles cerrados |
+| **`Adafruit_NeoPixel`** | **El caso más exigente: temporización a nivel de ciclo con interrupciones desactivadas.** Si NeoPixel funciona, el nivel L3 está cerrado. |
+| `LiquidCrystal` | Temporización de GPIO |
+| `SD` | SPI a alta velocidad con bloques grandes |
+| `EEPROM` | Máquina de estados de `EECR` |
+| `micros_drift` | Deriva de temporización a largo plazo |
+
+---
+
+## Cómo se usarán
+
+Una vez disponible el paquete de placas:
+
+1. Añadir la URL del índice JSON en *Preferencias → Gestor de tarjetas adicionales*.
+2. Instalar **AxiomaCore-328** desde el Gestor de tarjetas.
+3. Seleccionar *Herramientas → Placa → AxiomaCore-328*.
+4. Compilar, subir y abrir el Monitor Serie a 115200 bps.
+
+En la regresión automática estos mismos sketches se compilan con `avr-gcc` y se ejecutan tanto en
+el RTL como en la FPGA, comparando la salida contra la referencia.
+
+---
+
+**Licencia:** Apache-2.0 · ver [`../LICENSE`](../LICENSE)

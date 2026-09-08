@@ -1,0 +1,18 @@
+AxiomaCore-328
+Copyright 2025-2026 The AxiomaCore Project
+
+Este producto incluye software desarrollado por el Proyecto AxiomaCore.
+
+Distribuido bajo la Licencia Apache, Versión 2.0. Ver el fichero LICENSE.
+
+AxiomaCore-328 es una implementación clean-room e independiente de un
+microcontrolador compatible con el conjunto de instrucciones AVR(R) de 8 bits.
+No contiene RTL, layouts ni documentación de Microchip Technology Inc. ni de
+ningún otro tercero.
+
+AVR es una marca registrada de Microchip Technology Inc.
+Arduino es una marca registrada de Arduino SA.
+Este proyecto no está afiliado ni respaldado por dichas compañías.
+
+El inventario de componentes de terceros y sus licencias se encuentra en
+LICENSE-EXCEPTIONS.md.

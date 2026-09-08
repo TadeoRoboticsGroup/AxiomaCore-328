@@ -136,7 +136,10 @@ como un caso por instrucción es la causa del cerrojo inferido en el RTL heredad
 
 ### Casos de flags que hay que tratar aparte
 
-- **`NEG`**: `H = R3 | ¬Rd3` · `V = (R == 0x80)` · `C = (R != 0x00)`.
+- **`NEG`**: `H = R3 | Rd3` · `V = (R == 0x80)` · `C = (R != 0x00)`.
+  Atención: es `Rd3`, **no** `¬Rd3`. Es un error fácil de cometer; en este proyecto se
+  cometió y lo detectó el contraste contra simavr, no la verificación exhaustiva contra
+  nuestro propio modelo.
 - **`ROR`, `ASR`, `LSR`**: `V = N ⊕ C`, evaluado **después** del desplazamiento.
 - **`ADIW`**: `V = ¬Rdh7_previo ∧ R15`. **`SBIW`**: `V = Rdh7_previo ∧ ¬R15`.
 - **`CP`, `CPC`, `CPI`**: actualizan flags sin escribir el destino.
@@ -225,7 +228,7 @@ Cada una necesita un test dirigido desde la fase 1.
 | 6 | **`LD`/`ST` sobre `0x0000–0x001F`** accede al banco de registros. | Fallos sutiles en código con punteros. |
 | 7 | **Punteros post-inc / pre-dec** escriben de vuelta al regfile en el mismo ciclo. | Corrupción de X/Y/Z. |
 | 8 | **`PUSH`** guarda y luego decrementa; **`POP`** incrementa y luego lee. `CALL` apila el byte alto primero. | Todo retorno corrupto. |
-| 9 | **Flags de `NEG`** (ver §5). | Aritmética con signo incorrecta. |
+| 9 | **Flags de `NEG`** (ver §5). `H = R3 \| Rd3` — con `Rd3`, no su negado. | Aritmética con signo incorrecta. |
 | 10 | **`ROR`/`ASR`/`LSR`**: `V = N ⊕ C` tras el desplazamiento. | Comparaciones con signo erróneas. |
 | 11 | **Efectos laterales de lectura.** Leer `UDR0` limpia `RXC`; leer `ADCL` bloquea `ADCH`; `TIFRx` se limpia escribiendo 1. | USART y ADC fallan de forma intermitente. |
 | 12 | **Prescaler compartido** entre Timer0 y Timer1; `GTCCR` lo resetea. El baudrate deriva de F_CPU, no del prescaler. | Deriva de temporización difícil de diagnosticar. |

@@ -126,7 +126,7 @@ def alu_scalar(op, a=0, b=0, a16=0, k6=0, sreg_in=0):
 
     elif op == OPS["NEG"]:
         r = (0x00 - a) & 0xFF
-        h = bit(r, 3) | nb(bit(a, 3))
+        h = bit(r, 3) | bit(a, 3)          # H = R3 + Rd3
         v = int(r == 0x80)
         n, z = bit(r, 7), int(r == 0)
         c = int(r != 0x00)
@@ -260,7 +260,7 @@ def gen_1op(name):
         c = np.ones_like(a); mask = M_SVNZC
     elif name == "NEG":
         r = (0 - a) & 0xFF
-        h = ((r >> 3) & 1) | (((a >> 3) & 1) ^ 1)
+        h = ((r >> 3) & 1) | ((a >> 3) & 1)
         v = (r == 0x80).astype(np.uint16)
         n = (r >> 7) & 1; z = (r == 0).astype(np.uint16)
         c = (r != 0).astype(np.uint16); mask = M_HSVNZC

@@ -18,6 +18,13 @@ ECP5_TOP   := axioma_ulx3s_top
 BUILD      := build
 
 RTL_SRCS := $(shell find $(RTL_DIR) -name '*.v' 2>/dev/null)
+# Los .vh viven junto a los módulos que los definen.
+INCDIRS  := $(addprefix -I,$(sort $(dir $(shell find $(RTL_DIR) -name '*.vh' 2>/dev/null))))
+# Mientras no exista el top del SoC (fase 2) hay varias raíces y verilator avisa
+# con MULTITOP. Se lintan todos los ficheros JUNTOS a propósito: así se detectan
+# fallos entre ficheros, como una guarda de inclusión que deja sin constantes al
+# segundo módulo que incluye una cabecera.
+LINT_TOP := $(if $(wildcard $(RTL_DIR)/soc/axioma328_soc.v),--top-module $(TOP_SOC),-Wno-MULTITOP)
 
 GREEN := \033[0;32m
 RED   := \033[0;31m
@@ -41,7 +48,9 @@ help:
 	@echo -e "$(BOLD)Fase 1$(NC)  $(DIM)núcleo ISA$(NC)"
 	@echo "  make sim-alu          verificación exhaustiva de la ALU"
 	@echo "  make sim-sreg         prueba dirigida del registro de estado"
-	@echo "  make sim-core         ambas"
+	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
+	@echo "  make sim-core         las tres"
+	@echo "  make mutation         prueba de mutación: ¿puede fallar el banco? (~90 s)"
 	@echo "  make sim-isa          suite dirigida de las 131 instrucciones"
 	@echo "  make sim-diff         diferencial contra simavr"
 	@echo ""
@@ -98,7 +107,7 @@ lint:
 	@if [ -z "$(RTL_SRCS)" ]; then \
 	  echo -e "$(DIM)Todavía no hay RTL en $(RTL_DIR)/ — nada que analizar. Ver docs/00-PLAN.md, fase 1.$(NC)"; \
 	else \
-	  verilator --lint-only -Wall -Wno-fatal -I$(RTL_DIR) $(RTL_SRCS) && \
+	  verilator --lint-only -Wall -Wno-DECLFILENAME $(LINT_TOP) $(INCDIRS) $(RTL_SRCS) && \
 	  echo -e "$(GREEN)lint limpio$(NC)"; \
 	fi
 
@@ -113,7 +122,7 @@ $(VEC_DIR)/spec.txt: sim/alu/alu_ref.py
 .PHONY: sim-alu
 sim-alu: alu-vectors
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
-	  -Irtl/core -Mdir $(BUILD)/valu -o tb_alu \
+	  $(INCDIRS) -Mdir $(BUILD)/valu -o tb_alu \
 	  --top-module axioma_alu rtl/core/axioma_alu.v sim/alu/tb_alu.cpp >/dev/null
 	@echo -e "$(BOLD)Verificación exhaustiva de la ALU$(NC)"
 	@./$(BUILD)/valu/tb_alu $(VEC_DIR)
@@ -121,12 +130,38 @@ sim-alu: alu-vectors
 .PHONY: sim-sreg
 sim-sreg:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
-	  -Irtl/core -Mdir $(BUILD)/vsreg -o tb_sreg \
+	  $(INCDIRS) -Mdir $(BUILD)/vsreg -o tb_sreg \
 	  --top-module axioma_sreg rtl/core/axioma_sreg.v sim/alu/tb_sreg.cpp >/dev/null
 	@./$(BUILD)/vsreg/tb_sreg
 
+# --- tercer oráculo: simavr ---
+SIMAVR_LIB     ?= $(HOME)/eda/simavr-src/simavr/obj-x86_64-linux-gnu
+SIMAVR_INCLUDE ?= $(HOME)/eda/simavr-src/simavr/sim
+SIM_VEC        := $(BUILD)/simavr_vec
+
+$(BUILD)/simavr_oracle: sim/alu/simavr_oracle.c | $(BUILD)
+	@test -d "$(SIMAVR_INCLUDE)" || { \
+	  echo -e "$(RED)No se encuentra simavr en $(SIMAVR_INCLUDE)$(NC)"; \
+	  echo "Ver docs/04-herramientas.md"; exit 1; }
+	@gcc -O2 -o $@ $< -I$(SIMAVR_INCLUDE) -I$(SIMAVR_INCLUDE)/avr \
+	     -L$(SIMAVR_LIB) -lsimavr -lelf
+
+.PHONY: simavr-oracle
+simavr-oracle: $(BUILD)/simavr_oracle
+	@mkdir -p $(SIM_VEC)
+	@LD_LIBRARY_PATH=$(SIMAVR_LIB):$$LD_LIBRARY_PATH ./$(BUILD)/simavr_oracle $(SIM_VEC) 1 >/dev/null
+
+.PHONY: sim-simavr
+sim-simavr: simavr-oracle
+	@echo -e "$(BOLD)Contraste contra simavr$(NC)"
+	@$(PYTHON) sim/alu/compare_simavr.py $(SIM_VEC)
+
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg
+sim-core: sim-alu sim-sreg sim-simavr
+
+.PHONY: mutation
+mutation:
+	@$(PYTHON) sim/alu/mutation_test.py
 
 .PHONY: sim-isa sim-diff
 sim-isa sim-diff:

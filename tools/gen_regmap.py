@@ -157,7 +157,7 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
         "// AxiomaCore-328 - mapa de registros",
         "// FICHERO GENERADO. No editar a mano.",
         "//   Generador: tools/gen_regmap.py",
-        f"//   Fuente:    preprocesador de {src} con avr-libc (BSD-3-Clause)",
+        "//   Fuente:    preprocesador de avr-gcc con avr-libc (BSD-3-Clause)",
         "//",
         "// Direcciones del espacio de DATOS. Para IN/OUT, dir_io = dir_dato - 0x20.",
         "",
@@ -242,6 +242,9 @@ def main():
               file=sys.stderr)
 
     vh, md = emit_vh(regs, bits, vectors, hdr), emit_md(regs, bits, vectors, hdr)
+    # Nota: la salida NO incrusta la versión del compilador. Si lo hiciera,
+    # `--check` fallaría en cualquier máquina con otro avr-gcc aunque el mapa
+    # fuese idéntico.
 
     if args.check:
         bad = False

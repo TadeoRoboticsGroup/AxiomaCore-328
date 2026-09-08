@@ -152,7 +152,9 @@ module axioma_alu (
 
         ALU_NEG: begin
             result = 8'h00 - a;
-            h = result[3] | ~a[3];
+            // H = R3 + Rd3 segun el manual. NO es ~Rd3: verificado contra
+            // simavr sobre los 256 valores de Rd.
+            h = result[3] | a[3];
             v = (result == 8'h80);
             n = result[7];
             z = (result == 8'h00);

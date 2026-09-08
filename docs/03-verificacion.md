@@ -52,6 +52,8 @@ La ALU es de 8 bits: el espacio de entrada es enumerable **por completo**. Imple
 
 **Total: 10 887 168 vectores sobre 24 operaciones. 0 fallos. 5,3 segundos.**
 
+### Por qué hacen falta TRES oráculos, no dos
+
 El oráculo es doble y se contrasta consigo mismo antes de emitir nada:
 
 - `alu_scalar()` — transcripción escalar y legible del manual del ISA. Es la especificación
@@ -63,6 +65,34 @@ Antes de generar, las dos se comparan sobre todos los casos borde conocidos (0x0
 0x10, 0x7E, 0x7F, 0x80, 0x81, 0xFE, 0xFF y sus combinaciones) más una muestra aleatoria. Si
 divergen, el generador aborta: **una versión rápida que no coincide con la especificación legible
 no sirve de oráculo.**
+
+Pero eso **no basta**. El modelo de referencia y el RTL los escribe la misma persona leyendo el
+mismo manual: que coincidan demuestra que no hay erratas de transcripción, no que la
+interpretación sea correcta. Un error conceptual cometido dos veces pasa desapercibido.
+
+Por eso hay un **tercer oráculo independiente**: `sim/alu/simavr_oracle.c` ejecuta las
+instrucciones AVR reales sobre **simavr**, una implementación de terceros del núcleo, y
+`compare_simavr.py` contrasta los 10 887 168 casos. El SREG esperado se calcula aplicando la
+máscara —`(sreg_in & ~mask) | (sreg_out & mask)`— con lo que se verifica también su semántica.
+
+**Esto no es teórico.** El contraste contra simavr encontró un fallo real que la verificación
+exhaustiva contra nuestro propio modelo no podía encontrar: el flag H de `NEG` estaba
+implementado como `R3 | ¬Rd3` cuando el manual dice `R3 | Rd3`. El mismo error estaba en el RTL y
+en el modelo de referencia, así que se daban la razón mutuamente en las 1024 combinaciones.
+Discrepaba en 512 de ellas frente a simavr.
+
+### Prueba de mutación: ¿puede fallar el banco?
+
+Un banco de pruebas que no puede fallar no verifica nada. `sim/alu/mutation_test.py` inyecta 18
+fallos deliberados y plausibles en la ALU —un término de menos en una expresión de flags, una
+polaridad invertida, una máscara que escribe un bit de más, un operando con el signo equivocado— y
+comprueba que el barrido exhaustivo los detecta todos.
+
+Los mutantes están curados para que ninguno sea *equivalente*. Por ejemplo, en `LSR` no vale usar
+`n = r_lsr[7]`: como `r_lsr = {1'b0, a[7:1]}`, su bit 7 es siempre 0 y la mutación sería idéntica
+al original. Sobreviviría sin que eso indicara agujero alguno.
+
+Se ejecuta con `make mutation` (~90 s). No forma parte del CI de cada push.
 
 Ésta es la razón por la que la fase 1 empieza por la ALU: es el bloque con el mejor retorno
 inmediato y establece el patrón para todo el proyecto.

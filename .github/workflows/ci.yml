@@ -8,6 +8,11 @@ on:
 env:
   OSS_CAD_VERSION: "2026-09-08"
   OSS_CAD_STAMP: "20260908"
+  # El mapa de registros se genera desde avr-libc. Distintas versiones de
+  # avr-libc pueden diferir, así que la CI usa EXACTAMENTE el mismo toolchain
+  # que env.sh en local; si no, `make regmap-check` fallaría sin que el mapa
+  # esté mal.
+  AVR_GCC_URL: "https://downloads.arduino.cc/tools/avr-gcc-7.3.0-atmel3.6.1-arduino7-x86_64-pc-linux-gnu.tar.bz2"
 
 jobs:
   lint-and-generate:
@@ -31,8 +36,23 @@ jobs:
             "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_VERSION}/oss-cad-suite-linux-x64-${OSS_CAD_STAMP}.tgz"
           tar xzf oss.tgz && rm oss.tgz
 
-      - name: Instalar toolchain AVR
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-avr avr-libc
+      - name: Cachear toolchain AVR
+        id: cache-avr
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/avr
+          key: avr-gcc-7.3.0-atmel3.6.1-arduino7
+
+      - name: Instalar toolchain AVR (misma versión que en local)
+        if: steps.cache-avr.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/eda/avr && cd ~/eda/avr
+          curl -sL -o avr-gcc.tar.bz2 "$AVR_GCC_URL"
+          tar xjf avr-gcc.tar.bz2 && rm avr-gcc.tar.bz2
+          mv avr avr-gcc-7.3.0
+
+      - name: Añadir avr-gcc al PATH
+        run: echo "$HOME/eda/avr/avr-gcc-7.3.0/bin" >> $GITHUB_PATH
 
       - name: Mapa de registros al día
         run: make regmap-check
@@ -103,6 +123,23 @@ jobs:
         run: |
           source ~/eda/oss-cad-suite/environment
           make sim-sreg
+
+      - name: Cachear simavr
+        id: cache-simavr
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/simavr-src
+          key: simavr-${{ hashFiles('.github/workflows/ci.yml') }}
+
+      - name: Compilar simavr
+        if: steps.cache-simavr.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libelf-dev
+          git clone -q --depth 1 https://github.com/buserror/simavr.git ~/eda/simavr-src
+          make -C ~/eda/simavr-src -j$(nproc) build-simavr
+
+      - name: Contraste contra simavr (tercer oráculo, independiente)
+        run: sudo apt-get install -y -qq libelf-dev && make sim-simavr
 
       # Se activan conforme avanza la fase 1. Ver docs/00-PLAN.md.
       # - name: Suite dirigida de las 131 instrucciones

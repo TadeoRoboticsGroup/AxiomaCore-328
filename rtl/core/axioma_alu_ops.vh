@@ -15,9 +15,16 @@
 //   CBR        -> ALU_AND      con el inmediato complementado
 //   SER        -> ALU_MOV      con b = 0xFF
 
-`ifndef AXIOMA_ALU_OPS_VH
-`define AXIOMA_ALU_OPS_VH
-
+// SIN GUARDA DE INCLUSIÓN, a propósito.
+//
+// Este fichero se incluye DENTRO del cuerpo de cada módulo y declara
+// `localparam`, que tienen ámbito de módulo. Una guarda `ifndef haría que el
+// segundo módulo que lo incluyera en la misma compilación no recibiera nada:
+// con dos módulos en una sola invocación de verilator o yosys, el segundo se
+// queda sin constantes. Cada módulo necesita su propia copia.
+//
+// Las guardas son para ficheros de `define, que sí son globales.
+//
 // Cabecera de constantes compartida: cada módulo usa un subconjunto.
 /* verilator lint_off UNUSEDPARAM */
 
@@ -59,5 +66,3 @@ localparam integer SREG_T = 6;
 localparam integer SREG_I = 7;
 
 /* verilator lint_on UNUSEDPARAM */
-
-`endif // AXIOMA_ALU_OPS_VH

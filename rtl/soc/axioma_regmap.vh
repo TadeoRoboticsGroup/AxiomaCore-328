@@ -1,7 +1,7 @@
 // AxiomaCore-328 - mapa de registros
 // FICHERO GENERADO. No editar a mano.
 //   Generador: tools/gen_regmap.py
-//   Fuente:    preprocesador de avr-gcc (GCC) 7.3.0 con avr-libc (BSD-3-Clause)
+//   Fuente:    preprocesador de avr-gcc con avr-libc (BSD-3-Clause)
 //
 // Direcciones del espacio de DATOS. Para IN/OUT, dir_io = dir_dato - 0x20.
 

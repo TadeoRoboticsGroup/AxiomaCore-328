@@ -343,8 +343,8 @@ Un **secuenciador** (`axioma_seq.v`) gestiona las instrucciones multiciclo conge
    ciclo; `ST X+, r26` tiene semántica de orden definida.
 8. **`PUSH`**: guarda en `SP`, luego `SP--`. **`POP`**: `SP++`, luego lee. `CALL` apila la
    dirección de retorno con el byte **alto primero**.
-9. **Flags de `NEG`**: `H = R3 | ¬Rd3`, `V = (R == 0x80)`, `C = (R != 0x00)`. Es la instrucción con
-   los flags más peculiares.
+9. **Flags de `NEG`**: `H = R3 | Rd3`, `V = (R == 0x80)`, `C = (R != 0x00)`. Es la instrucción con
+   los flags más peculiares. Ojo: `Rd3`, no `¬Rd3`.
 10. **`ROR`/`ASR`/`LSR`**: `V = N ⊕ C` calculado **después** del desplazamiento.
 11. **Efectos laterales de lectura.** Leer `UDR0` limpia `RXC`. Leer `ADCL` bloquea `ADCH` hasta que
     se lee `ADCH`. Leer `TIFRx` no limpia; se limpia escribiendo un 1.
@@ -706,6 +706,10 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 - [x] `sreg.v` — actualización enmascarada, 29 comprobaciones dirigidas.
 - [x] Modelo de referencia de la ALU en Python + **verificación exhaustiva** (Capa 2):
       **10 887 168 vectores, 24 operaciones, 0 fallos.**
+- [x] **Tercer oráculo independiente**: contraste de los mismos 10 887 168 casos contra `simavr`
+      ejecutando instrucciones AVR reales. Encontró un fallo que la verificación contra nuestro
+      propio modelo no podía encontrar (flag H de `NEG`).
+- [x] **Prueba de mutación**: 18 fallos inyectados, 18 detectados. El banco puede fallar.
 - [ ] `regfile.v` (2R/1W + acceso de 16 bits) — la forma de los puertos se fija con el decodificador.
 - [ ] `decode.v` — decodificación combinacional completa + predecodificador de "siguiente de 32 bits".
 - [ ] `seq.v` — secuenciador multiciclo.

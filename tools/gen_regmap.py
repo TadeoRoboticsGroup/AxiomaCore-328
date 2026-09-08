@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-Genera el mapa de registros y la tabla de vectores de AxiomaCore-328 a partir
-de `iom328p.h` de avr-libc (BSD-3-Clause).
+Genera el mapa de registros y la tabla de vectores de AxiomaCore-328
+preguntándole al preprocesador de avr-gcc, con avr-libc (BSD-3-Clause).
+
+Se usa el preprocesador y no un parseo del texto de `iom328p.h` porque:
+  - SREG, SPL, SPH y SP no viven en iom328p.h sino en avr/common.h;
+  - common.h define cada uno varias veces bajo #ifdef distintos, y sólo el
+    preprocesador, con -mmcu=atmega328p, sabe cuál aplica.
+Un parseo de texto se saltaba los tres y era la clase de error silencioso que
+este generador existe para eliminar.
 
 Por qué generarlo en vez de escribirlo:
     El nivel L2 del contrato de compatibilidad exige que cada registro esté en
@@ -39,71 +46,109 @@ SFR_OFFSET = 0x20  # __SFR_OFFSET en AVR: I/O 0x00 == dato 0x20
 EXPECTED_VECTORS = 26
 
 
-def find_header() -> Path:
-    """Localiza iom328p.h preguntando a avr-gcc, o buscando en rutas típicas."""
+def _cc(args, stdin_text=None):
+    return subprocess.run(["avr-gcc", "-mmcu=atmega328p"] + args,
+                          input=stdin_text, capture_output=True, text=True, timeout=60)
+
+
+def check_toolchain():
     try:
-        out = subprocess.run(
-            ["avr-gcc", "-mmcu=atmega328p", "-E", "-Wp,-v", "-xc", "/dev/null"],
-            capture_output=True, text=True, timeout=20,
-        ).stderr
-        for line in out.splitlines():
-            line = line.strip()
-            if line.startswith("/") and Path(line).is_dir():
-                cand = Path(line) / "avr/iom328p.h"
-                if cand.exists():
-                    return cand
+        r = subprocess.run(["avr-gcc", "--version"], capture_output=True, text=True, timeout=20)
     except (FileNotFoundError, subprocess.SubprocessError):
-        pass
-
-    for pat in ("/usr/lib/avr/include/avr/iom328p.h",
-                "/usr/avr/include/avr/iom328p.h",
-                "/usr/local/avr/include/avr/iom328p.h"):
-        p = Path(pat)
-        if p.exists():
-            return p
-    for base in (Path.home() / "eda", Path("/opt"), Path("/usr")):
-        if base.exists():
-            for p in base.rglob("avr/iom328p.h"):
-                return p
-    sys.exit(
-        "No se encontró iom328p.h.\n"
-        "Instala el toolchain AVR:  sudo apt install gcc-avr avr-libc\n"
-        "o extrae el de Arduino en ~/eda/avr-gcc."
-    )
+        sys.exit(
+            "No se encuentra avr-gcc.\n"
+            "  source env.sh                              (si ya está en ~/eda)\n"
+            "  sudo apt install gcc-avr avr-libc          (instalación del sistema)\n"
+            "Ver docs/04-herramientas.md."
+        )
+    return r.stdout.splitlines()[0] if r.stdout else "avr-gcc"
 
 
-RE_SFR = re.compile(
-    r'^\s*#\s*define\s+(\w+)\s+_SFR_(IO|MEM)(8|16)\s*\(\s*(0x[0-9A-Fa-f]+|\d+)\s*\)'
-)
-RE_BIT = re.compile(r'^\s*#\s*define\s+(\w+)\s+(\d+)\s*$')
-RE_VECNUM = re.compile(r'^\s*#\s*define\s+(\w+)_vect_num\s+(\d+)')
+RE_DEFINE = re.compile(r'^#define\s+(\w+)\s+(.*)$')
+RE_SFR_BODY = re.compile(r'_SFR_(IO|MEM)(8|16)\s*\(')
+RE_INT_BODY = re.compile(r'^\(?\s*(\d+)\s*\)?$')
+RE_VECNUM = re.compile(r'^(\w+)_vect_num$')
 
 
-def parse(path: Path):
-    regs, bits, vectors = [], {}, []
-    current = None
-    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        m = RE_SFR.match(raw)
+def collect_macros():
+    """Vuelca todas las macros que avr-gcc define para el atmega328p."""
+    r = _cc(["-E", "-dM", "-xc", "-"], stdin_text="#include <avr/io.h>\n")
+    if r.returncode != 0:
+        sys.exit("avr-gcc falló al preprocesar <avr/io.h>:\n" + r.stderr)
+    out = {}
+    for line in r.stdout.splitlines():
+        m = RE_DEFINE.match(line)
         if m:
-            name, space, width, addr = m.groups()
-            a = int(addr, 0)
-            data = a + SFR_OFFSET if space == "IO" else a
-            io = a if space == "IO" else None
-            regs.append({"name": name, "data": data, "io": io, "width": int(width)})
-            current = name
-            continue
-        m = RE_VECNUM.match(raw)
-        if m:
-            vectors.append({"name": m.group(1), "num": int(m.group(2))})
-            continue
-        m = RE_BIT.match(raw)
-        if m and current:
-            bname, bnum = m.group(1), int(m.group(2))
-            if 0 <= bnum <= 7 and not bname.endswith("_vect_num"):
-                bits.setdefault(current, []).append((bname, bnum))
+            out[m.group(1)] = m.group(2).strip()
+    return out
 
+
+def resolve_addresses(names):
+    """Expande cada registro con _SFR_ASM_COMPAT=1, que reduce las macros a
+    aritmética pura, y evalúa el resultado."""
+    # El nombre va entre comillas: el preprocesador no expande macros dentro
+    # de un literal de cadena. Sin eso, el propio marcador se expandía también.
+    marks = "\n".join(f'@@ "{n}" @@ {n} @@' for n in names)
+    src = "#include <avr/io.h>\n" + marks + "\n"
+    r = _cc(["-D_SFR_ASM_COMPAT=1", "-E", "-P", "-xc", "-"], stdin_text=src)
+    if r.returncode != 0:
+        sys.exit("avr-gcc falló al expandir las direcciones:\n" + r.stderr)
+    addrs = {}
+    for m in re.finditer(r'@@\s*"(\w+)"\s*@@(.*?)@@', r.stdout, re.S):
+        name, expr = m.group(1), m.group(2).strip()
+        try:
+            addrs[name] = int(eval(expr, {"__builtins__": {}}, {}))
+        except Exception:
+            pass                      # macro no reducible a un número: se ignora
+    return addrs
+
+
+def collect():
+    macros = collect_macros()
+
+    sfr_names, widths, spaces = [], {}, {}
+    for name, body in macros.items():
+        m = RE_SFR_BODY.search(body)
+        if m:
+            sfr_names.append(name)
+            spaces[name] = m.group(1)
+            widths[name] = int(m.group(2))
+
+    addrs = resolve_addresses(sorted(sfr_names))
+
+    regs = []
+    for name in sorted(sfr_names):
+        if name not in addrs:
+            continue
+        data = addrs[name]
+        io = data - SFR_OFFSET if spaces[name] == "IO" else None
+        if io is not None and not (0 <= io <= 0x3F):
+            io = None
+        regs.append({"name": name, "data": data, "io": io, "width": widths[name]})
     regs.sort(key=lambda r: (r["data"], r["name"]))
+
+    # Bits: macros con cuerpo entero 0..7 cuyo nombre empieza por el de un registro.
+    regnames = sorted((r["name"] for r in regs), key=len, reverse=True)
+    bits = {}
+    for name, body in macros.items():
+        m = RE_INT_BODY.match(body)
+        if not m:
+            continue
+        val = int(m.group(1))
+        if not 0 <= val <= 7 or name.endswith("_vect_num"):
+            continue
+        for rn in regnames:
+            if name.startswith(rn) and name != rn:
+                bits.setdefault(rn, []).append((name, val))
+                break
+
+    vectors = []
+    for name, body in macros.items():
+        m = RE_VECNUM.match(name)
+        if m and body.strip().isdigit():
+            vectors.append({"name": m.group(1), "num": int(body.strip())})
     vectors.sort(key=lambda v: v["num"])
+
     return regs, bits, vectors
 
 
@@ -112,7 +157,7 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
         "// AxiomaCore-328 - mapa de registros",
         "// FICHERO GENERADO. No editar a mano.",
         "//   Generador: tools/gen_regmap.py",
-        f"//   Fuente:    {src}  (avr-libc, BSD-3-Clause)",
+        f"//   Fuente:    preprocesador de {src} con avr-libc (BSD-3-Clause)",
         "//",
         "// Direcciones del espacio de DATOS. Para IN/OUT, dir_io = dir_dato - 0x20.",
         "",
@@ -133,9 +178,10 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
         for bname, bnum in sorted(bits[reg], key=lambda t: t[1]):
             L.append(f"localparam [2:0] BIT_{bname:<12s} = 3'd{bnum};")
     L += ["", "// ------------------------------------------------- vectores de interrupción",
-          f"localparam integer NUM_VECTORS = {len(vectors)};"]
+          f"localparam integer NUM_VECTORS = {len(vectors) + 1};  // incluye RESET"]
+    # Cada vector ocupa 2 palabras en una Flash de 32 KB.
+    L.append(f"localparam [13:0] VEC_{'RESET':<14s} = 14'h0000;")
     for v in vectors:
-        # Cada vector ocupa 2 palabras en una Flash de 32 KB.
         L.append(f"localparam [13:0] VEC_{v['name']:<14s} = 14'h{v['num'] * 2:04X};")
     L += ["", "`endif // AXIOMA_REGMAP_VH", ""]
     return "\n".join(L)
@@ -146,7 +192,7 @@ def emit_md(regs, bits, vectors, src: Path) -> str:
         "# Mapa de registros",
         "",
         "> **Fichero generado.** No editar a mano.",
-        "> Generador: `tools/gen_regmap.py` · Fuente: `iom328p.h` de avr-libc (BSD-3-Clause).",
+        "> Generador: `tools/gen_regmap.py` · Fuente: preprocesador de avr-gcc con avr-libc (BSD-3-Clause).",
         "> Regenerar con `make regmap`; la CI falla si este fichero diverge de la fuente.",
         "",
         "Direcciones del **espacio de datos**. Para `IN`/`OUT`, la dirección de I/O es",
@@ -184,11 +230,11 @@ def main():
                     help="no escribe: falla si lo generado difiere del árbol")
     args = ap.parse_args()
 
-    hdr = find_header()
-    regs, bits, vectors = parse(hdr)
+    hdr = check_toolchain()
+    regs, bits, vectors = collect()
 
     if not regs:
-        sys.exit(f"no se extrajo ningún registro de {hdr}")
+        sys.exit("no se extrajo ningún registro del preprocesador")
     # El vector 0 (RESET) no aparece como *_vect_num en la cabecera.
     total = len(vectors) + 1
     if total != EXPECTED_VECTORS:

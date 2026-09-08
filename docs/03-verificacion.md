@@ -40,15 +40,29 @@ días a minutos.
 
 ## Capa 2 — ALU exhaustiva
 
-La ALU es de 8 bits: el espacio de entrada es enumerable **por completo**.
+La ALU es de 8 bits: el espacio de entrada es enumerable **por completo**. Implementado en
+`sim/alu/`, ejecutable con `make sim-alu`.
 
-```
-256 (A) × 256 (B) × 2 (carry in) × ~20 operaciones ≈ 2 600 000 vectores
-```
+| Clase | Espacio barrido | Vectores por operación |
+|-------|-----------------|------------------------|
+| Dos operandos (ADD, ADC, SUB, SBC, AND, OR, EOR, MOV) | a × b × (C,Z) | 262 144 |
+| Un operando (COM, NEG, INC, DEC, LSR, ROR, ASR, SWAP) | a × (C,Z) | 1 024 |
+| 16 bits (ADIW, SBIW) | a16 × k6, ambos completos | 4 194 304 |
+| Multiplicación (MUL, MULS, MULSU, FMUL, FMULS, FMULSU) | a × b | 65 536 |
 
-Se comparan el resultado y los seis flags contra un modelo de referencia en Python, escrito
-directamente desde el manual del ISA e independiente del RTL. Cobertura del 100 %, demostrable, en
-segundos.
+**Total: 10 887 168 vectores sobre 24 operaciones. 0 fallos. 5,3 segundos.**
+
+El oráculo es doble y se contrasta consigo mismo antes de emitir nada:
+
+- `alu_scalar()` — transcripción escalar y legible del manual del ISA. Es la especificación
+  ejecutable.
+- `gen_*()` — versiones vectorizadas con numpy, que generan los 10,9 millones de vectores en medio
+  segundo.
+
+Antes de generar, las dos se comparan sobre todos los casos borde conocidos (0x00, 0x01, 0x0F,
+0x10, 0x7E, 0x7F, 0x80, 0x81, 0xFE, 0xFF y sus combinaciones) más una muestra aleatoria. Si
+divergen, el generador aborta: **una versión rápida que no coincide con la especificación legible
+no sirve de oráculo.**
 
 Ésta es la razón por la que la fase 1 empieza por la ALU: es el bloque con el mejor retorno
 inmediato y establece el patrón para todo el proyecto.

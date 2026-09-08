@@ -43,3 +43,6 @@ asic/reports/*
 *.tar.gz
 *.tar.bz2
 *.zip
+
+# Banco de vectores de la ALU (generado, 52 MB)
+build/alu_vec/

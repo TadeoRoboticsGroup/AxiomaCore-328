@@ -702,8 +702,11 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 
 ### Fase 1 — Núcleo ISA (4 semanas) ← *camino crítico*
 
-- [ ] `regfile.v` (2R/1W + acceso de 16 bits), `sreg.v`, `alu.v`.
-- [ ] Modelo de referencia de la ALU en Python + **verificación exhaustiva** (Capa 2).
+- [x] `alu.v` — combinacional pura, sin latches, multiplicador compartido.
+- [x] `sreg.v` — actualización enmascarada, 29 comprobaciones dirigidas.
+- [x] Modelo de referencia de la ALU en Python + **verificación exhaustiva** (Capa 2):
+      **10 887 168 vectores, 24 operaciones, 0 fallos.**
+- [ ] `regfile.v` (2R/1W + acceso de 16 bits) — la forma de los puertos se fija con el decodificador.
 - [ ] `decode.v` — decodificación combinacional completa + predecodificador de "siguiente de 32 bits".
 - [ ] `seq.v` — secuenciador multiciclo.
 - [ ] `progmem`/`dmem` con backend `sim`.

@@ -65,6 +65,46 @@ jobs:
           print("todos los enlaces resuelven")
           PY
 
-  # Se activa en la fase 1. Ver docs/00-PLAN.md.
-  # verify:
-  #   name: ALU exhaustiva · suite ISA · ciclos · diferencial vs simavr
+  verify:
+    name: Verificación del núcleo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cachear OSS CAD Suite
+        id: cache-oss
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/oss-cad-suite
+          key: oss-cad-${{ env.OSS_CAD_VERSION }}
+
+      - name: Instalar OSS CAD Suite
+        if: steps.cache-oss.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/eda && cd ~/eda
+          curl -sL -o oss.tgz \
+            "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_VERSION}/oss-cad-suite-linux-x64-${OSS_CAD_STAMP}.tgz"
+          tar xzf oss.tgz && rm oss.tgz
+
+      - name: Entorno Python
+        run: |
+          python3 -m venv ~/eda/venv
+          ~/eda/venv/bin/pip install -q numpy pytest pyelftools intelhex
+
+      - name: Los dos modelos de referencia de la ALU coinciden
+        run: ~/eda/venv/bin/python sim/alu/alu_ref.py --self-test
+
+      - name: ALU - barrido exhaustivo del espacio de entrada
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-alu
+
+      - name: SREG - prueba dirigida
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-sreg
+
+      # Se activan conforme avanza la fase 1. Ver docs/00-PLAN.md.
+      # - name: Suite dirigida de las 131 instrucciones
+      # - name: Diferencial contra simavr
+      # - name: Tabla de ciclos

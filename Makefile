@@ -5,6 +5,8 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 OSS_CAD  ?= $(HOME)/eda/oss-cad-suite
+# La OSS CAD Suite antepone su propio Python, que no trae numpy.
+PYTHON   ?= $(if $(AXIOMA_PYTHON),$(AXIOMA_PYTHON),$(shell test -x $(HOME)/eda/venv/bin/python && echo $(HOME)/eda/venv/bin/python || echo python3))
 RTL_DIR  := rtl
 TOP_SOC  := axioma328_soc
 
@@ -38,6 +40,8 @@ help:
 	@echo ""
 	@echo -e "$(BOLD)Fase 1$(NC)  $(DIM)núcleo ISA$(NC)"
 	@echo "  make sim-alu          verificación exhaustiva de la ALU"
+	@echo "  make sim-sreg         prueba dirigida del registro de estado"
+	@echo "  make sim-core         ambas"
 	@echo "  make sim-isa          suite dirigida de las 131 instrucciones"
 	@echo "  make sim-diff         diferencial contra simavr"
 	@echo ""
@@ -80,13 +84,13 @@ check-tools:
 # ------------------------------------------------------- ficheros generados
 .PHONY: regmap regmap-check lpf
 regmap:
-	@python3 tools/gen_regmap.py
+	@$(PYTHON) tools/gen_regmap.py
 
 regmap-check:
-	@python3 tools/gen_regmap.py --check
+	@$(PYTHON) tools/gen_regmap.py --check
 
 lpf:
-	@python3 tools/gen_ulx3s_lpf.py
+	@$(PYTHON) tools/gen_ulx3s_lpf.py
 
 # ------------------------------------------------------------------- lint
 .PHONY: lint
@@ -99,9 +103,34 @@ lint:
 	fi
 
 # ------------------------------------------------------------- fase 1: sim
-.PHONY: sim-alu sim-isa sim-diff
-sim-alu sim-isa sim-diff:
-	@echo -e "$(DIM)Fase 1 pendiente. Ver docs/00-PLAN.md y docs/03-verificacion.md.$(NC)"; exit 1
+VEC_DIR := $(BUILD)/alu_vec
+
+.PHONY: alu-vectors
+alu-vectors: $(VEC_DIR)/spec.txt
+$(VEC_DIR)/spec.txt: sim/alu/alu_ref.py
+	@$(PYTHON) sim/alu/alu_ref.py --gen $(VEC_DIR)
+
+.PHONY: sim-alu
+sim-alu: alu-vectors
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  -Irtl/core -Mdir $(BUILD)/valu -o tb_alu \
+	  --top-module axioma_alu rtl/core/axioma_alu.v sim/alu/tb_alu.cpp >/dev/null
+	@echo -e "$(BOLD)Verificación exhaustiva de la ALU$(NC)"
+	@./$(BUILD)/valu/tb_alu $(VEC_DIR)
+
+.PHONY: sim-sreg
+sim-sreg:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  -Irtl/core -Mdir $(BUILD)/vsreg -o tb_sreg \
+	  --top-module axioma_sreg rtl/core/axioma_sreg.v sim/alu/tb_sreg.cpp >/dev/null
+	@./$(BUILD)/vsreg/tb_sreg
+
+.PHONY: sim-core
+sim-core: sim-alu sim-sreg
+
+.PHONY: sim-isa sim-diff
+sim-isa sim-diff:
+	@echo -e "$(DIM)Pendiente. Ver docs/00-PLAN.md y docs/03-verificacion.md.$(NC)"; exit 1
 
 # ------------------------------------------------------------ fase 2: FPGA
 $(BUILD):

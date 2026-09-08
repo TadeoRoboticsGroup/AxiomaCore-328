@@ -48,7 +48,9 @@ help:
 	@echo -e "$(BOLD)Fase 1$(NC)  $(DIM)núcleo ISA$(NC)"
 	@echo "  make sim-alu          verificación exhaustiva de la ALU"
 	@echo "  make sim-sreg         prueba dirigida del registro de estado"
+	@echo "  make sim-regfile      banco de registros vs modelo, 200k ciclos"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
+	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-core         las tres"
 	@echo "  make mutation         prueba de mutación: ¿puede fallar el banco? (~90 s)"
 	@echo "  make sim-isa          suite dirigida de las 131 instrucciones"
@@ -156,8 +158,34 @@ sim-simavr: simavr-oracle
 	@echo -e "$(BOLD)Contraste contra simavr$(NC)"
 	@$(PYTHON) sim/alu/compare_simavr.py $(SIM_VEC)
 
+# --- decodificador: oráculo avr-objdump ---
+DEC_DIR := $(BUILD)/decode
+
+$(DEC_DIR)/objdump.npz: sim/decode/objdump_oracle.py
+	@mkdir -p $(DEC_DIR)
+	@$(PYTHON) sim/decode/objdump_oracle.py $@
+
+$(DEC_DIR)/rtl.bin: rtl/core/axioma_decode.v rtl/core/axioma_decode_ops.vh sim/decode/tb_decode.cpp
+	@mkdir -p $(DEC_DIR)
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vdec -o tb_decode \
+	  --top-module axioma_decode rtl/core/axioma_decode.v sim/decode/tb_decode.cpp >/dev/null
+	@./$(BUILD)/vdec/tb_decode $@ >/dev/null
+
+.PHONY: sim-decode
+sim-decode: $(DEC_DIR)/objdump.npz $(DEC_DIR)/rtl.bin
+	@echo -e "$(BOLD)Decodificador contra avr-objdump$(NC)"
+	@$(PYTHON) sim/decode/compare_decode.py $(DEC_DIR)
+
+.PHONY: sim-regfile
+sim-regfile:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vrf -o tb_regfile \
+	  --top-module axioma_regfile rtl/core/axioma_regfile.v sim/alu/tb_regfile.cpp >/dev/null
+	@./$(BUILD)/vrf/tb_regfile
+
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg sim-simavr
+sim-core: sim-alu sim-sreg sim-regfile sim-simavr sim-decode
 
 .PHONY: mutation
 mutation:

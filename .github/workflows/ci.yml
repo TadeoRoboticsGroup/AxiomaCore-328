@@ -155,6 +155,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-mem
 
+      - name: Bus de datos - las 65 536 direcciones
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-dbus
+
       - name: Cachear simavr
         id: cache-simavr
         uses: actions/cache@v4

@@ -160,9 +160,16 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
         "//   Fuente:    preprocesador de avr-gcc con avr-libc (BSD-3-Clause)",
         "//",
         "// Direcciones del espacio de DATOS. Para IN/OUT, dir_io = dir_dato - 0x20.",
+        "//",
+        "// SIN GUARDA DE INCLUSION, a proposito. Esta cabecera se incluye DENTRO del",
+        "// cuerpo de cada modulo y declara `localparam`, que tienen ambito de modulo.",
+        "// Con una guarda `ifndef, el segundo modulo que la incluyera en la misma",
+        "// compilacion se quedaria sin constantes: el lint y la sintesis procesan",
+        "// todos los ficheros en una sola invocacion. Cada modulo necesita su copia.",
+        "// Las guardas son para ficheros de `define, que si son globales.",
+        "// Mismo criterio que axioma_alu_ops.vh y axioma_decode_ops.vh.",
         "",
-        "`ifndef AXIOMA_REGMAP_VH",
-        "`define AXIOMA_REGMAP_VH",
+        "/* verilator lint_off UNUSEDPARAM */",
         "",
         "// ---------------------------------------------------------- direcciones",
     ]
@@ -183,7 +190,7 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
     L.append(f"localparam [13:0] VEC_{'RESET':<14s} = 14'h0000;")
     for v in vectors:
         L.append(f"localparam [13:0] VEC_{v['name']:<14s} = 14'h{v['num'] * 2:04X};")
-    L += ["", "`endif // AXIOMA_REGMAP_VH", ""]
+    L += ["", "/* verilator lint_on UNUSEDPARAM */", ""]
     return "\n".join(L)
 
 

@@ -41,6 +41,7 @@ DECODE  = "rtl/core/axioma_decode.v"
 SEQ     = "rtl/core/axioma_seq.v"
 DMEM    = "rtl/mem/axioma_dmem.v"
 PROGMEM = "rtl/mem/axioma_progmem.v"
+DBUS    = "rtl/bus/axioma_dbus.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
 CATALOG = [
@@ -156,6 +157,28 @@ CATALOG = [
  "d_rdata     <= d_wdata;", "d_rdata     <= 16'h0000;"),
 ("mem", PROGMEM, "sim-mem", "progmem: los dos puertos comparten dirección",
  "            if_data <= mem[if_addr];", "            if_data <= mem[d_addr];"),
+
+# ------------------------------------------------------ bus de datos
+("dbus", DBUS, "sim-dbus", "la SRAM no traduce la dirección: no resta la base",
+ "assign sram_addr  = addr[10:0] - SRAM_BASE[10:0];",
+ "assign sram_addr  = addr[10:0];"),
+("dbus", DBUS, "sim-dbus", "el rango de I/O se come el de la SRAM",
+ "wire hit_io   = (addr >= IO_BASE)   && (addr <  SRAM_BASE);",
+ "wire hit_io   = (addr >= IO_BASE);"),
+("dbus", DBUS, "sim-dbus", "se lee de un periférico que no reclamó la dirección",
+ "(hit_io_q && io_sel) ? io_rdata : 8'h00;", "hit_io_q ? io_rdata : 8'h00;"),
+("dbus", DBUS, "sim-dbus", "por encima de RAMEND se sigue leyendo la SRAM",
+ "wire hit_sram = (addr >= SRAM_BASE) && (addr <= RAMEND);",
+ "wire hit_sram = (addr >= SRAM_BASE);"),
+("dbus", DBUS, "sim-dbus", "una escritura activa el periférico aunque no toque",
+ "assign io_we    = hit_io & we;", "assign io_we    = we;"),
+# Este es el que justifica el ADR 0001 en el bus: sin registrar la selección,
+# el segundo ciclo de LD elige la región de la dirección NUEVA.
+("dbus", DBUS, "sim-dbus", "la selección de región se vuelve combinacional (ADR 0001)",
+ """    assign rdata = hit_sram_q ? sram_rdata :
+                   (hit_io_q && io_sel) ? io_rdata : 8'h00;""",
+ """    assign rdata = hit_sram ? sram_rdata :
+                   (hit_io && io_sel) ? io_rdata : 8'h00;"""),
 
 # ------------------------------------------------------------ secuenciador
 # Estos solo los puede cazar la co-simulación diferencial: son fallos de

@@ -55,6 +55,7 @@ help:
 	@echo "  make sim-sreg         prueba dirigida del registro de estado"
 	@echo "  make sim-regfile      banco de registros vs modelo, 200k ciclos"
 	@echo "  make sim-mem          memorias de programa y datos"
+	@echo "  make sim-dbus         fabric del espacio de datos, 65 536 direcciones"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
@@ -204,6 +205,14 @@ sim-regfile:
 	  --top-module axioma_regfile rtl/core/axioma_regfile.v sim/alu/tb_regfile.cpp >/dev/null
 	@./$(BUILD)/vrf/tb_regfile
 
+# --- fabric del espacio de datos ---
+.PHONY: sim-dbus
+sim-dbus:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vdbus -o tb_dbus \
+	  --top-module axioma_dbus rtl/bus/axioma_dbus.v sim/bus/tb_dbus.cpp >/dev/null
+	@./$(BUILD)/vdbus/tb_dbus
+
 .PHONY: sim-mem
 sim-mem:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME $(INCDIRS) \
@@ -264,7 +273,7 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 	test $$ko -eq 0
 
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-simavr sim-decode sim-diff
+sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-simavr sim-decode sim-diff
 
 # ------------------------------------------- regresión de instrucciones aleatorias
 # Último requisito del criterio de aceptación de la fase 1: 10^6 instrucciones

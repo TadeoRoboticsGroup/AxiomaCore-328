@@ -353,6 +353,38 @@ int main(int argc, char **argv) {
         if (avr->state != cpu_Running) { n++; break; }
     }
 
+    // ---------------------------------------------------------------
+    //  Barrido final del espacio de datos.
+    //
+    //  La comparación por instrucción mira PC, registros, SREG y SP, pero NO
+    //  la memoria: una escritura a la dirección equivocada sólo se notaba si
+    //  el programa volvía a leerla. ST, STS, PUSH, OUT, SBI y CBI escriben sin
+    //  leer, así que el hueco era real.
+    //
+    //  Se barre la SRAM entera y, del espacio de I/O, SÓLO los tres GPIOR.
+    //  El resto de la I/O no se puede comparar en la fase 1: simavr modela los
+    //  periféricos y arranca varios registros con valores distintos de cero,
+    //  mientras que aquí la I/O es memoria plana. Los GPIOR son almacenamiento
+    //  puro en ambos lados.
+    // ---------------------------------------------------------------
+    long mem_bad = 0;
+    if (diverged < 0) {
+        static const uint16_t GPIOR[] = {0x003E, 0x004A, 0x004B};
+        for (uint16_t a = 0x0100; a <= RAMEND; a++) {
+            uint8_t g = rtl_mem(a), e = avr->data[a];
+            if (g != e && ++mem_bad <= 8)
+                printf("\n  MEMORIA DISTINTA en 0x%04X: RTL=0x%02X simavr=0x%02X", a, g, e);
+        }
+        for (uint16_t a : GPIOR) {
+            uint8_t g = rtl_mem(a), e = avr->data[a];
+            if (g != e && ++mem_bad <= 8)
+                printf("\n  MEMORIA DISTINTA en 0x%04X (GPIOR): RTL=0x%02X simavr=0x%02X",
+                       a, g, e);
+        }
+        if (mem_bad)
+            printf("\n  %ld bytes distintos en el espacio de datos\n", mem_bad);
+    }
+
     delete rtl;
 
     if (cov_path) {
@@ -364,7 +396,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (diverged >= 0) return 1;
+    if (diverged >= 0 || mem_bad) return 1;
 
     if (!simavr_diff.empty()) {
         printf("\n  aviso: la cuenta de ciclos de simavr difiere del manual en "
@@ -381,6 +413,7 @@ int main(int argc, char **argv) {
     printf("  %ld instrucciones, %ld ciclos, 0 divergencias\n", n, total_cycles);
     printf("  ciclos: %ld comprobados contra el manual, 0 desviaciones "
            "(simavr contó %ld)\n", checked, ref_cycles);
-    printf("  cobertura de ciclos: %zu mnemónicos distintos\n", covered.size());
+    printf("  cobertura de ciclos: %zu mnemónicos distintos · "
+           "espacio de datos idéntico\n", covered.size());
     return 0;
 }

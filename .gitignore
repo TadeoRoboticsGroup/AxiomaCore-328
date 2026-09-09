@@ -47,3 +47,4 @@ asic/reports/*
 # Banco de vectores de la ALU (generado, 52 MB)
 build/alu_vec/
 build/simavr_vec/
+build/.mutation.lock

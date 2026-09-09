@@ -46,9 +46,9 @@ Todas las cifras de esta tabla se producen ejecutando `make`. Ninguna está escr
 | `rtl/core/axioma_decode.v` | **Verificado** | Los 65 536 opcodes × 11 comprobaciones contra `avr-objdump`: 0 discrepancias |
 | `rtl/mem/axioma_progmem.v` | **Verificado** | 34 049 comprobaciones, incluido el puerto de `LPM` |
 | `rtl/mem/axioma_dmem.v` | **Verificado** | Barrido completo de las 2048 direcciones |
-| `rtl/core/axioma_seq.v` | Verificado en parte | Co-simulación diferencial sobre 3 programas; falta la suite de las 131 instrucciones |
+| `rtl/core/axioma_seq.v` | Verificado en parte | 7 programas dirigidos, 0 divergencias en estado, ciclos y espacio de datos. Falta la regresión aleatoria |
 | `rtl/core/axioma_core.v` | Verificado en parte | Ídem. Es el módulo que une todo |
-| Tabla de ciclos (nivel L3) | Comprobada, cobertura parcial | 60 000 ciclos contrastados contra el manual, 0 desviaciones · **51 de 97 mnemónicos** |
+| Tabla de ciclos (nivel L3) | **Verificada** | 120 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Bus de datos, periféricos, interrupciones | Pendientes | Fases 2 y 3 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
@@ -57,7 +57,7 @@ regresión   10/10 objetivos en verde
 mutación    63/63 fallos inyectados, 63 detectados
 ```
 
-**Estimación de avance:** fase 1 al ~80 %; hasta la v1.0 sobre FPGA, ~25 %; con silicio, ~15 %.
+**Estimación de avance:** fase 1 al ~90 %; hasta la v1.0 sobre FPGA, ~30 %; con silicio, ~18 %.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -122,6 +122,7 @@ el decodificador, el preprocesador de avr-gcc para el mapa de registros.
 | `RET` devolvía el byte bajo duplicado | Co-simulación diferencial | Consumía la lectura de memoria del ciclo equivocado |
 | `MOVW` costaba 2 ciclos donde el manual dice 1 | Comprobación de ciclos | El **estado** quedaba correcto, así que la comparación de estado lo daba por bueno |
 | Cinco fallos en los propios bancos de pruebas | Prueba de mutación | El arnés de memoria no distinguía flanco de subida de bajada; el comparador del decodificador no miraba `alu_op`, con lo que confundir `ADD` con `ADC` pasaba el test |
+| El arnés no comparaba la memoria | Auditoría de cobertura | `ST`, `STS`, `PUSH`, `OUT`, `SBI` y `CBI` escriben sin leer: una escritura a la dirección equivocada sólo se notaba si el programa la releía |
 
 El caso de `MOVW` es el que mejor explica por qué hay tantas capas: la causa no estaba en el
 secuenciador sino en la **interfaz** del banco de registros, que direccionaba lectura y escritura
@@ -136,11 +137,21 @@ make check-tools
 make lint regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-simavr sim-decode sim-diff
 ```
 
-Los diez objetivos deben pasar. Tarda menos de 30 segundos en un portátil.
+Los diez objetivos deben pasar. Tarda menos de un minuto en un portátil.
+
+La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
+siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan
+el conjunto de instrucciones —bits y espacio de I/O, las 16 ramas condicionales, `LPM` en sus tres
+formas, y el control del sistema—. Entre todos ejercitan **los 97 mnemónicos** que el ATmega328P
+puede ejecutar. Tras cada instrucción se comparan PC, los 32 registros, SREG, SP y los ciclos; al
+terminar, la SRAM entera byte a byte.
 
 ```bash
 make mutation      # ~4 min · inyecta 63 fallos y comprueba que la regresión los caza
 ```
+
+Además, `SPM` queda fuera de la suite a propósito: el manual no le fija un número de ciclos
+—dependen del backend de memoria de programa— y su emulación en simavr no es comparable.
 
 `make mutation` **modifica el RTL en sitio** mientras corre. Tiene cerrojo y manejadores de señal,
 pero no debe ejecutarse en paralelo con nada más.
@@ -240,12 +251,14 @@ make check-tools
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
 | 7 | Módulo DIP-28 en KiCad, compatible con el zócalo de un Arduino Uno | Pendiente |
 
-Lo siguiente, en orden concreto: la **suite dirigida de las 131 instrucciones** (que además cierra
-la cobertura de la tabla de ciclos), y el **controlador de interrupciones**, sin el cual la máquina
-de estados de entrada a ISR que ya existe en el secuenciador no se puede probar.
+Lo siguiente, en orden concreto: la **regresión aleatoria de 10⁶ instrucciones**, que es lo único
+que le falta a la fase 1 para cumplir su criterio de aceptación, y el **controlador de
+interrupciones**, sin el cual la máquina de estados de entrada a ISR que ya existe en el
+secuenciador no se puede probar: `irq_req` está atado a 0 en el top de simulación.
 
-Criterio de aceptación de la fase 1, sin ambigüedad: las 131 instrucciones pasando el diferencial,
-10⁶ instrucciones aleatorias sin divergencia, ALU exhaustiva en verde y tabla de ciclos exacta.
+Criterio de aceptación de la fase 1, sin ambigüedad: el conjunto de instrucciones pasando el
+diferencial *(hecho)*, ALU exhaustiva en verde *(hecho)*, tabla de ciclos exacta *(hecho)* y
+10⁶ instrucciones aleatorias sin divergencia *(pendiente)*.
 
 ---
 

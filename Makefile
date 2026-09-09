@@ -17,7 +17,11 @@ ECP5_LPF   := $(RTL_DIR)/fpga/ecp5/axioma_ulx3s.lpf
 ECP5_TOP   := axioma_ulx3s_top
 BUILD      := build
 
-RTL_SRCS := $(shell find $(RTL_DIR) -name '*.v' 2>/dev/null)
+# Ficheros en desarrollo, excluidos del lint mientras no estén terminados.
+# La lista es EXPLÍCITA a propósito: un glob de exclusión acabaría escondiendo
+# ficheros de verdad rotos sin que nadie se entere.
+RTL_WIP  :=
+RTL_SRCS := $(filter-out $(RTL_WIP),$(shell find $(RTL_DIR) -name '*.v' 2>/dev/null))
 # Los .vh viven junto a los módulos que los definen.
 INCDIRS  := $(addprefix -I,$(sort $(dir $(shell find $(RTL_DIR) -name '*.vh' 2>/dev/null))))
 # Mientras no exista el top del SoC (fase 2) hay varias raíces y verilator avisa
@@ -49,12 +53,15 @@ help:
 	@echo "  make sim-alu          verificación exhaustiva de la ALU"
 	@echo "  make sim-sreg         prueba dirigida del registro de estado"
 	@echo "  make sim-regfile      banco de registros vs modelo, 200k ciclos"
+	@echo "  make sim-mem          memorias de programa y datos"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
+	@echo "  make sim-diff         co-simulación diferencial contra simavr"
+	@echo "  make cycles-table     regenera la tabla de ciclos del contrato L3"
 	@echo "  make sim-core         las tres"
-	@echo "  make mutation         prueba de mutación: ¿puede fallar el banco? (~90 s)"
+	@echo "  make mutation         prueba de mutación de TODO el RTL (~4 min)"
 	@echo "  make sim-isa          suite dirigida de las 131 instrucciones"
-	@echo "  make sim-diff         diferencial contra simavr"
+
 	@echo ""
 	@echo -e "$(BOLD)Fase 2$(NC)  $(DIM)FPGA$(NC)"
 	@echo "  make bitstream-ulx3s  síntesis, P&R y empaquetado"
@@ -111,6 +118,7 @@ lint:
 	else \
 	  verilator --lint-only -Wall -Wno-DECLFILENAME $(LINT_TOP) $(INCDIRS) $(RTL_SRCS) && \
 	  echo -e "$(GREEN)lint limpio$(NC)"; \
+	  $(if $(RTL_WIP),echo -e "$(DIM)  excluidos por estar en desarrollo: $(RTL_WIP)$(NC)";) \
 	fi
 
 # ------------------------------------------------------------- fase 1: sim
@@ -184,15 +192,74 @@ sim-regfile:
 	  --top-module axioma_regfile rtl/core/axioma_regfile.v sim/alu/tb_regfile.cpp >/dev/null
 	@./$(BUILD)/vrf/tb_regfile
 
+.PHONY: sim-mem
+sim-mem:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME $(INCDIRS) \
+	  -Mdir $(BUILD)/vmem -o tb_mem \
+	  --top-module tb_mem_top \
+	  sim/mem/tb_mem_top.v rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v \
+	  sim/mem/tb_mem.cpp >/dev/null
+	@./$(BUILD)/vmem/tb_mem
+
+# --- co-simulación diferencial contra simavr ---
+DIFF_DIR  := $(BUILD)/diff
+DIFF_SRCS := rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
+             rtl/core/axioma_alu.v rtl/core/axioma_sreg.v rtl/core/axioma_regfile.v \
+             rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v
+AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
+
+$(DIFF_DIR)/%.bin: sim/diff/tests/%.S
+	@mkdir -p $(DIFF_DIR)
+	@$(AVR_AS) -o $(DIFF_DIR)/$*.elf $<
+	@avr-objcopy -O binary $(DIFF_DIR)/$*.elf $@
+
+$(BUILD)/vdiff/Vaxioma_sim_top: sim/diff/axioma_sim_top.v sim/diff/diff.cpp $(DIFF_SRCS)
+	@test -d "$(SIMAVR_INCLUDE)" || { echo -e "$(RED)falta simavr en $(SIMAVR_INCLUDE)$(NC)"; exit 1; }
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME $(INCDIRS) \
+	  -Mdir $(BUILD)/vdiff -o diff --top-module axioma_sim_top \
+	  -CFLAGS "-I$(SIMAVR_INCLUDE) -I$(SIMAVR_INCLUDE)/avr" \
+	  -LDFLAGS "-L$(SIMAVR_LIB) -lsimavr -lelf" \
+	  sim/diff/axioma_sim_top.v $(DIFF_SRCS) sim/diff/diff.cpp >/dev/null
+
+DIFF_TESTS := $(patsubst sim/diff/tests/%.S,$(DIFF_DIR)/%.bin,$(wildcard sim/diff/tests/*.S))
+
+# --- capa 3: tabla de ciclos del contrato L3 ---
+# Se proyecta sobre los 65 536 opcodes usando el mnemónico de avr-objdump, así
+# que depende del oráculo del decodificador: la identidad de cada codificación
+# la fija binutils, no nuestro RTL.
+PERF_DIR := $(BUILD)/perf
+
+$(PERF_DIR)/cycles.bin: sim/perf/cycles_ref.py $(DEC_DIR)/objdump.npz
+	@mkdir -p $(PERF_DIR)
+	@$(PYTHON) sim/perf/cycles_ref.py $(DEC_DIR)/objdump.npz $@ >/dev/null
+
+.PHONY: cycles-table
+cycles-table: $(PERF_DIR)/cycles.bin
+	@$(PYTHON) sim/perf/cycles_ref.py $(DEC_DIR)/objdump.npz $(PERF_DIR)/cycles.bin
+
+.PHONY: sim-diff
+sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
+	@echo -e "$(BOLD)Co-simulación diferencial contra simavr$(NC)"
+	@ok=0; ko=0; \
+	for t in $(DIFF_TESTS); do \
+	  n=$$(basename $$t .bin); printf "  %-8s " "$$n"; \
+	  if out=$$(LD_LIBRARY_PATH=$(SIMAVR_LIB):$$LD_LIBRARY_PATH ./$(BUILD)/vdiff/diff $$t 20000 $(PERF_DIR)/cycles.bin $(DIFF_DIR)/$$n.cov 2>&1); then \
+	    echo "$$out" | tail -3; ok=$$((ok+1)); \
+	  else echo -e "$(RED)FALLA$(NC)"; echo "$$out" | tail -14; ko=$$((ko+1)); fi; \
+	done; \
+	echo ""; echo -e "  $$ok programas sin divergencias, $$ko con divergencias"; \
+	$(PYTHON) sim/perf/cycle_coverage.py $(DEC_DIR)/objdump.npz $(DIFF_DIR)/*.cov; \
+	test $$ko -eq 0
+
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg sim-regfile sim-simavr sim-decode
+sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-simavr sim-decode sim-diff
 
 .PHONY: mutation
 mutation:
-	@$(PYTHON) sim/alu/mutation_test.py
+	@$(PYTHON) sim/mutation.py
 
-.PHONY: sim-isa sim-diff
-sim-isa sim-diff:
+.PHONY: sim-isa
+sim-isa:
 	@echo -e "$(DIM)Pendiente. Ver docs/00-PLAN.md y docs/03-verificacion.md.$(NC)"; exit 1
 
 # ------------------------------------------------------------ fase 2: FPGA

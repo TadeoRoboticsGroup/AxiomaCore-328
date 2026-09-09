@@ -106,6 +106,27 @@ jobs:
             "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_VERSION}/oss-cad-suite-linux-x64-${OSS_CAD_STAMP}.tgz"
           tar xzf oss.tgz && rm oss.tgz
 
+      - name: Cachear toolchain AVR
+        id: cache-avr
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/avr
+          key: avr-gcc-7.3.0-atmel3.6.1-arduino7
+
+      # Hace falta en este job, no sólo en el de lint: avr-objdump es el oráculo
+      # del decodificador y de la tabla de ciclos, y avr-gcc ensambla los
+      # programas de la co-simulación diferencial.
+      - name: Instalar toolchain AVR (misma versión que en local)
+        if: steps.cache-avr.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/eda/avr && cd ~/eda/avr
+          curl -sL -o avr-gcc.tar.bz2 "$AVR_GCC_URL"
+          tar xjf avr-gcc.tar.bz2 && rm avr-gcc.tar.bz2
+          mv avr avr-gcc-7.3.0
+
+      - name: Añadir avr-gcc al PATH
+        run: echo "$HOME/eda/avr/avr-gcc-7.3.0/bin" >> $GITHUB_PATH
+
       - name: Entorno Python
         run: |
           python3 -m venv ~/eda/venv
@@ -123,6 +144,16 @@ jobs:
         run: |
           source ~/eda/oss-cad-suite/environment
           make sim-sreg
+
+      - name: Banco de registros - 200k ciclos contra modelo sombra
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-regfile
+
+      - name: Memorias de programa y datos
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-mem
 
       - name: Cachear simavr
         id: cache-simavr
@@ -146,7 +177,12 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-decode
 
+      # Incluye la capa 3: contrasta los ciclos de cada instrucción retirada
+      # contra la tabla del manual, y reporta la cobertura alcanzada.
+      - name: Co-simulación diferencial contra simavr, con tabla de ciclos
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-diff
+
       # Se activan conforme avanza la fase 1. Ver docs/00-PLAN.md.
       # - name: Suite dirigida de las 131 instrucciones
-      # - name: Diferencial contra simavr
-      # - name: Tabla de ciclos

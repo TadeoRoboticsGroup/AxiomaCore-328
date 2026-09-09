@@ -7,6 +7,7 @@
 #include "verilated.h"
 #include <cstdio>
 #include <string>
+#include <random>
 
 static Vaxioma_sreg *dut;
 static int fails = 0, checks = 0;
@@ -114,6 +115,54 @@ int main(int argc, char **argv) {
     set_sreg(0xFF);
     reset();
     check("el reset asincrono vuelve a poner el SREG a cero", 0x00);
+
+    // ======================================================================
+    //  Estímulo aleatorio contra modelo sombra
+    // ======================================================================
+    // Las comprobaciones dirigidas de arriba solo cubren lo que a uno se le
+    // ocurrió. Esto barre combinaciones que nadie escribiría a mano, incluidas
+    // las de PRIORIDAD entre fuentes simultáneas.
+    {
+        std::mt19937 rng(20260908);
+        auto R = [&](int n) { return (int)(rng() % n); };
+        reset();
+        int model = 0;
+        const int N = 200000;
+        for (int i = 0; i < N; i++) {
+            int a_we  = R(100) < 45, a_val = R(256), a_mask = R(256);
+            int w_en  = R(100) < 12, w_dat = R(256);
+            int b_en  = R(100) < 12, b_num = R(8), b_val = R(2);
+            int t_en_ = R(100) < 10, t_val = R(2);
+            int ie    = R(100) < 6,  ir    = R(100) < 6;
+
+            idle();
+            dut->alu_we = a_we; dut->alu_value = a_val; dut->alu_mask = a_mask;
+            dut->wr_en = w_en;  dut->wr_data = w_dat;
+            dut->bit_en = b_en; dut->bit_num = b_num; dut->bit_val = b_val;
+            dut->t_en = t_en_;  dut->t_val = t_val;
+            dut->irq_enter = ie; dut->irq_return = ir;
+            tick();
+            idle();
+
+            // Misma prioridad que documenta el RTL.
+            if (ie)            model = (model & ~I) ;
+            else if (ir)       model = model | I;
+            else if (w_en)     model = w_dat;
+            else if (b_en)     model = b_val ? (model | (1 << b_num))
+                                             : (model & ~(1 << b_num));
+            else if (t_en_)    model = t_val ? (model | T) : (model & ~T);
+            else if (a_we)     model = (model & ~a_mask) | (a_val & a_mask);
+            model &= 0xFF;
+
+            checks++;
+            if (dut->sreg != model) {
+                if (++fails <= 6)
+                    printf("    FALLA aleatorio i=%d  obtenido %02X esperado %02X\n",
+                           i, dut->sreg, model);
+            }
+        }
+        printf("  %d ciclos aleatorios contra modelo sombra\n", N);
+    }
 
     delete dut;
     printf("\n  %d comprobaciones, %d fallos\n", checks, fails);

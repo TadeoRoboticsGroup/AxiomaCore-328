@@ -9,6 +9,19 @@ y el modo de uso. **Toda contribución que introduzca un componente nuevo debe a
 | Componente | Licencia | Uso | Estado |
 |------------|----------|-----|--------|
 | `iom328p.h` de avr-libc | BSD-3-Clause | Fuente para generar el mapa de registros (`tools/gen_regmap.py`). Se cita la atribución en el fichero generado. | Pendiente de integrar |
+| `images/ulx3s-v316-top.jpg` | MIT (ver nota) | Fotografía de la placa ULX3S en el README, como plataforma de validación. Tomada de [`emard/ulx3s`](https://github.com/emard/ulx3s), fichero `pic/ulx3s-v316-top.jpg`. | Integrada |
+
+> **Nota sobre la licencia de la ULX3S.** El repositorio `emard/ulx3s` se publica bajo una licencia
+> tipo MIT extendida al hardware y a *«associated documentation files»*, lo que cubre las
+> fotografías. Exige conservar el aviso de copyright:
+>
+> > Copyright (c) 2016-2018 EMARD — Permission is hereby granted, free of charge, to any person
+> > obtaining a copy of this hardware, software, and associated documentation files (the
+> > "Product"), to deal in the Product without restriction […] The above copyright notice and this
+> > permission notice shall be included in all copies or substantial portions of the Product.
+>
+> La condición adicional sobre los logotipos «EMARD», «RADIONA» y «FER» se refiere a la serigrafía
+> de la PCB y no aplica a este proyecto. La atribución se repite junto a la imagen en el README.
 
 ## Dependencias de herramientas (no se distribuyen)
 

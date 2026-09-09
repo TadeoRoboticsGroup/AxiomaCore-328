@@ -46,6 +46,7 @@ help:
 	@echo "  make regmap           genera el mapa de registros desde iom328p.h"
 	@echo "  make regmap-check     falla si el mapa está desactualizado (CI)"
 	@echo "  make lpf              regenera las constraints de la ULX3S"
+	@echo "  make diagrams         regenera las figuras del README"
 	@echo "  make lint             lint del RTL con verilator"
 	@echo "  make clean            limpia los artefactos de construcción"
 	@echo ""
@@ -109,6 +110,16 @@ regmap-check:
 
 lpf:
 	@$(PYTHON) tools/gen_ulx3s_lpf.py
+
+# Las figuras del README se generan, como el mapa de registros: una figura
+# dibujada a mano se desincroniza del diseño y nadie se entera. Usa el python
+# del sistema porque necesita pycairo (paquete python3-cairo), que no está en
+# el venv del proyecto.
+DIAG_PYTHON ?= python3
+
+.PHONY: diagrams
+diagrams:
+	@$(DIAG_PYTHON) tools/gen_diagrams.py images
 
 # ------------------------------------------------------------------- lint
 .PHONY: lint

@@ -36,7 +36,9 @@ independiente y qué no. Ése es el criterio con el que se mide este proyecto.
 
 ## Estado actual
 
-Todas las cifras de esta tabla se producen ejecutando `make`. Ninguna está escrita a mano.
+Cada cifra de esta tabla sale de ejecutar `make`, no de escribirla a mano. Dos son derivadas y
+conviene decirlo: las de `progmem` y `dmem` son el desglose de las 34 049 comprobaciones que
+imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete programas dirigidos.
 
 | Bloque | Estado | Evidencia |
 |--------|--------|-----------|
@@ -44,20 +46,24 @@ Todas las cifras de esta tabla se producen ejecutando `make`. Ninguna está escr
 | `rtl/core/axioma_sreg.v` | **Verificado** | 200 029 comprobaciones contra un modelo sombra |
 | `rtl/core/axioma_regfile.v` | **Verificado** | 800 064 comprobaciones en 200 000 ciclos aleatorios |
 | `rtl/core/axioma_decode.v` | **Verificado** | Los 65 536 opcodes × 11 comprobaciones contra `avr-objdump`: 0 discrepancias |
-| `rtl/mem/axioma_progmem.v` | **Verificado** | 34 049 comprobaciones, incluido el puerto de `LPM` |
-| `rtl/mem/axioma_dmem.v` | **Verificado** | Barrido completo de las 2048 direcciones |
-| `rtl/core/axioma_seq.v` | Verificado en parte | 7 programas dirigidos, 0 divergencias en estado, ciclos y espacio de datos. Falta la regresión aleatoria |
-| `rtl/core/axioma_core.v` | Verificado en parte | Ídem. Es el módulo que une todo |
+| `rtl/mem/axioma_progmem.v` | **Verificado** | 12 000 comprobaciones: puerto de búsqueda, puerto de `LPM`, escritura por `SPM` y los dos puertos a la vez |
+| `rtl/mem/axioma_dmem.v` | **Verificado** | 22 049 comprobaciones, incluido el barrido completo de las 2048 direcciones y la disciplina de flanco del [ADR 0001](docs/adr/0001-memorias-en-flanco-de-bajada.md) |
+| `rtl/core/axioma_seq.v` | **Verificado**, salvo la entrada a ISR | 7 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
+| `rtl/core/axioma_core.v` | **Verificado**, salvo la entrada a ISR | Ídem. Es el módulo que une todo |
 | Tabla de ciclos (nivel L3) | **Verificada** | 120 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
-| Bus de datos, periféricos, interrupciones | Pendientes | Fases 2 y 3 |
+| Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
+| Entrada a interrupción | **Sin verificar** | La máquina de estados existe en `axioma_seq.v`, pero `irq_req` está atado a 0: sin controlador de interrupciones no hay forma de ejercitarla |
+| Bus de datos, periféricos | Pendientes | Fases 2 y 3 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   10/10 objetivos en verde
+regresión   11/11 objetivos en verde
 mutación    63/63 fallos inyectados, 63 detectados
 ```
 
-**Estimación de avance:** fase 1 al ~90 %; hasta la v1.0 sobre FPGA, ~30 %; con silicio, ~18 %.
+**La fase 1 cumple su criterio de aceptación.** Lo que queda de ella es una deuda que no puede
+saldarse dentro de la fase: la entrada a interrupción necesita el controlador de la fase 2 para
+poder probarse. Hasta la v1.0 sobre FPGA, ~35 %; con silicio, ~20 %.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -117,7 +123,7 @@ el decodificador, el preprocesador de avr-gcc para el mapa de registros.
 
 | Fallo | Quién lo encontró | Por qué se escapaba |
 |-------|-------------------|---------------------|
-| Flag `H` de `NEG` implementado como `R3 \| ¬Rd3` en vez de `R3 \| Rd3` | Contraste contra `simavr` | El mismo error estaba en el RTL **y** en el modelo de referencia, así que se daban la razón mutuamente en las 1024 combinaciones |
+| Flag `H` de `NEG` implementado como `R3 \| ¬Rd3` en vez de `R3 \| Rd3` | Contraste contra `simavr` | El mismo error estaba en el RTL **y** en el modelo de referencia, así que coincidían en los 65 536 vectores de `NEG` y ninguno podía delatar al otro. Corregir sólo uno de los dos produce **32 768 discrepancias**, medidas |
 | Desfase de un ciclo en la búsqueda: cada instrucción se ejecutaba dos veces | Co-simulación diferencial | Apareció en la segunda instrucción del primer programa |
 | `RET` devolvía el byte bajo duplicado | Co-simulación diferencial | Consumía la lectura de memoria del ciclo equivocado |
 | `MOVW` costaba 2 ciclos donde el manual dice 1 | Comprobación de ciclos | El **estado** quedaba correcto, así que la comparación de estado lo daba por bueno |
@@ -134,10 +140,11 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 ```bash
 source env.sh
 make check-tools
-make lint regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-simavr sim-decode sim-diff
+make lint regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-simavr sim-decode \
+     sim-diff sim-random
 ```
 
-Los diez objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los once objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan
@@ -146,9 +153,22 @@ formas, y el control del sistema—. Entre todos ejercitan **los 97 mnemónicos*
 puede ejecutar. Tras cada instrucción se comparan PC, los 32 registros, SREG, SP y los ciclos; al
 terminar, la SRAM entera byte a byte.
 
+> **97 mnemónicos y 131 instrucciones no se contradicen.** La cifra de 131 es la del manual del ISA
+> y cuenta variantes que comparten codificación: `LSL` es `ADD Rd,Rd`, `CLR` es `EOR Rd,Rd`, `TST`
+> es `AND Rd,Rd`, `SER` es `LDI Rd,0xFF`, y `BRBS`/`BRBC` se despliegan en dieciséis ramas con
+> nombre propio. La cobertura se mide en mnemónicos porque es lo que devuelve `avr-objdump`, que es
+> el oráculo: así el número sale de una herramienta y no de un recuento a mano. Los 97 son todos
+> los que el 328P puede ejecutar; `SPM` es la única exclusión y es deliberada.
+
 ```bash
-make mutation      # ~4 min · inyecta 63 fallos y comprueba que la regresión los caza
+make mutation      # ~5 min · inyecta 63 fallos y comprueba que la regresión los caza
 ```
+
+A eso se le suman **10⁶ instrucciones aleatorias** (`make sim-random`): programas válidos con
+operandos aleatorios, generados con semilla fija, de modo que un fallo se reproduce exactamente con
+el mismo comando. Lo difícil de un generador así no es la aleatoriedad, sino garantizar que nunca
+hace algo cuyo resultado no esté definido o que los dos lados no puedan modelar igual; las
+restricciones y su porqué están documentadas en la cabecera del generador.
 
 Además, `SPM` queda fuera de la suite a propósito: el manual no le fija un número de ciclos
 —dependen del backend de memoria de programa— y su emulación en simavr no es comparable.
@@ -243,7 +263,7 @@ make check-tools
 | Fase | Contenido | Estado |
 |------|-----------|--------|
 | 0 | Fundación: estructura, licencias, generador del mapa de registros, CI | **Hecha** |
-| **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **En curso (~80 %)** |
+| **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **Hecha** — criterio de aceptación cumplido |
 | 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | Pendiente |
 | 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | Pendiente |
 | 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | Pendiente |
@@ -251,14 +271,18 @@ make check-tools
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
 | 7 | Módulo DIP-28 en KiCad, compatible con el zócalo de un Arduino Uno | Pendiente |
 
-Lo siguiente, en orden concreto: la **regresión aleatoria de 10⁶ instrucciones**, que es lo único
-que le falta a la fase 1 para cumplir su criterio de aceptación, y el **controlador de
-interrupciones**, sin el cual la máquina de estados de entrada a ISR que ya existe en el
-secuenciador no se puede probar: `irq_req` está atado a 0 en el top de simulación.
+Criterio de aceptación de la fase 1, sin ambigüedad, y su estado:
 
-Criterio de aceptación de la fase 1, sin ambigüedad: el conjunto de instrucciones pasando el
-diferencial *(hecho)*, ALU exhaustiva en verde *(hecho)*, tabla de ciclos exacta *(hecho)* y
-10⁶ instrucciones aleatorias sin divergencia *(pendiente)*.
+| Requisito | Estado |
+|-----------|--------|
+| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 7 programas dirigidos |
+| 10⁶ instrucciones aleatorias sin divergencia | 10⁶, 0 divergencias |
+| ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
+| Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |
+
+Lo siguiente es la **fase 2**: el bus de datos, los primeros periféricos y el controlador de
+interrupciones —que además desbloquea la única parte del secuenciador que hoy no se puede
+ejercitar— y con ello el primer bitstream con un LED parpadeando en la FPGA.
 
 ---
 

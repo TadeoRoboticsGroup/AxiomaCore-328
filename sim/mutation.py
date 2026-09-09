@@ -333,6 +333,18 @@ def main():
         print("\n  ERROR: el RTL no quedó restaurado:", *dirty, sep="\n    ")
         return 2
 
+    # El árbol quedaba con los BINARIOS del último mutante. Los ficheros se
+    # restauran arriba, pero build/ no: quien después ejecutara
+    # ./build/vdiff/diff a mano —que es justo lo que recomienda la guía para
+    # depurar el núcleo— estaría corriendo un mutante sin saberlo. Ya pasó.
+    # Se reconstruye y se exige que todo vuelva a estar en verde, lo que de
+    # paso demuestra que la restauración fue buena.
+    print("\n  reconstruyendo tras restaurar...")
+    rotos = [t for t in sorted({c[2] for c in cat}) if not run(t)]
+    if rotos:
+        print("  ERROR: tras restaurar, estos objetivos NO pasan:", *rotos, sep="\n    ")
+        return 2
+
     print(f"\n  {detected}/{len(cat)} mutantes detectados")
     if skipped:
         print(f"  {len(skipped)} patrones no encontrados — el catálogo se ha desincronizado del RTL:")
@@ -345,6 +357,7 @@ def main():
     if survived or skipped:
         return 1
     print("  la regresión detecta todos los fallos inyectados")
+    print("  árbol restaurado y reconstruido: los binarios de build/ ya no son de un mutante")
     return 0
 
 

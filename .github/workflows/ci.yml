@@ -184,5 +184,13 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-diff
 
-      # Se activan conforme avanza la fase 1. Ver docs/00-PLAN.md.
-      # - name: Suite dirigida de las 131 instrucciones
+      # Último requisito del criterio de aceptación de la fase 1. Tarda unos
+      # 2 segundos: los programas se generan con semilla fija, así que un fallo
+      # en CI se reproduce localmente con el mismo comando.
+      - name: Regresión aleatoria de 10^6 instrucciones
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-random
+
+      # Pendiente de la fase 2: sin controlador de interrupciones, irq_req está
+      # atado a 0 y la máquina de entrada a ISR no se puede ejercitar.

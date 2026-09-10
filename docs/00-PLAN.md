@@ -709,25 +709,83 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 - [x] **Tercer oráculo independiente**: contraste de los mismos 22 282 240 casos contra `simavr`
       ejecutando instrucciones AVR reales. Encontró un fallo que la verificación contra nuestro
       propio modelo no podía encontrar (flag H de `NEG`).
-- [x] **Prueba de mutación**: 18 fallos inyectados, 18 detectados. El banco puede fallar.
-- [ ] `regfile.v` (2R/1W + acceso de 16 bits) — la forma de los puertos se fija con el decodificador.
-- [ ] `decode.v` — decodificación combinacional completa + predecodificador de "siguiente de 32 bits".
-- [ ] `seq.v` — secuenciador multiciclo.
-- [ ] `progmem`/`dmem` con backend `sim`.
-- [ ] Arnés de co-simulación diferencial contra simavr (Capa 1).
-- [ ] Test dirigido por cada una de las 131 instrucciones.
-- [ ] Tabla de ciclos verificada (Capa 3).
+- [x] **Prueba de mutación** de todo el RTL: **63 fallos inyectados, 63 detectados**. El banco puede fallar, y se comprueba que puede.
+- [x] `regfile.v` — 2R/1W más un puerto de 16 bits direccionado por índice de par, de modo que la
+      interfaz no puede expresar una dirección impar. 800 064 comprobaciones contra un modelo
+      sombra en 200 000 ciclos aleatorios, 0 fallos; 3 de 3 mutantes detectados.
+- [x] `decode.v` — decodificación combinacional completa, sin cerrojos, 579 LUT en ECP5.
+      **Contrastado contra `avr-objdump` sobre los 65 536 opcodes posibles: 0 discrepancias**
+      en tamaño de instrucción, clasificación y operandos de registro. Las 192 instrucciones
+      de 32 bits coinciden exactamente.
+- [x] `seq.v` — secuenciador multiciclo completo, y `core.v` que une todo. **Verificado en parte:**
+      la co-simulación diferencial pasa sobre tres programas, no sobre las 131 instrucciones.
+- [x] `progmem` / `dmem` con la interfaz que fija §5.7. Ambas se mapean a bloques DP16KD del
+      ECP5. **Registradas en flanco de bajada** para que el acceso quepa dentro del ciclo y no se
+      rompan las cuentas de ciclos de LD, LDS y ST: ver
+      [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md). Falta su test funcional.
+- [x] Arnés de co-simulación diferencial contra simavr (Capa 1). Encontró dos fallos reales del
+      secuenciador: un desfase de un ciclo en la búsqueda y `RET` leyendo el byte equivocado.
+- [x] Suite dirigida del conjunto de instrucciones: cuatro programas que, con los tres
+      anteriores, ejercitan los **97 mnemónicos** ejecutables del ATmega328P. `SPM` queda
+      fuera a propósito (sin ciclos fijados en el manual y sin emulación comparable).
+- [x] Tabla de ciclos (Capa 3) **comprobada mecánicamente, cobertura parcial.** La tabla del
+      manual es un fichero de datos proyectado sobre los 65 536 opcodes con el mnemónico de
+      `avr-objdump`, y el arnés diferencial contrasta los ciclos de cada instrucción retirada.
+      Encontró un fallo real: `MOVW` costaba 2 ciclos donde el manual dice 1, con el estado
+      correcto —invisible para la comparación de estado—. Cobertura: **97/97 mnemónicos**,
+      120 048 instrucciones comprobadas y 0 desviaciones.
 
-**Criterio de aceptación:** las 131 instrucciones pasan el diferencial contra simavr; 10⁶
-instrucciones aleatorias sin divergencia; ALU 100 % exhaustiva verde; tabla de ciclos exacta.
-**Aquí es donde el proyecto se gana el derecho a existir.**
+- [x] **Regresión aleatoria de 10⁶ instrucciones.** `sim/random/gen_random.py` genera programas
+      válidos con operandos aleatorios y semilla fija; `make sim-random` los contrasta contra
+      simavr. 10 programas × 100 000 instrucciones, **0 divergencias**.
+
+**Criterio de aceptación: CUMPLIDO.**
+
+| Requisito | Estado |
+|-----------|--------|
+| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, 7 programas dirigidos |
+| 10⁶ instrucciones aleatorias sin divergencia | 10⁶, 0 divergencias |
+| ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
+| Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |
+
+**Deuda conocida que la fase 1 no puede saldar:** la máquina de estados de entrada a interrupción
+está escrita en `axioma_seq.v` pero `irq_req` está atado a 0 en el top de simulación. Sin
+controlador de interrupciones —fase 2— no hay forma de ejercitarla. Está declarado aquí para que
+no se cuele como «verificado».
 
 ### Fase 2 — SoC mínimo y primer bitstream (2 semanas)
 
-- [ ] `dbus.v` con el mapa unificado de §5.2.
-- [ ] `gpio.v` (incluido el toggle por `PINx`), `timer0.v`, `usart.v`, `irq.v`.
+- [x] `dbus.v` con el mapa unificado de §5.2. **790 976 comprobaciones sobre las 65 536
+      direcciones**, más seis mutantes detectados. El espacio de direcciones es enumerable por
+      completo, así que se barre entero en vez de muestrear.
+- [x] `gpio.v`, con el toggle por `PINx` —la trampa nº 5— y el sincronizador que obliga al `nop`
+      entre escribir `PORTx` y leer `PINx`. Verificado por dos vías: diferencial contra simavr
+      sobre los tres puertos, y banco propio contra la hoja de datos con las dos máscaras.
+- [ ] `timer0.v`, `usart.v`, `irq.v`.
 - [ ] Backend `fpga_bram`; top de ECP5 + constraints.
 - [ ] Bootstrap: precargar el `.hex` en la BRAM del bitstream.
+
+#### El oráculo de los periféricos, decidido y estrenado
+
+El núcleo tenía a `simavr`, que ejecuta AVR de verdad. Los periféricos **no tienen un oráculo tan
+bueno**: los modelos de periférico de simavr son bastante menos fiables que su núcleo. Era el mayor
+riesgo metodológico de las fases 2 y 3, y se resuelve por capas:
+
+| Qué se verifica | Con qué |
+|-----------------|---------|
+| Semántica de los registros | Diferencial contra simavr, con la tabla `COMPARABLE[]` de `sim/diff/diff.cpp`, que **crece con cada periférico** |
+| Lo que simavr no modela | Banco propio contra la hoja de datos |
+| Forma de onda en los pines | Modelos de bus en el banco (capa 4) |
+| Donde discrepen simavr y la hoja de datos | **Manda la hoja de datos**, y se anota como cuestión abierta |
+
+Con un periférico de tres registros ya aparecieron **tres diferencias** entre simavr y el chip (ver
+[`01-arquitectura.md`](01-arquitectura.md) §8bis). La consecuencia práctica es una regla: **leer el
+modelo de simavr antes de escribir el RTL de cada periférico**, no después.
+
+**Camino crítico hasta el criterio de aceptación:** el `delay()` de un `Blink.ino` compilado con el
+core de Arduino llama a `millis()`, que depende de la interrupción de desbordamiento de Timer0. Así
+que `timer0` e `irq` no son opcionales para llegar al LED. `irq` va después de `timer0` porque sin
+una fuente de interrupción real no se puede contrastar diferencialmente.
 
 **Criterio de aceptación:** un `Blink.ino` compilado con avr-gcc parpadea un LED **en la FPGA**, y
 `Serial.println("Hola")` sale por el UART a 115200 baudios y se lee en el PC.

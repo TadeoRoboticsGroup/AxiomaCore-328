@@ -103,6 +103,22 @@ que explica el ciclo extra de la tabla siguiente.
 | SBI, CBI | 2 | |
 | Entrada a interrupción | 4 + 3 | Incluye el `JMP` del vector |
 
+Esta tabla **no es documentación decorativa: es un fichero de datos**.
+`sim/perf/cycles_ref.py` la transcribe y la proyecta sobre los 65 536 opcodes usando el mnemónico
+que da `avr-objdump`, y el arnés de co-simulación comprueba instrucción a instrucción que el RTL
+tarda lo que aquí dice. Si el manual contradijera esta tabla, se corrige la tabla **antes** que el
+RTL.
+
+Dos filas dependen del resultado de la ejecución, y la condición se toma siempre del lado del
+oráculo, nunca del RTL:
+
+- **`BRxx`**: tomada o no según el SREG de simavr *antes* de ejecutar. No se deduce del avance del
+  PC, porque `brne .+0` avanza una palabra tanto si salta como si no, y son 2 ciclos frente a 1.
+- **Saltos de instrucción**: 1, 2 o 3 palabras de avance, que es exactamente el número de ciclos.
+
+`SPM` queda fuera de la comprobación: el manual no le fija un número de ciclos porque depende del
+backend de memoria de programa.
+
 ---
 
 ## 4. Banco de registros
@@ -111,7 +127,11 @@ que explica el ciclo extra de la tabla siguiente.
 
 - **Acceso de 16 bits** a los pares R27:R26 (X), R29:R28 (Y), R31:R30 (Z) para el
   direccionamiento indirecto, y a R25:R24 para `ADIW`/`SBIW`.
-- **`MOVW`**: copia de un par a otro en un solo ciclo.
+- **`MOVW`**: copia de un par a otro en un solo ciclo. Esto obliga a que el par que se **lee** y el
+  que se **escribe** se direccionen por separado: con un único índice compartido haría falta un
+  ciclo para leer el origen y otro para escribir el destino, y `MOVW` costaría 2 ciclos donde el
+  manual dice 1. Es un requisito del contrato L3, no una comodidad. `ADIW`, `SBIW` y los punteros
+  con post-incremento o pre-decremento sí usan el mismo par en ambos lados.
 - **Escritura de vuelta del puntero** en el mismo ciclo para post-incremento y pre-decremento.
 
 En FPGA puede mapearse a LUTRAM; en ASIC son 256 biestables, lo cual es perfectamente razonable.
@@ -197,6 +217,12 @@ module axioma_progmem #(
 );
 ```
 
+> **Temporización.** Las memorias se registran en el **flanco de bajada** del reloj del núcleo.
+> El AVR accede a memoria dentro del mismo ciclo y una BRAM en flanco de subida devolvería el dato
+> un ciclo tarde, rompiendo las cuentas de `LD`, `LDS` y `ST` — y con ellas el nivel L3.
+> Razonamiento y alternativas descartadas en
+> [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md).
+
 | Backend | Implementación | Uso |
 |---------|---------------|-----|
 | `sim` | Array conductual + `$readmemh` | Simulación |
@@ -234,6 +260,18 @@ Cada una necesita un test dirigido desde la fase 1.
 | 12 | **Prescaler compartido** entre Timer0 y Timer1; `GTCCR` lo resetea. El baudrate deriva de F_CPU, no del prescaler. | Deriva de temporización difícil de diagnosticar. |
 
 ---
+
+## 8bis. Cuestiones abiertas
+
+Diferencias deliberadas respecto al ATmega328P, con su razón. Cada una debe
+resolverse contra la hoja de datos antes de la v1.0.
+
+| Tema | Estado | Decisión provisional |
+|------|--------|----------------------|
+| Sincronizador de `PINx` | **Resuelto a favor de la hoja de datos.** El 328P pasa el valor del pad por un sincronizador, y por eso entre escribir `PORTx` y leer `PINx` hace falta una instrucción de por medio —el `nop` que aparece en todo el código AVR que relee un pin—. El modelo de ioport de simavr **no lo tiene** y devuelve `PORTx` al instante. | **Implementar el sincronizador.** Sin él el RTL sería más permisivo que el chip: código que funcionara en simulación fallaría en silicio. El mutante que lo elimina **sólo lo caza el banco propio**; el diferencial pasaría igual. |
+| Bit 7 del puerto C | **Resuelto a favor de la hoja de datos.** `PC7` no existe en el ATmega328P y sus bits se leen como cero. simavr no enmascara. | **Enmascarar.** `sim/periph/tb_gpio.cpp` se ejecuta con las dos máscaras, `0xFF` y `0x7F`, porque el diferencial no puede ver esta diferencia. |
+| Pin de entrada con el pull-up apagado | **Indefinido, y no lo define nadie.** simavr conserva el último valor leído; un pad real queda flotando. La hoja de datos no promete nada. | **Tratarlo como los casos de «resultado indefinido» del manual del ISA:** ningún programa de prueba puede depender de él, y `PINx` queda fuera del barrido de memoria del diferencial. |
+| `SPM Z+` (opcode `0x95F8`) | **Sin confirmar.** binutils lo decodifica en todas las arquitecturas AVR, incluso avr2, así que no es *device-aware* y no sirve como prueba de que el 328P lo tenga. `boot.h` de avr-libc no lo usa para este dispositivo. La emulación de SPM en simavr parece incompleta. | **Aceptarlo.** Un superset solo puede añadir compatibilidad: un programa que lo use funcionará, y uno que no, queda igual. Marcarlo ilegal sí podría romper código real. |
 
 ## 9. Mapa de registros
 

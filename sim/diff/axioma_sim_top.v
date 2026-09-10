@@ -1,15 +1,28 @@
 // AxiomaCore-328 - top de simulación para la co-simulación diferencial
 // SPDX-License-Identifier: Apache-2.0
 //
-// NO forma parte del diseño. Cablea el núcleo con las memorias y con un
-// espacio de I/O PLANO, y añade un puerto de carga de programa que solo existe
-// en simulación.
+// NO forma parte del diseño. Cablea el núcleo con el bus, las memorias y los
+// periféricos que ya existen, y añade un puerto de carga de programa que sólo
+// existe en simulación.
 //
-// El espacio de I/O es plano a propósito: en la fase 1 no hay periféricos, así
-// que 0x0020..0x00FF se comporta como memoria normal. Los programas de prueba
-// deben EVITAR los periféricos, porque simavr sí los modela y ahí divergiría.
-// Las tres direcciones que sí tienen estado —SPL, SPH y SREG— las intercepta
-// axioma_core antes de llegar aquí.
+// CÓMO CRECE ESTE FICHERO. Cada periférico que aterriza se enchufa aquí y deja
+// de estar cubierto por el array de I/O plano. Ese array es el relleno: modela
+// como memoria normal todo lo que todavía no tiene periférico de verdad, para
+// que los programas de prueba puedan usar direcciones libres —los GPIOR— sin
+// que el contraste contra simavr se rompa.
+//
+// Los programas de prueba deben seguir EVITANDO los periféricos que simavr
+// modela y aquí todavía no existen. Ahora mismo ya existen de verdad los tres
+// puertos de E/S; SPL, SPH y SREG los intercepta axioma_core antes del bus.
+//
+// MODELO DE PAD. Sin nada conectado por fuera:
+//   - un pin de SALIDA se lee a sí mismo;
+//   - uno de ENTRADA con el pull-up activado (su bit de PORTx a 1) se lee 1,
+//     que es lo que hace un chip real;
+//   - uno de entrada sin pull-up queda flotando y se modela como 0.
+// Las tres cosas juntas equivalen a que el pad siga a PORTx, pero se escriben
+// por separado porque el motivo de cada una es distinto y en la FPGA se
+// traducen a bits distintos del bloque de E/S.
 
 `default_nettype none
 
@@ -54,51 +67,93 @@ module axioma_sim_top (
         .d_rdata(pm_d_rdata)
     );
 
-    // ---------------------------------------------------- espacio de datos
+    // ------------------------------------------------------ núcleo y bus
     wire [15:0] dm_addr;
     wire        dm_re, dm_we;
-    wire [7:0]  dm_wdata;
+    wire [7:0]  dm_wdata, dm_rdata;
 
-    wire hit_io   = (dm_addr >= IO_BASE)   && (dm_addr < SRAM_BASE);
-    wire hit_sram = (dm_addr >= SRAM_BASE) && (dm_addr <= SRAM_END);
+    wire [10:0] sram_addr;
+    wire        sram_en, sram_we;
+    wire [7:0]  sram_wdata, sram_rdata;
 
-    // SRAM de 2 KB
-    wire [7:0] sram_rdata;
-    axioma_dmem dm (
-        .clk(clk),
-        .addr(dm_addr[10:0] - SRAM_BASE[10:0]),
-        .en(hit_sram & (dm_re | dm_we)),
-        .we(dm_we & hit_sram),
-        .wdata(dm_wdata),
-        .rdata(sram_rdata)
+    wire [7:0]  io_addr;
+    wire        io_re, io_we;
+    wire [7:0]  io_wdata, io_rdata;
+    wire        io_sel;
+
+    axioma_dbus bus (
+        .clk(clk), .rst_n(rst_n),
+        .addr(dm_addr), .re(dm_re), .we(dm_we), .wdata(dm_wdata), .rdata(dm_rdata),
+        .sram_addr(sram_addr), .sram_en(sram_en), .sram_we(sram_we),
+        .sram_wdata(sram_wdata), .sram_rdata(sram_rdata),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we),
+        .io_wdata(io_wdata), .io_rdata(io_rdata), .io_sel(io_sel)
     );
 
-    // Espacio de I/O plano, 224 bytes. Mismo flanco que la SRAM.
-    reg [7:0] io [0:223];
-    reg [7:0] io_rdata;
+    axioma_dmem dm (
+        .clk(clk), .addr(sram_addr), .en(sram_en), .we(sram_we),
+        .wdata(sram_wdata), .rdata(sram_rdata)
+    );
+
+    // ------------------------------------------------------ puertos de E/S
+    wire [7:0] gb_rd, gc_rd, gd_rd;
+    wire       gb_sel, gc_sel, gd_sel;
+    wire [7:0] gb_out, gb_oe, gb_pu, gc_out, gc_oe, gc_pu, gd_out, gd_oe, gd_pu;
+
+    wire [7:0] pb_in = (gb_out & gb_oe) | (gb_pu & ~gb_oe);
+    wire [7:0] pc_in = (gc_out & gc_oe) | (gc_pu & ~gc_oe);
+    wire [7:0] pd_in = (gd_out & gd_oe) | (gd_pu & ~gd_oe);
+
+    axioma_gpio #(.IO_PIN(8'h03), .BITS(8'hFF)) gpio_b (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gb_rd), .io_sel(gb_sel),
+        .pad_in(pb_in), .pad_out(gb_out), .pad_oe(gb_oe), .pad_pullup(gb_pu)
+    );
+    // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
+    axioma_gpio #(.IO_PIN(8'h06), .BITS(8'h7F)) gpio_c (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gc_rd), .io_sel(gc_sel),
+        .pad_in(pc_in), .pad_out(gc_out), .pad_oe(gc_oe), .pad_pullup(gc_pu)
+    );
+    axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gd_rd), .io_sel(gd_sel),
+        .pad_in(pd_in), .pad_out(gd_out), .pad_oe(gd_oe), .pad_pullup(gd_pu)
+    );
+
+    wire periph_sel = gb_sel | gc_sel | gd_sel;
+
+    // ------------------------------------------ relleno: I/O plana, 224 bytes
+    // Sólo responde donde no hay periférico de verdad.
+    reg  [7:0] io [0:223];
+    reg  [7:0] flat_rdata;
+    reg        flat_sel_q;
     integer i;
     initial for (i = 0; i < 224; i = i + 1) io[i] = 8'h00;
 
-    // El espacio de I/O son 224 bytes: los bits altos del desplazamiento
-    // sobran por construcción y se descartan a propósito.
-    wire [15:0] io_off   = dm_addr - IO_BASE;
-    wire [7:0]  io_index = io_off[7:0];
-    wire unused_io_off = &{1'b0, io_off[15:8]};
+    wire flat_hit = ~periph_sel;
 
     always @(negedge clk) begin
-        if (hit_io && (dm_re || dm_we)) begin
-            if (dm_we) begin
-                io[io_index] <= dm_wdata;
-                io_rdata     <= dm_wdata;
+        if (flat_hit && (io_re || io_we)) begin
+            if (io_we) begin
+                io[io_addr] <= io_wdata;
+                flat_rdata  <= io_wdata;
             end else begin
-                io_rdata <= io[io_index];
+                flat_rdata <= io[io_addr];
             end
         end
     end
+    always @(negedge clk) if (io_re) flat_sel_q <= flat_hit;
 
-    reg hit_io_q;
-    always @(negedge clk) if (dm_re) hit_io_q <= hit_io;
-    wire [7:0] dm_rdata = hit_io_q ? io_rdata : sram_rdata;
+    // Cada fuente deja su lectura a cero cuando no le toca, y se combinan.
+    assign io_rdata = (periph_sel ? (gb_rd | gc_rd | gd_rd) : 8'h00)
+                    | (flat_sel_q ? flat_rdata : 8'h00);
+    // El relleno reclama todo lo que no reclama un periférico, de modo que en
+    // la fase 2 el espacio de I/O sigue estando completo.
+    assign io_sel = 1'b1;
 
     // ------------------------------------------------------------- núcleo
     axioma_core core (
@@ -116,15 +171,32 @@ module axioma_sim_top (
         .dbg_reg_addr(dbg_reg_addr), .dbg_reg_data(dbg_reg_data)
     );
 
-    // Lectura de observación del espacio de datos, sin perturbar al núcleo.
-    wire [15:0] dbg_io_off   = dbg_mem_addr - IO_BASE;
-    wire [7:0]  dbg_io_index = dbg_io_off[7:0];
-    wire unused_dbg_io_off = &{1'b0, dbg_io_off[15:8]};
+    // ---------------- lectura de observación, sin perturbar al núcleo -------
+    wire [7:0] dbg_io_index = dbg_mem_addr[7:0] - IO_BASE[7:0];
+    wire       dbg_in_io    = (dbg_mem_addr >= IO_BASE) && (dbg_mem_addr < SRAM_BASE);
+
+    // Los registros de los tres puertos hay que leerlos de su periférico, no
+    // del relleno: ahí ya no está su estado.
+    reg [7:0] dbg_periph;
+    always @(*) begin
+        case (dbg_io_index)
+            8'h03:   dbg_periph = gpio_b.sync1;
+            8'h04:   dbg_periph = gpio_b.ddr_q;
+            8'h05:   dbg_periph = gpio_b.port_q;
+            8'h06:   dbg_periph = gpio_c.sync1;
+            8'h07:   dbg_periph = gpio_c.ddr_q;
+            8'h08:   dbg_periph = gpio_c.port_q;
+            8'h09:   dbg_periph = gpio_d.sync1;
+            8'h0A:   dbg_periph = gpio_d.ddr_q;
+            8'h0B:   dbg_periph = gpio_d.port_q;
+            default: dbg_periph = io[dbg_io_index];
+        endcase
+    end
+
     assign dbg_mem_data =
         (dbg_mem_addr >= SRAM_BASE && dbg_mem_addr <= SRAM_END)
             ? dm.mem[dbg_mem_addr[10:0] - SRAM_BASE[10:0]]
-        : (dbg_mem_addr >= IO_BASE && dbg_mem_addr < SRAM_BASE)
-            ? io[dbg_io_index]
+        : dbg_in_io ? dbg_periph
         : 8'h00;
 
 endmodule

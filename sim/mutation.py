@@ -42,6 +42,7 @@ SEQ     = "rtl/core/axioma_seq.v"
 DMEM    = "rtl/mem/axioma_dmem.v"
 PROGMEM = "rtl/mem/axioma_progmem.v"
 DBUS    = "rtl/bus/axioma_dbus.v"
+GPIO    = "rtl/periph/axioma_gpio.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
 CATALOG = [
@@ -157,6 +158,27 @@ CATALOG = [
  "d_rdata     <= d_wdata;", "d_rdata     <= 16'h0000;"),
 ("mem", PROGMEM, "sim-mem", "progmem: los dos puertos comparten dirección",
  "            if_data <= mem[if_addr];", "            if_data <= mem[d_addr];"),
+
+# ------------------------------------------------------ puerto de E/S
+("gpio", GPIO, "sim-gpio", "escribir PINx lo escribe en vez de conmutar PORTx (trampa 5)",
+ "if (hit_pin)  port_q <= (port_q ^ io_wdata) & BITS;",
+ "if (hit_pin)  port_q <= io_wdata & BITS;"),
+# Este SOLO lo caza el banco propio: simavr no modela el sincronizador, asi que
+# el contraste contra el pasaria igualmente.
+("gpio", GPIO, "sim-gpio", "el sincronizador de PINx desaparece (simavr no lo veria)",
+ "            sync1 <= pad_in & BITS;", "            sync1 <= sync1;"),
+("gpio", GPIO, "sim-gpio", "no se enmascaran los bits que no existen, como PC7",
+ "                if (hit_ddr)  ddr_q  <= io_wdata & BITS;",
+ "                if (hit_ddr)  ddr_q  <= io_wdata;"),
+("gpio", GPIO, "sim-gpio", "PINx y PORTx intercambiados en la lectura",
+ """    assign io_rdata = hit_pin  ? sync1  :
+                      hit_ddr  ? ddr_q  :
+                      hit_port ? port_q : 8'h00;""",
+ """    assign io_rdata = hit_pin  ? port_q :
+                      hit_ddr  ? ddr_q  :
+                      hit_port ? sync1  : 8'h00;"""),
+("gpio", GPIO, "sim-gpio", "no se declara el pull-up: un pin de entrada leeria 0",
+ "assign pad_pullup = ~ddr_q & port_q;", "assign pad_pullup = 8'h00;"),
 
 # ------------------------------------------------------ bus de datos
 ("dbus", DBUS, "sim-dbus", "la SRAM no traduce la dirección: no resta la base",

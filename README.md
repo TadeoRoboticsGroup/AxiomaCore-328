@@ -49,17 +49,18 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/mem/axioma_progmem.v` | **Verificado** | 12 000 comprobaciones: puerto de búsqueda, puerto de `LPM`, escritura por `SPM` y los dos puertos a la vez |
 | `rtl/mem/axioma_dmem.v` | **Verificado** | 22 049 comprobaciones, incluido el barrido completo de las 2048 direcciones y la disciplina de flanco del [ADR 0001](docs/adr/0001-memorias-en-flanco-de-bajada.md) |
 | `rtl/bus/axioma_dbus.v` | **Verificado** | 790 976 comprobaciones sobre las 65 536 direcciones del espacio de datos, 0 fallos |
+| `rtl/periph/axioma_gpio.v` | **Verificado** | Diferencial contra `simavr` sobre los tres puertos, más 909 881 comprobaciones por máscara contra un modelo de la hoja de datos |
 | `rtl/core/axioma_seq.v` | **Verificado**, salvo la entrada a ISR | 7 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
 | `rtl/core/axioma_core.v` | **Verificado**, salvo la entrada a ISR | Ídem. Es el módulo que une todo |
 | Tabla de ciclos (nivel L3) | **Verificada** | 120 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
 | Entrada a interrupción | **Sin verificar** | La máquina de estados existe en `axioma_seq.v`, pero `irq_req` está atado a 0: sin controlador de interrupciones no hay forma de ejercitarla |
-| Periféricos | Pendientes | Fases 2 y 3 |
+| Timers, USART, SPI, TWI, ADC | Pendientes | Fases 2 y 3 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   12/12 objetivos en verde
-mutación    69/69 fallos inyectados, 69 detectados
+regresión   13/13 objetivos en verde
+mutación    74/74 fallos inyectados, 74 detectados
 ```
 
 **La fase 1 cumple su criterio de aceptación.** Lo que queda de ella es una deuda que no puede
@@ -142,10 +143,10 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 source env.sh
 make check-tools
 make lint regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
-     sim-simavr sim-decode sim-diff sim-random
+     sim-gpio sim-simavr sim-decode sim-diff sim-random
 ```
 
-Los doce objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los trece objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan
@@ -162,7 +163,7 @@ terminar, la SRAM entera byte a byte.
 > los que el 328P puede ejecutar; `SPM` es la única exclusión y es deliberada.
 
 ```bash
-make mutation      # ~5 min · inyecta 69 fallos y comprueba que la regresión los caza
+make mutation      # ~6 min · inyecta 74 fallos y comprueba que la regresión los caza
 ```
 
 A eso se le suman **10⁶ instrucciones aleatorias** (`make sim-random`): programas válidos con

@@ -160,6 +160,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-dbus
 
+      - name: Puertos de E/S - sincronizador y toggle por PINx
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-gpio
+
       - name: Cachear simavr
         id: cache-simavr
         uses: actions/cache@v4

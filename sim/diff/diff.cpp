@@ -369,18 +369,36 @@ int main(int argc, char **argv) {
     // ---------------------------------------------------------------
     long mem_bad = 0;
     if (diverged < 0) {
-        static const uint16_t GPIOR[] = {0x003E, 0x004A, 0x004B};
+        // ESTA TABLA CRECE CON CADA PERIFÉRICO. Del espacio de I/O sólo se
+        // puede comparar lo que MODELAN LOS DOS LADOS igual. Al principio eran
+        // sólo los GPIOR, que son almacenamiento puro; conforme aterriza un
+        // periférico de verdad, sus registros entran aquí.
+        struct IoRango { uint16_t lo, hi; const char *que; };
+        static const IoRango COMPARABLE[] = {
+            {0x0024, 0x0025, "DDRB y PORTB"},
+            {0x0027, 0x0028, "DDRC y PORTC"},
+            {0x002A, 0x002B, "DDRD y PORTD"},
+            {0x003E, 0x003E, "GPIOR0"},
+            {0x004A, 0x004B, "GPIOR1 y GPIOR2"},
+        };
+        // PINB, PINC y PIND quedan FUERA a propósito: en un pin de entrada sin
+        // pull-up el pad está flotando y su valor no lo define nadie —ni la
+        // hoja de datos ni simavr—. Compararlo sería comparar ruido. Lo que sí
+        // se verifica de PINx es el sincronizador, y eso lo hace su propio
+        // banco, porque simavr tampoco lo modela.
+
         for (uint16_t a = 0x0100; a <= RAMEND; a++) {
             uint8_t g = rtl_mem(a), e = avr->data[a];
             if (g != e && ++mem_bad <= 8)
                 printf("\n  MEMORIA DISTINTA en 0x%04X: RTL=0x%02X simavr=0x%02X", a, g, e);
         }
-        for (uint16_t a : GPIOR) {
-            uint8_t g = rtl_mem(a), e = avr->data[a];
-            if (g != e && ++mem_bad <= 8)
-                printf("\n  MEMORIA DISTINTA en 0x%04X (GPIOR): RTL=0x%02X simavr=0x%02X",
-                       a, g, e);
-        }
+        for (const auto &r : COMPARABLE)
+            for (uint16_t a = r.lo; a <= r.hi; a++) {
+                uint8_t g = rtl_mem(a), e = avr->data[a];
+                if (g != e && ++mem_bad <= 8)
+                    printf("\n  I/O DISTINTA en 0x%04X (%s): RTL=0x%02X simavr=0x%02X",
+                           a, r.que, g, e);
+            }
         if (mem_bad)
             printf("\n  %ld bytes distintos en el espacio de datos\n", mem_bad);
     }

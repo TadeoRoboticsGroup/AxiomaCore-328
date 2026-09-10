@@ -56,6 +56,7 @@ help:
 	@echo "  make sim-regfile      banco de registros vs modelo, 200k ciclos"
 	@echo "  make sim-mem          memorias de programa y datos"
 	@echo "  make sim-dbus         fabric del espacio de datos, 65 536 direcciones"
+	@echo "  make sim-gpio         puertos de E/S: sincronizador y toggle por PINx"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
@@ -205,6 +206,20 @@ sim-regfile:
 	  --top-module axioma_regfile rtl/core/axioma_regfile.v sim/alu/tb_regfile.cpp >/dev/null
 	@./$(BUILD)/vrf/tb_regfile
 
+# --- puerto de entrada/salida ---
+.PHONY: sim-gpio
+sim-gpio:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vgpio -o tb_gpio \
+	  --top-module axioma_gpio -GBITS="8'hFF" \
+	  rtl/periph/axioma_gpio.v sim/periph/tb_gpio.cpp >/dev/null
+	@./$(BUILD)/vgpio/tb_gpio 255
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vgpio7 -o tb_gpio7 \
+	  --top-module axioma_gpio -GBITS="8'h7F" \
+	  rtl/periph/axioma_gpio.v sim/periph/tb_gpio.cpp >/dev/null
+	@./$(BUILD)/vgpio7/tb_gpio7 127
+
 # --- fabric del espacio de datos ---
 .PHONY: sim-dbus
 sim-dbus:
@@ -226,7 +241,8 @@ sim-mem:
 DIFF_DIR  := $(BUILD)/diff
 DIFF_SRCS := rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
              rtl/core/axioma_alu.v rtl/core/axioma_sreg.v rtl/core/axioma_regfile.v \
-             rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v
+             rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v \
+             rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 
 $(DIFF_DIR)/%.bin: sim/diff/tests/%.S
@@ -273,7 +289,7 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 	test $$ko -eq 0
 
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-simavr sim-decode sim-diff
+sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-simavr sim-decode sim-diff
 
 # ------------------------------------------- regresión de instrucciones aleatorias
 # Último requisito del criterio de aceptación de la fase 1: 10^6 instrucciones

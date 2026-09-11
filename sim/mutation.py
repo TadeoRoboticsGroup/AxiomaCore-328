@@ -47,6 +47,7 @@ PRESC   = "rtl/periph/axioma_prescaler.v"
 TIMER0  = "rtl/periph/axioma_timer0.v"
 IRQ     = "rtl/periph/axioma_irq.v"
 GPIOR   = "rtl/periph/axioma_gpior.v"
+USART   = "rtl/periph/axioma_usart.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -193,7 +194,8 @@ CATALOG = [
  "wire hit_io   = (addr >= IO_BASE)   && (addr <  SRAM_BASE);",
  "wire hit_io   = (addr >= IO_BASE);"),
 ("dbus", DBUS, "sim-dbus", "se lee de un periférico que no reclamó la dirección",
- "(hit_io_q && io_sel) ? io_rdata : 8'h00;", "hit_io_q ? io_rdata : 8'h00;"),
+ "io_rdata_q <= (hit_io && io_sel) ? io_rdata : 8'h00;",
+ "io_rdata_q <= io_rdata;"),
 ("dbus", DBUS, "sim-dbus", "por encima de RAMEND se sigue leyendo la SRAM",
  "wire hit_sram = (addr >= SRAM_BASE) && (addr <= RAMEND);",
  "wire hit_sram = (addr >= SRAM_BASE);"),
@@ -203,9 +205,9 @@ CATALOG = [
 # el segundo ciclo de LD elige la región de la dirección NUEVA.
 ("dbus", DBUS, "sim-dbus", "la selección de región se vuelve combinacional (ADR 0001)",
  """    assign rdata = hit_sram_q ? sram_rdata :
-                   (hit_io_q && io_sel) ? io_rdata : 8'h00;""",
+                   hit_io_q   ? io_rdata_q : 8'h00;""",
  """    assign rdata = hit_sram ? sram_rdata :
-                   (hit_io && io_sel) ? io_rdata : 8'h00;"""),
+                   hit_io     ? io_rdata_q : 8'h00;"""),
 
 # ------------------------------------------------------------ secuenciador
 # Estos solo los puede cazar la co-simulación diferencial: son fallos de
@@ -374,8 +376,44 @@ CATALOG = [
  "localparam [7:0] A_TIMSK0 = 8'h4E;",
  "localparam [7:0] A_TIMSK0 = 8'h4F;"),
 ("soc", SOC, "sim-diff", "el mapa de vectores se desplaza un bit",
- """    assign irq_src = { 9'b0,          // 25..17  SPI en adelante, sin periférico""",
- """    assign irq_src = { 10'b0,         // 25..17  SPI en adelante, sin periférico"""),
+ """    assign irq_src = { 5'b0,          // 25..21  ADC en adelante, sin periférico""",
+ """    assign irq_src = { 6'b0,          // 25..21  ADC en adelante, sin periférico"""),
+# ------------------------------------------------------- USART0 y el bus
+# El mutante del bus es el mas importante del catalogo: reproduce un fallo que
+# estuvo escondido desde la fase 1 y que rompia TODA lectura de periferico con
+# LD o LDD, que es la unica forma de llegar a la I/O extendida.
+("dbus", DBUS, "sim-diff", "el bus deja de registrar el dato del periferico",
+ """            io_rdata_q <= (hit_io && io_sel) ? io_rdata : 8'h00;""",
+ """            io_rdata_q <= io_rdata_q;"""),
+("usart", USART, "sim-usart", "los bits salen con el mas significativo primero",
+ """                            txd_q  <= tx_sh[0];
+                            tx_par <= tx_par ^ tx_sh[0];
+                            tx_sh  <= {1'b0, tx_sh[8:1]};""",
+ """                            txd_q  <= tx_sh[8];
+                            tx_par <= tx_par ^ tx_sh[8];
+                            tx_sh  <= {tx_sh[7:0], 1'b0};"""),
+("usart", USART, "sim-usart", "el receptor mira una sola muestra, sin votar",
+ """    wire       rx_voto_ahora = (rx_vota[0] & rx_vota[1]) | (rx_vota[0] & rxd_s)
+                             | (rx_vota[1] & rxd_s);""",
+ """    wire       rx_voto_ahora = rxd_s;"""),
+("usart", USART, "sim-usart", "el divisor no cuenta el +1 de la formula",
+ """        else if (brg_tick)   brg <= ubrr;""",
+ """        else if (brg_tick)   brg <= ubrr - 12'd1;"""),
+("usart", USART, "sim-usart", "escribir UBRR0L ya no recarga el prescaler",
+ """        else if (carga_brr)  brg <= {ubrr[11:8], io_wdata};""",
+ """        else if (1'b0)       brg <= {ubrr[11:8], io_wdata};"""),
+("usart", USART, "sim-usart", "la paridad impar arranca en cero",
+ """                        tx_par      <= par_odd;      // impar arranca en 1""",
+ """                        tx_par      <= 1'b0;"""),
+("usart", USART, "sim-usart", "leer UDR0 deja de sacar del bufer (trampa 11)",
+ """    wire       rx_pop = io_re && hit_udr && !rx_vacio;""",
+ """    wire       rx_pop = 1'b0;"""),
+("usart", USART, "sim-usart", "el bufer de recepcion se queda en un nivel",
+ """    wire       rx_lleno = (rx_n == 2'd2);""",
+ """    wire       rx_lleno = (rx_n >= 2'd1);"""),
+("usart", USART, "sim-usart", "el error de trama no se registra",
+ """                                rx_fifo0 <= {!rx_voto_ahora, rx_upe,""",
+ """                                rx_fifo0 <= {1'b0, rx_upe,"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

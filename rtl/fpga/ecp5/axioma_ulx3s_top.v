@@ -136,7 +136,9 @@ module axioma_ulx3s_top #(
     // El pull-up declarado por el SoC no se puede aplicar desde la lógica en el
     // ECP5 (ver la cabecera). Se declara sin usar a propósito, en vez de
     // borrarlo del SoC: en silicio sí se conecta a la celda del PDK.
-    wire unused_pu = &{1'b0, pb_pu, pc_pu, pd_pu, uart_rx};
+    wire unused_pu = &{1'b0, pb_pu, pc_pu, pd_pu};
+
+    wire soc_txd, soc_txd_en;
 
     // ---------------------------------------------------------- el chip
     axioma328_soc #(.INIT_HEX(INIT_HEX)) soc (
@@ -144,6 +146,7 @@ module axioma_ulx3s_top #(
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
+        .uart_rxd(uart_rx), .uart_txd(soc_txd), .uart_txd_en(soc_txd_en),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),
@@ -157,9 +160,10 @@ module axioma_ulx3s_top #(
     // parpadea en led[5] y además se ve en el pin.
     assign led = pb_out & pb_oe;
 
-    // La USART es de la fase 2, todavía sin implementar: la línea se deja en
-    // reposo, que en un UART es el 1.
-    assign uart_tx = 1'b1;
+    // La USART sale directamente al conversor USB-serie de la placa. Cuando el
+    // transmisor no está habilitado, la línea queda en reposo —el 1 de un
+    // UART—, que es lo que ve el PC mientras el programa no abre el puerto.
+    assign uart_tx = soc_txd_en ? soc_txd : 1'b1;
 
     // Sin esto el ESP32 reinicia la placa.
     assign wifi_gpio0 = 1'b1;

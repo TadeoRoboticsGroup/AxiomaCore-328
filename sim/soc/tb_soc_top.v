@@ -35,6 +35,7 @@ module tb_soc_top (
     output wire        sel_gpior,
     output wire        sel_presc,
     output wire        sel_timer0,
+    output wire        sel_usart,
 
     output wire [7:0]  io_rdata
 );
@@ -52,7 +53,9 @@ module tb_soc_top (
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
+        .uart_rxd(1'b1),
         /* verilator lint_off PINCONNECTEMPTY */
+        .uart_txd(), .uart_txd_en(),
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),
         /* verilator lint_on PINCONNECTEMPTY */
@@ -74,6 +77,7 @@ module tb_soc_top (
     assign sel_gpior  = soc.gr_sel;
     assign sel_presc  = soc.ps_sel;
     assign sel_timer0 = soc.tm_sel;
+    assign sel_usart  = soc.us_sel;
 
 endmodule
 

@@ -793,7 +793,17 @@ Los dos están en el catálogo de mutación para que no puedan volver.
 - [x] `make synth-check`: yosys sobre todo el RTL, falla ante un latch y mide el área de cada
       módulo. Cierra un hueco que venía de la fase 1 —el lint de verilator no es un sintetizador—
       y entra en la CI junto con los dos bancos nuevos, que tampoco estaban.
-- [ ] `usart.v`.
+- [x] **`usart.v`.** Modo asíncrono completo: 5 a 9 bits de datos, paridad par, impar o ninguna,
+      uno o dos bits de parada, U2X, búfer de recepción de **dos niveles**, `FE`/`DOR`/`UPE` viajando
+      con su trama, y los tres vectores de interrupción. El modo síncrono y `MPCM` quedan
+      declarados fuera de alcance: sus bits se almacenan y se leen, pero no hacen nada.
+
+      Es el primer periférico con **efecto lateral de lectura** —leer `UDR0` saca un byte del
+      búfer, la trampa nº 11—, y aquel para el que **simavr sirve de menos**: su modelo no
+      serializa nada. Así que la forma de onda la certifica un receptor escrito desde la hoja de
+      datos que decodifica el pin y mide el periodo de bit. 44 082 comprobaciones, y el receptor
+      aguanta un pulso de ruido de una muestra en cualquier posición de cualquier bit — que es
+      para lo que existe el voto por mayoría.
 - [x] **Top de ECP5 y bitstream.** `rtl/fpga/ecp5/axioma_ulx3s_top.v`: PLL, secuencia de reset,
       celdas de pad con triestado y PORTB espejado en los LED. `make bitstream-ulx3s` produce
       248 KB para la ULX3S 25F, con el **19 % de las LUT y el 59 % de la BRAM**.

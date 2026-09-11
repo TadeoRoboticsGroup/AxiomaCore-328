@@ -79,6 +79,12 @@ module axioma_sim_top (
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
+        // Sin nada conectado al puerto serie: la línea de recepción en reposo,
+        // que en un UART es el 1.
+        .uart_rxd(1'b1),
+        /* verilator lint_off PINCONNECTEMPTY */
+        .uart_txd(), .uart_txd_en(),
+        /* verilator lint_on PINCONNECTEMPTY */
         .dbg_pc(dbg_pc), .dbg_ir(dbg_ir), .dbg_retire(dbg_retire),
         .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry),
         .dbg_irq_vector(dbg_irq_vector), .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
@@ -119,6 +125,15 @@ module axioma_sim_top (
             8'h2A:   dbg_periph = soc.gpior.r1;
             8'h2B:   dbg_periph = soc.gpior.r2;
             8'h4E:   dbg_periph = {5'b0, soc.timer0.timsk_q};
+            8'hA1:   dbg_periph = {soc.usart.rxcie, soc.usart.txcie,
+                                   soc.usart.udrie, soc.usart.rxen,
+                                   soc.usart.txen,  soc.usart.ucsz2,
+                                   1'b0, soc.usart.txb8};
+            8'hA2:   dbg_periph = {soc.usart.umsel, soc.usart.upm,
+                                   soc.usart.usbs, soc.usart.ucsz10,
+                                   soc.usart.ucpol};
+            8'hA4:   dbg_periph = soc.usart.ubrr[7:0];
+            8'hA5:   dbg_periph = {4'b0, soc.usart.ubrr[11:8]};
             // Sin implementar: se lee como cero, igual que en el chip.
             default: dbg_periph = 8'h00;
         endcase

@@ -494,6 +494,8 @@ int main(int argc, char **argv) {
             {0x0047, 0x0048, "OCR0A y OCR0B"},
             {0x004A, 0x004B, "GPIOR1 y GPIOR2"},
             {0x006E, 0x006E, "TIMSK0"},
+            {0x00C2, 0x00C2, "UCSR0C"},
+            {0x00C4, 0x00C5, "UBRR0L y UBRR0H"},
         };
         // DEL TIMER0 SE COMPARA LO QUE ES ALMACENAMIENTO EN LOS DOS LADOS, y
         // nada más. Quedan fuera, con motivo:
@@ -506,6 +508,27 @@ int main(int argc, char **argv) {
         // Y de TCCR0B sólo coincide lo que se lee: FOC0A y FOC0B son pulsos de
         // escritura y valen cero al leerse, mientras que simavr guarda el byte
         // entero. Ningún programa de prueba los escribe.
+        //
+        // DE LA USART SE COMPARA MENOS TODAVÍA, porque simavr NO MODELA EL
+        // CABLE: transporta bytes enteros por IRQs internas y aproxima el
+        // tiempo con `cycles_per_byte`, sumando siempre un bit de paridad esté
+        // o no activada. Quedan fuera:
+        //   UCSR0A (0xC0)  RXC, TXC y UDRE son banderas de temporización, y
+        //                  aquí las mueve un transmisor que serializa de
+        //                  verdad. Son dos relojes distintos.
+        //   UDR0   (0xC6)  dos registros en una dirección, y leerlo saca un
+        //                  byte del búfer: comparar tendría efectos laterales.
+        //   UCSR0B (0xC1)  simavr LO ARRANCA CON TXEN PUESTO, y no por
+        //                  descuido: `avr_uart_reset` lo hace con el comentario
+        //                  «DEBUG allow printf without fiddling with enabling
+        //                  the uart». El 328P real lo resetea a 0x00, así que
+        //                  en un programa que no toque el puerto serie los dos
+        //                  lados difieren desde el primer ciclo. Además su
+        //                  bit 1 es RXB8 —el noveno bit RECIBIDO, de sólo
+        //                  lectura— y simavr devuelve lo que se le escribió.
+        //                  El registro SÍ se contrasta, pero por la vía de la
+        //                  comparación por instrucción: `usart.S` lo lee de
+        //                  vuelta a un registro del núcleo tras escribirlo.
         // PINB, PINC y PIND quedan FUERA a propósito: en un pin de entrada sin
         // pull-up el pad está flotando y su valor no lo define nadie —ni la
         // hoja de datos ni simavr—. Compararlo sería comparar ruido. Lo que sí

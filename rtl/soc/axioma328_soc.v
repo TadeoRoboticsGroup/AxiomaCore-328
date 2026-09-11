@@ -29,6 +29,7 @@
 //   0x09-0x0B  PIND DDRD PORTD        0x2B  GPIOR2
 //   0x15       TIFR0                  0x23  GTCCR
 //   0x24-0x28  TCCR0A/B TCNT0 OCR0A/B 0x4E  TIMSK0  (sólo LD/ST)
+//   0xA0-0xA6  UCSR0A/B/C UBRR0L/H UDR0      (sólo LD/ST)
 //
 // Todo lo demás está sin implementar y se lee como cero. Un programa que use la
 // USART, el SPI o el ADC no funcionará todavía, y es lo correcto: que lo diga
@@ -43,6 +44,16 @@ module axioma328_soc #(
 )(
     input  wire        clk,
     input  wire        rst_n,
+
+    // ---------------------------------------------------------- USART0
+    // TXD es PD1 y RXD es PD0 en el encapsulado. La anulación del puerto —que
+    // el transmisor se adueñe del pad por encima de DDRx— es de la fase 3,
+    // igual que la de OC0A/OC0B: hace falta darle a axioma_gpio una entrada de
+    // anulación. Mientras tanto el top de la placa lleva estas señales
+    // directamente a los pines del conversor USB-serie.
+    input  wire        uart_rxd,
+    output wire        uart_txd,
+    output wire        uart_txd_en,
 
     // ---------------------------------------------------------- pines
     // Cada puerto sale con las tres señales que necesita una celda de pad:
@@ -180,6 +191,20 @@ module axioma328_soc #(
         .ack_ovf(irq_ack_v[16]), .ack_compa(irq_ack_v[14]), .ack_compb(irq_ack_v[15])
     );
 
+    // ------------------------------------------------------------ USART0
+    wire [7:0] us_rd;
+    wire       us_sel;
+    wire       us_rxc, us_udre, us_txc;
+
+    axioma_usart usart (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(us_rd), .io_sel(us_sel),
+        .rxd(uart_rxd), .txd(uart_txd), .txd_en(uart_txd_en),
+        .irq_rxc(us_rxc), .irq_udre(us_udre), .irq_txc(us_txc),
+        .ack_txc(irq_ack_v[20])
+    );
+
     // ------------------------------------------ combinación de las lecturas
     // Cada periférico deja su lectura a cero cuando no está seleccionado, así
     // que se combinan con un OR. `io_sel` dice si ALGUNO reclamó la dirección;
@@ -189,8 +214,8 @@ module axioma328_soc #(
     // el OR devolvería los dos valores mezclados. El espacio es enumerable —256
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
-    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd;
-    assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel;
+    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | us_rd;
+    assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel | us_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -201,7 +226,11 @@ module axioma328_soc #(
     wire        core_irq_req, core_irq_ack;
     wire [4:0]  core_irq_vector;
 
-    assign irq_src = { 9'b0,          // 25..17  SPI en adelante, sin periférico
+    assign irq_src = { 5'b0,          // 25..21  ADC en adelante, sin periférico
+                       us_txc,        // 20      USART_TX
+                       us_udre,       // 19      USART_UDRE
+                       us_rxc,        // 18      USART_RX
+                       1'b0,          // 17      SPI_STC
                        tm_ovf,        // 16      TIMER0_OVF
                        tm_compb,      // 15      TIMER0_COMPB
                        tm_compa,      // 14      TIMER0_COMPA
@@ -209,7 +238,7 @@ module axioma328_soc #(
 
     // Los reconocimientos de los vectores que aún no tienen periférico no van a
     // ninguna parte, igual que sus peticiones.
-    wire unused_ack = &{1'b0, irq_ack_v[25:17], irq_ack_v[13:0]};
+    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17], irq_ack_v[13:0]};
 
     axioma_irq irqc (
         .src(irq_src),

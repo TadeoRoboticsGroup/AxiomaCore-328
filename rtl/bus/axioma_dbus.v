@@ -89,21 +89,42 @@ module axioma_dbus (
     // Se registra QUÉ región se leyó, no el dato: el dato lo entrega la SRAM o
     // el periférico dentro del ciclo, y lo único que hay que recordar es a
     // cuál de los dos hay que hacerle caso.
-    reg hit_io_q, hit_sram_q;
+    // SE REGISTRA TAMBIÉN EL DATO DEL PERIFÉRICO, y no sólo la región. Aquí
+    // hubo un fallo real escondido desde la fase 1.
+    //
+    // La SRAM entrega su dato REGISTRADO en flanco de bajada (ADR 0001), así
+    // que sigue disponible en el ciclo siguiente. El de un periférico, en
+    // cambio, es COMBINACIONAL desde `io_addr`: vale mientras la dirección esté
+    // presente y desaparece en cuanto el secuenciador la suelta.
+    //
+    // Consecuencia: toda instrucción que consuma la lectura UN CICLO DESPUÉS de
+    // lanzarla —LD y LDD lo hacen— leía 0x00 de cualquier periférico. Con la
+    // SRAM no se notaba, porque su dato sí sobrevive, y con IN y LDS tampoco,
+    // porque consumen dentro del mismo ciclo. No lo vio nadie hasta que un
+    // programa leyó de vuelta un registro de la USART, que vive en la I/O
+    // EXTENDIDA y sólo se alcanza con LD, LDD o LDS.
+    //
+    // Registrando el dato en el mismo flanco que la región, las dos se
+    // comportan igual y la disciplina del ADR 0001 queda completa: quien lea
+    // por el bus ve lo mismo venga de donde venga.
+    reg       hit_io_q, hit_sram_q;
+    reg [7:0] io_rdata_q;
     always @(negedge clk or negedge rst_n) begin
         if (!rst_n) begin
             hit_io_q   <= 1'b0;
             hit_sram_q <= 1'b0;
+            io_rdata_q <= 8'h00;
         end else if (re) begin
             hit_io_q   <= hit_io;
             hit_sram_q <= hit_sram;
+            io_rdata_q <= (hit_io && io_sel) ? io_rdata : 8'h00;
         end
     end
 
     // Fuera de las regiones mapeadas, y en la I/O que ningún periférico
     // reclama, la lectura vale 0x00.
     assign rdata = hit_sram_q ? sram_rdata :
-                   (hit_io_q && io_sel) ? io_rdata : 8'h00;
+                   hit_io_q   ? io_rdata_q : 8'h00;
 
 endmodule
 

@@ -64,6 +64,8 @@ static const Esperado MAPA[] = {
     {0x27, "timer0", "OCR0A"},  {0x28, "timer0", "OCR0B"},
     {0x2A, "gpior",  "GPIOR1"}, {0x2B, "gpior",  "GPIOR2"},
     {0x4E, "timer0", "TIMSK0"},
+    {0xA0, "usart",  "UCSR0A"}, {0xA1, "usart",  "UCSR0B"}, {0xA2, "usart", "UCSR0C"},
+    {0xA4, "usart",  "UBRR0L"}, {0xA5, "usart",  "UBRR0H"}, {0xA6, "usart", "UDR0"},
 };
 
 int main(int argc, char **argv) {
@@ -113,6 +115,7 @@ int main(int argc, char **argv) {
                 {"gpio_b", dut->sel_gpio_b}, {"gpio_c", dut->sel_gpio_c},
                 {"gpio_d", dut->sel_gpio_d}, {"gpior",  dut->sel_gpior},
                 {"presc",  dut->sel_presc},  {"timer0", dut->sel_timer0},
+                {"usart",  dut->sel_usart},
             };
             int n = 0;
             for (auto &q : quien)

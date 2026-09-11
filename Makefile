@@ -445,7 +445,9 @@ $(BUILD):
 bitstream-ulx3s: env $(FW_DIR)/blink.mem | $(BUILD)
 	@if [ ! -f "$(RTL_DIR)/fpga/ecp5/$(ECP5_TOP).v" ]; then \
 	  echo -e "$(DIM)Falta $(RTL_DIR)/fpga/ecp5/$(ECP5_TOP).v — fase 2. Ver docs/00-PLAN.md.$(NC)"; exit 1; fi
-	yosys -p "read_verilog $(INCDIRS) $(RTL_SRCS) $(RTL_VENDOR); synth_ecp5 -top $(ECP5_TOP) -json $(BUILD)/axioma.json"
+	yosys -p "read_verilog $(INCDIRS) $(RTL_SRCS) $(RTL_VENDOR); \
+	          chparam -set INIT_HEX \"$(FW_DIR)/blink.mem\" $(ECP5_TOP); \
+	          synth_ecp5 -top $(ECP5_TOP) -json $(BUILD)/axioma.json"
 	nextpnr-ecp5 --$(ECP5_DEV) --package $(ECP5_PKG) \
 	             --json $(BUILD)/axioma.json --lpf $(ECP5_LPF) \
 	             --textcfg $(BUILD)/axioma.config --report $(BUILD)/timing.json

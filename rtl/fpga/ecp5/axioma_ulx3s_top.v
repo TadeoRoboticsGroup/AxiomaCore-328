@@ -45,10 +45,14 @@
 module axioma_ulx3s_top #(
     // Programa precargado en la memoria de programa del bitstream. Lo genera
     // `tools/bin2mem.py` a partir del .bin que produce avr-gcc.
-    // Por defecto apunta al que construye `make bitstream-ulx3s`. $readmemh
-    // resuelve la ruta desde el directorio donde corre yosys, que es la raiz
-    // del proyecto.
-    parameter INIT_HEX = "build/fw/blink.mem"
+    // VACÍO POR DEFECTO, y es importante: el RTL no puede depender de un
+    // artefacto de compilación. Con una ruta por defecto, sintetizar en una
+    // copia recién clonada fallaba con «Can not open file for $readmemh», que
+    // es exactamente lo que rompió la CI. Sin programa, la memoria queda a
+    // 0x0000 —NOP— y el diseño sintetiza igual.
+    //
+    // El programa se lo pasa quien hace el bitstream, con `chparam`.
+    parameter INIT_HEX = ""
 )(
     input  wire       clk_25mhz,
     input  wire       btn_reset,      // FIRE1, activo ALTO en la placa

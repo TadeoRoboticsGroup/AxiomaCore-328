@@ -183,6 +183,16 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-irq
 
+      # Cada periferico tiene su banco, pero que esten bien COLOCADOS es otra
+      # propiedad. Barre las 224 direcciones del espacio de I/O por el bus real
+      # y comprueba que no hay colisiones y que el mapa es el de la hoja de
+      # datos. Ahi habia aparecido ya un fallo: un bit de mas en el mapa de
+      # vectores convertia TIMER0_COMPA en TIMER1_OVF.
+      - name: Mapa de I/O del SoC, barrido entero
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-soc
+
       - name: Cachear simavr
         id: cache-simavr
         uses: actions/cache@v4

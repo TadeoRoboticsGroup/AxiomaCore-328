@@ -10,6 +10,12 @@ primero.
 
 ## 1. Jerarquía
 
+`axioma328_soc` **es un módulo de verdad** desde el 11-sep-2026, en
+`rtl/soc/axioma328_soc.v`. Hasta entonces la integración —el mapa de direcciones de I/O y el
+cableado de los 26 vectores— vivía dentro del banco de pruebas, de modo que lo que la regresión
+verificaba no era el dispositivo. El desplazamiento de un bit que convertía `TIMER0_COMPA` en
+`TIMER1_OVF` estaba justo ahí.
+
 ```
 axioma328_soc
 ├── axioma_core
@@ -24,6 +30,7 @@ axioma328_soc
 ├── axioma_dbus            fabric del espacio de datos
 ├── axioma_irq             26 vectores con prioridad fija
 ├── axioma_prescaler       contador de 10 bits COMPARTIDO por Timer0 y Timer1, y GTCCR
+├── axioma_gpior           GPIOR0/1/2 · almacenamiento puro, tres bytes del chip
 ├── axioma_clkctrl         CLKPR, PRR, SMCR, MCUCR, MCUSR
 └── periféricos            gpio · timer0/1/2 · usart · spi · twi · adc · ac · wdt · extint · pcint
 ```
@@ -56,6 +63,13 @@ reales.
 
 Todos los periféricos exponen la misma interfaz. El multiplexor central selecciona uno por
 dirección y combina las lecturas.
+
+Una dirección que **ningún periférico reclama se lee como `0x00`** y su escritura se pierde, como
+en el chip. No es RAM. Y como las lecturas se combinan con un OR, que dos periféricos reclamaran la
+misma dirección sería un fallo mudo: devolvería los dos valores mezclados. El espacio es
+enumerable, así que `make sim-soc` lo barre entero por el bus real —el núcleo ejecuta un `LDS` por
+dirección— y comprueba que como mucho uno responde a cada una y que el mapa es el de la hoja de
+datos.
 
 ```verilog
 input  wire [7:0] io_addr,    // dirección baja dentro del espacio de datos

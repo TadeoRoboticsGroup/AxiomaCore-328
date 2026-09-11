@@ -60,6 +60,7 @@ help:
 	@echo "  make sim-gpio         puertos de E/S: sincronizador y toggle por PINx"
 	@echo "  make sim-timer0       Timer0 y prescaler compartido vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
+	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
@@ -252,6 +253,27 @@ sim-irq:
 	@echo -e "$(BOLD)Controlador de interrupciones, exhaustivo$(NC)"
 	@./$(BUILD)/virq/tb_irq
 
+# --- integracion: el mapa de I/O del SoC ---
+# Cada periferico esta verificado por su cuenta; que esten bien COLOCADOS no lo
+# comprobaba nadie, y ahi ya habia aparecido un fallo. Se barren las 224
+# direcciones del espacio de I/O por el camino real, con el nucleo ejecutando
+# un LDS por cada una.
+SOC_SRCS := rtl/soc/axioma328_soc.v \
+            rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
+            rtl/core/axioma_alu.v rtl/core/axioma_sreg.v rtl/core/axioma_regfile.v \
+            rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v rtl/bus/axioma_dbus.v \
+            rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v \
+            rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
+            rtl/periph/axioma_irq.v
+
+.PHONY: sim-soc
+sim-soc:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vsoc -o tb_soc_map --top-module tb_soc_top \
+	  sim/soc/tb_soc_top.v $(SOC_SRCS) sim/soc/tb_soc_map.cpp >/dev/null
+	@echo -e "$(BOLD)Mapa de I/O del SoC, barrido entero$(NC)"
+	@./$(BUILD)/vsoc/tb_soc_map
+
 # --- fabric del espacio de datos ---
 .PHONY: sim-dbus
 sim-dbus:
@@ -271,12 +293,13 @@ sim-mem:
 
 # --- co-simulación diferencial contra simavr ---
 DIFF_DIR  := $(BUILD)/diff
-DIFF_SRCS := rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
+DIFF_SRCS := rtl/soc/axioma328_soc.v \
+             rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
              rtl/core/axioma_alu.v rtl/core/axioma_sreg.v rtl/core/axioma_regfile.v \
              rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v \
              rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v \
-             rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
-             rtl/periph/axioma_irq.v
+             rtl/periph/axioma_gpior.v rtl/periph/axioma_prescaler.v \
+             rtl/periph/axioma_timer0.v rtl/periph/axioma_irq.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 
 $(DIFF_DIR)/%.bin: sim/diff/tests/%.S
@@ -324,7 +347,7 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 
 .PHONY: sim-core
 sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 sim-irq \
-          sim-simavr sim-decode sim-diff
+          sim-soc sim-simavr sim-decode sim-diff
 
 # ------------------------------------------- regresión de instrucciones aleatorias
 # Último requisito del criterio de aceptación de la fase 1: 10^6 instrucciones

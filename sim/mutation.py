@@ -46,6 +46,8 @@ GPIO    = "rtl/periph/axioma_gpio.v"
 PRESC   = "rtl/periph/axioma_prescaler.v"
 TIMER0  = "rtl/periph/axioma_timer0.v"
 IRQ     = "rtl/periph/axioma_irq.v"
+GPIOR   = "rtl/periph/axioma_gpior.v"
+SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
 CATALOG = [
@@ -355,6 +357,25 @@ CATALOG = [
 ("seq", SEQ, "sim-diff", "la interrupción se atiende en mitad de una instrucción",
  "    wire irq_take = irq_req && sreg[SREG_I] && !irq_hold && (cyc == 2'd0);",
  "    wire irq_take = irq_req && sreg[SREG_I] && !irq_hold;"),
+# ------------------------------------------------- integracion: el mapa de I/O
+# La integracion era la unica parte del chip sin banco propio, y es donde ya
+# habia aparecido un fallo. Estos mutantes son colocaciones equivocadas, no
+# errores de logica: el periferico funciona, pero no esta donde debe.
+("soc", SOC, "sim-soc", "dos puertos de E/S en la misma direccion",
+ "axioma_gpio #(.IO_PIN(8'h06), .BITS(8'h7F)) gpio_c (",
+ "axioma_gpio #(.IO_PIN(8'h03), .BITS(8'h7F)) gpio_c ("),
+("soc", SOC, "sim-soc", "un puerto de E/S movido a una direccion libre",
+ "axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (",
+ "axioma_gpio #(.IO_PIN(8'h0C), .BITS(8'hFF)) gpio_d ("),
+("soc", GPIOR, "sim-soc", "GPIOR0 responde tambien en la direccion de al lado",
+ "wire hit0 = (io_addr == A_GPIOR0);",
+ "wire hit0 = (io_addr[7:1] == A_GPIOR0[7:1]);"),
+("soc", TIMER0, "sim-soc", "TIMSK0 colocado una direccion mas alla",
+ "localparam [7:0] A_TIMSK0 = 8'h4E;",
+ "localparam [7:0] A_TIMSK0 = 8'h4F;"),
+("soc", SOC, "sim-diff", "el mapa de vectores se desplaza un bit",
+ """    assign irq_src = { 9'b0,          // 25..17  SPI en adelante, sin periférico""",
+ """    assign irq_src = { 10'b0,         // 25..17  SPI en adelante, sin periférico"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

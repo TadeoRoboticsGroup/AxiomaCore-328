@@ -326,6 +326,25 @@ Sketches compilados con avr-gcc y ejecutados en RTL y en FPGA:
 
 ---
 
+### La integración también se verifica
+
+Cada periférico tiene su banco, pero que estén bien **colocados** es otra propiedad, y durante toda
+la fase 1 y media fase 2 no la comprobaba nadie: el mapa de direcciones y el de vectores vivían en
+el banco de pruebas. Ahí apareció un fallo real —un bit de más en una concatenación convertía
+`TIMER0_COMPA` en `TIMER1_OVF`—.
+
+`make sim-soc` barre **las 224 direcciones del espacio de I/O**, y lo hace por el camino real: carga
+un programa con un `LDS` por dirección y deja que el núcleo lo ejecute. No fuerza ninguna señal
+interna. Comprueba tres cosas:
+
+1. **que no haya colisiones** — dos periféricos en la misma dirección es un fallo mudo, porque las
+   lecturas se combinan con un OR y devolvería los dos valores mezclados;
+2. **que el mapa sea el de la hoja de datos** — una dirección de menos es un registro que no
+   existe; una de más, un registro que responde donde no debe;
+3. **que los huecos se lean como `0x00`** — una dirección reservada del 328P no es RAM.
+
+---
+
 ## La comprobación que no es una capa: que el RTL siga sintetizando
 
 `verilator --lint-only` **no es un sintetizador**. No infiere latches, no resuelve la jerarquía

@@ -781,6 +781,15 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       67 108 864 combinaciones posibles de peticiones, 201 326 592 comprobaciones. Con él se
       salda la deuda de la fase 1: la entrada a ISR se ejercita por primera vez, y encontró dos
       fallos reales en el secuenciador.
+- [x] **`rtl/soc/axioma328_soc.v`: la integración pasa a ser diseño.** Hasta ahora el mapa de
+      direcciones de I/O y el cableado de los 26 vectores vivían en `sim/diff/axioma_sim_top.v`, un
+      fichero que empieza diciendo «NO forma parte del diseño»: lo que la regresión verificaba era
+      un banco de pruebas, y la integración era la única parte del chip sin verificación propia.
+      No era teórico —el bit desplazado que convertía `TIMER0_COMPA` en `TIMER1_OVF` estaba ahí—.
+      De paso desaparece el array que fingía que todo el espacio de I/O era RAM: los tres `GPIOR`
+      son registros del 328P y ahora son un periférico (`axioma_gpior.v`), y una dirección sin
+      implementar se lee como cero, como en el chip. `make sim-soc` barre las 224 direcciones por
+      el bus real y comprueba que no hay colisiones y que el mapa es el de la hoja de datos.
 - [x] `make synth-check`: yosys sobre todo el RTL, falla ante un latch y mide el área de cada
       módulo. Cierra un hueco que venía de la fase 1 —el lint de verilator no es un sintetizador—
       y entra en la CI junto con los dos bancos nuevos, que tampoco estaban.

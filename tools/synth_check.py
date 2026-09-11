@@ -31,6 +31,13 @@ ROOT = Path(__file__).resolve().parent.parent
 CORE = ["rtl/core/axioma_core.v", "rtl/core/axioma_seq.v", "rtl/core/axioma_decode.v",
         "rtl/core/axioma_alu.v", "rtl/core/axioma_sreg.v", "rtl/core/axioma_regfile.v"]
 
+PERIF = ["rtl/bus/axioma_dbus.v", "rtl/periph/axioma_gpio.v",
+         "rtl/periph/axioma_gpior.v", "rtl/periph/axioma_prescaler.v",
+         "rtl/periph/axioma_timer0.v", "rtl/periph/axioma_irq.v"]
+
+SOC = ["rtl/soc/axioma328_soc.v"] + CORE + PERIF + \
+      ["rtl/mem/axioma_progmem.v", "rtl/mem/axioma_dmem.v"]
+
 # (módulo, ficheros). Cada uno se sintetiza por separado: así el área es
 # atribuible, y un módulo que crece no se esconde dentro del total.
 MODULOS = [
@@ -42,6 +49,10 @@ MODULOS = [
     ("axioma_prescaler", ["rtl/periph/axioma_prescaler.v"]),
     ("axioma_timer0",    ["rtl/periph/axioma_timer0.v"]),
     ("axioma_irq",       ["rtl/periph/axioma_irq.v"]),
+    ("axioma_gpior",     ["rtl/periph/axioma_gpior.v"]),
+    # El dispositivo entero. Es el unico numero que significa algo de cara a la
+    # FPGA: los de arriba son atribucion, este es el area.
+    ("axioma328_soc",    SOC),
 ]
 
 VERDE, ROJO, GRIS, NEGRITA, FIN = "\033[0;32m", "\033[0;31m", "\033[2m", "\033[1m", "\033[0m"
@@ -88,7 +99,6 @@ def main():
     print()
     print(f"  {GRIS}área en el ECP5 — no es criterio de fallo, es una medida{FIN}")
     print(f"  {'módulo':<20} {'LUT4':>7} {'FF':>7}")
-    total_lut = total_ff = 0
     for mod, files in MODULOS:
         rc, out = yosys(f"read_verilog -Irtl/soc {' '.join(files)}; "
                         f"synth_ecp5 -top {mod}; stat")
@@ -106,13 +116,10 @@ def main():
                   re.finditer(r"^\s+(\d+)\s+LUT4\s*$", ultimo, re.M))
         ff = sum(int(m.group(1)) for m in
                  re.finditer(r"^\s+(\d+)\s+\S*TRELLIS_FF\S*\s*$", ultimo, re.M))
-        total_lut += lut
-        total_ff += ff
         print(f"  {mod:<20} {lut:>7,} {ff:>7,}")
-    print(f"  {'':<20} {'-'*7:>7} {'-'*7:>7}")
-    print(f"  {'suma':<20} {total_lut:>7,} {total_ff:>7,}")
-    print(f"\n  {GRIS}La suma no es el área del SoC: falta el top, que todavía no")
-    print(f"  existe, y la síntesis del conjunto comparte lógica entre módulos.{FIN}")
+    print(f"\n  {GRIS}Los módulos se sintetizan por separado para que el área sea")
+    print(f"  atribuible; `axioma328_soc` es el dispositivo entero y NO es la suma")
+    print(f"  de los demás, porque la síntesis comparte lógica entre ellos.{FIN}")
     return 0
 
 

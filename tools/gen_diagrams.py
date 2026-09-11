@@ -100,7 +100,7 @@ def rule(c, x1, y, x2):
 #  Figura 1 — arquitectura del SoC
 # ==========================================================================
 def fig_soc(t):
-    H = 902
+    H = 976
     c = Canvas(W, H, t)
 
     c.text(M, 42, "Arquitectura de AxiomaCore-328", F_TITLE, bold=True)
@@ -109,7 +109,7 @@ def fig_soc(t):
            F_SUB, colour=t["muted"])
 
     # ---- plancha del SoC ----
-    PY, PH = 88, 768
+    PY, PH = 88, 842
     c.box(M, PY, W - 2 * M, PH, t["plate"], t["line_strong"], r=10, lw=1.6)
     c.text(M + 16, PY + 22, "axioma328_soc", 11.5, colour=t["muted"], mono=True)
 
@@ -159,7 +159,7 @@ def fig_soc(t):
     c.path([(480, CY + CH + 4), (480, BY - 5)], colour=t["strong"])
 
     # ---- lo que cuelga del bus ----
-    GY, GH = 510, 276
+    GY, GH = 510, 350
     c.box(IN_L, GY, IN_W, GH, t["panel"], t["line"], r=8)
     c.text(IN_L + 14, GY + 21, "en el espacio de datos", 11.5, colour=t["muted"],
            mono=True)
@@ -167,13 +167,15 @@ def fig_soc(t):
 
     cells = [("axioma_dmem", ["2 KB de SRAM · flanco de bajada"], OK),
              ("axioma_gpio", ["PORTB · PORTC · PORTD · toggle por PINx"], OK),
+             ("axioma_gpior", ["GPIOR0/1/2 · almacenamiento puro"], OK),
              ("axioma_prescaler", ["10 bits · COMPARTIDO por timer0 y timer1"], OK),
              ("axioma_timer0", ["8 modos de onda · OC0A/OC0B · T0"], OK),
              ("axioma_timer1/2", ["registro TEMP de 16 bits · 6 PWM"], TODO),
              ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
              ("usart", ["generador de baudios · modelo de bus"], TODO),
              ("spi · twi", ["modelos de bus en el banco"], TODO),
-             ("adc · ac · wdt", ["SAR de 10 bits · 8 canales"], TODO)]
+             ("adc · ac · wdt", ["SAR de 10 bits · 8 canales"], TODO),
+             ("extint · pcint", ["INT0/1 · PCINT0/1/2"], TODO)]
     gw = (IN_W - 32 - 24) / 3
     for i, (nm, sub, st) in enumerate(cells):
         gx = IN_L + 16 + (i % 3) * (gw + 12)
@@ -181,7 +183,7 @@ def fig_soc(t):
         block(c, gx, gy, gw, 62, nm, sub, st, title_size=12)
 
     # ---- pines ----
-    py, ph = 802, 36
+    py, ph = 876, 36
     c.box(IN_L, py, IN_W, ph, t["panel"], t["line"], r=7, dash=[5, 3])
     c.text(IN_L + 20, py + ph / 2, "pines", 11, colour=t["muted"], mono=True,
            align="leftm")
@@ -191,7 +193,7 @@ def fig_soc(t):
 
     # La leyenda sólo lista los estados que la figura USA. Ahora mismo no hay
     # ningún bloque a medio verificar; el día que lo haya, PARTIAL vuelve aquí.
-    legend(c, M, 880, [(OK, "verificado contra un oráculo independiente"),
+    legend(c, M, 954, [(OK, "verificado contra un oráculo independiente"),
                        (TODO, "pendiente — fases 2 y 3")])
     return c
 

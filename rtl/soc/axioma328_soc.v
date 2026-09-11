@@ -1,0 +1,247 @@
+// AxiomaCore-328 - el dispositivo
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 The AxiomaCore Project
+//
+// ESTE fichero es el chip. Hasta ahora la integración —el mapa de direcciones
+// de I/O, el cableado de los 26 vectores de interrupción, qué periférico
+// cuelga de dónde— vivía en `sim/diff/axioma_sim_top.v`, un fichero que empieza
+// diciendo «NO forma parte del diseño». Con eso, lo que la regresión verificaba
+// era un banco de pruebas, y la integración era la única parte del chip sin
+// verificación propia.
+//
+// No era un riesgo teórico: el desplazamiento de un bit en el vector de
+// interrupciones, que convertía TIMER0_COMPA en TIMER1_OVF, estaba justo ahí.
+//
+// EL ESPACIO DE I/O NO ES RAM. Una dirección que ningún periférico reclama se
+// lee como 0x00 y se escribe al vacío, como en el chip. El banco de pruebas
+// tenía un array que fingía que todo el espacio era memoria, y eso hacía que el
+// artefacto verificado y el dispositivo no fueran el mismo.
+//
+//   0x0000-0x001F  registros            los resuelve el bus contra el regfile
+//   0x005D-0x005F  SPL, SPH, SREG       los intercepta axioma_core
+//   0x0020-0x00FF  I/O y I/O extendida  lo de aquí abajo
+//   0x0100-0x08FF  2 KB de SRAM         axioma_dmem
+//
+// Direcciones de I/O implementadas hoy (las de IN/OUT, es decir, dato - 0x20):
+//
+//   0x03-0x05  PINB DDRB PORTB        0x1E  GPIOR0
+//   0x06-0x08  PINC DDRC PORTC        0x2A  GPIOR1
+//   0x09-0x0B  PIND DDRD PORTD        0x2B  GPIOR2
+//   0x15       TIFR0                  0x23  GTCCR
+//   0x24-0x28  TCCR0A/B TCNT0 OCR0A/B 0x4E  TIMSK0  (sólo LD/ST)
+//
+// Todo lo demás está sin implementar y se lee como cero. Un programa que use la
+// USART, el SPI o el ADC no funcionará todavía, y es lo correcto: que lo diga
+// el silencio y no un relleno que finge.
+
+`default_nettype none
+
+module axioma328_soc #(
+    // Programa precargado. Vacío en simulación, donde el banco carga por la
+    // puerta de atrás; con fichero en el bitstream de la FPGA.
+    parameter INIT_HEX = ""
+)(
+    input  wire        clk,
+    input  wire        rst_n,
+
+    // ---------------------------------------------------------- pines
+    // Cada puerto sale con las tres señales que necesita una celda de pad:
+    // el dato, la dirección y la declaración de pull-up. Aplicarlo es cosa del
+    // pad —el bloque de E/S del ECP5 en FPGA, la celda del PDK en silicio—,
+    // no de este módulo.
+    input  wire [7:0]  pb_in,
+    output wire [7:0]  pb_out, pb_oe, pb_pu,
+    input  wire [7:0]  pc_in,
+    output wire [7:0]  pc_out, pc_oe, pc_pu,
+    input  wire [7:0]  pd_in,
+    output wire [7:0]  pd_out, pd_oe, pd_pu,
+
+    // ---------------------------------------------------- observación
+    // No existen en el 328P. En la placa se quedan sin conectar y la síntesis
+    // las descarta; en simulación son lo que mira el arnés diferencial.
+    output wire [13:0] dbg_pc,
+    output wire [15:0] dbg_ir,
+    output wire        dbg_retire,
+    output wire        dbg_illegal,
+    output wire        dbg_irq_entry,
+    output wire [4:0]  dbg_irq_vector,
+    output wire [15:0] dbg_sp,
+    output wire [7:0]  dbg_sreg,
+    input  wire [4:0]  dbg_reg_addr,
+    output wire [7:0]  dbg_reg_data
+);
+
+    // ------------------------------------------------- memoria de programa
+    wire [13:0] pm_if_addr, pm_d_addr;
+    wire        pm_if_en, pm_d_en, pm_d_we;
+    wire [15:0] pm_d_wdata, pm_if_data, pm_d_rdata;
+
+    axioma_progmem #(.INIT_HEX(INIT_HEX)) pm (
+        .clk(clk),
+        .if_addr(pm_if_addr), .if_en(pm_if_en), .if_data(pm_if_data),
+        .d_addr(pm_d_addr), .d_en(pm_d_en), .d_we(pm_d_we),
+        .d_wdata(pm_d_wdata), .d_rdata(pm_d_rdata)
+    );
+
+    // ------------------------------------------------------ espacio de datos
+    wire [15:0] dm_addr;
+    wire        dm_re, dm_we;
+    wire [7:0]  dm_wdata, dm_rdata;
+
+    wire [10:0] sram_addr;
+    wire        sram_en, sram_we;
+    wire [7:0]  sram_wdata, sram_rdata;
+
+    wire [7:0]  io_addr;
+    wire        io_re, io_we;
+    wire [7:0]  io_wdata, io_rdata;
+    wire        io_sel;
+
+    axioma_dbus bus (
+        .clk(clk), .rst_n(rst_n),
+        .addr(dm_addr), .re(dm_re), .we(dm_we), .wdata(dm_wdata), .rdata(dm_rdata),
+        .sram_addr(sram_addr), .sram_en(sram_en), .sram_we(sram_we),
+        .sram_wdata(sram_wdata), .sram_rdata(sram_rdata),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we),
+        .io_wdata(io_wdata), .io_rdata(io_rdata), .io_sel(io_sel)
+    );
+
+    axioma_dmem dm (
+        .clk(clk), .addr(sram_addr), .en(sram_en), .we(sram_we),
+        .wdata(sram_wdata), .rdata(sram_rdata)
+    );
+
+    // ---------------------------------------------------- puertos de E/S
+    wire [7:0] gb_rd, gc_rd, gd_rd;
+    wire       gb_sel, gc_sel, gd_sel;
+
+    axioma_gpio #(.IO_PIN(8'h03), .BITS(8'hFF)) gpio_b (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gb_rd), .io_sel(gb_sel),
+        .pad_in(pb_in), .pad_out(pb_out), .pad_oe(pb_oe), .pad_pullup(pb_pu)
+    );
+    // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
+    axioma_gpio #(.IO_PIN(8'h06), .BITS(8'h7F)) gpio_c (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gc_rd), .io_sel(gc_sel),
+        .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
+    );
+    axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gd_rd), .io_sel(gd_sel),
+        .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
+    );
+
+    // ------------------------------------------------ registros de propósito general
+    wire [7:0] gr_rd;
+    wire       gr_sel;
+    axioma_gpior gpior (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(gr_rd), .io_sel(gr_sel)
+    );
+
+    // ------------------------------------------- Timer0 y prescaler compartido
+    // El prescaler va aparte porque es un contador libre COMPARTIDO: en la
+    // fase 3 el Timer1 se engancha a este mismo módulo. Es la trampa nº 12.
+    wire tick_1, tick_8, tick_64, tick_256, tick_1024;
+    wire [7:0] ps_rd, tm_rd;
+    wire       ps_sel, tm_sel;
+    wire       tm_ovf, tm_compa, tm_compb;
+
+    axioma_prescaler presc (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ps_rd), .io_sel(ps_sel),
+        .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
+        .tick_256(tick_256), .tick_1024(tick_1024),
+        /* verilator lint_off PINCONNECTEMPTY */
+        .count()
+        /* verilator lint_on PINCONNECTEMPTY */
+    );
+
+    // OC0A (PD6) y OC0B (PD5) no se encaminan al pad hasta la fase 3, con el
+    // resto de los canales PWM: hace falta darle a axioma_gpio una entrada de
+    // anulación. La lógica que los genera sí está verificada.
+    axioma_timer0 timer0 (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(tm_rd), .io_sel(tm_sel),
+        .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
+        .tick_256(tick_256), .tick_1024(tick_1024),
+        .t0_pin(pd_in[4]),                       // T0 es PD4
+        /* verilator lint_off PINCONNECTEMPTY */
+        .oc0a(), .oc0a_en(), .oc0b(), .oc0b_en(),
+        /* verilator lint_on PINCONNECTEMPTY */
+        .irq_ovf(tm_ovf), .irq_compa(tm_compa), .irq_compb(tm_compb),
+        .ack_ovf(irq_ack_v[16]), .ack_compa(irq_ack_v[14]), .ack_compb(irq_ack_v[15])
+    );
+
+    // ------------------------------------------ combinación de las lecturas
+    // Cada periférico deja su lectura a cero cuando no está seleccionado, así
+    // que se combinan con un OR. `io_sel` dice si ALGUNO reclamó la dirección;
+    // si no, el bus devuelve 0x00.
+    //
+    // QUE DOS PERIFÉRICOS RECLAMEN LA MISMA DIRECCIÓN sería un fallo silencioso:
+    // el OR devolvería los dos valores mezclados. El espacio es enumerable —256
+    // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
+    // que como mucho uno responde a cada una.
+    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd;
+    assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel;
+
+    // ------------------------------------------- controlador de interrupciones
+    // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
+    // Un bit de más abajo convierte TIMER0_COMPA en TIMER1_OVF y el núcleo salta
+    // a otro sitio. Ya pasó. Lo comprueba tb_soc_map.cpp fuente por fuente.
+    wire [25:0] irq_src;
+    wire [25:0] irq_ack_v;
+    wire        core_irq_req, core_irq_ack;
+    wire [4:0]  core_irq_vector;
+
+    assign irq_src = { 9'b0,          // 25..17  SPI en adelante, sin periférico
+                       tm_ovf,        // 16      TIMER0_OVF
+                       tm_compb,      // 15      TIMER0_COMPB
+                       tm_compa,      // 14      TIMER0_COMPA
+                       14'b0 };       // 13..0   Timer1, Timer2, PCINT, INT, RESET
+
+    // Los reconocimientos de los vectores que aún no tienen periférico no van a
+    // ninguna parte, igual que sus peticiones.
+    wire unused_ack = &{1'b0, irq_ack_v[25:17], irq_ack_v[13:0]};
+
+    axioma_irq irqc (
+        .src(irq_src),
+        .irq_req(core_irq_req), .irq_vector(core_irq_vector),
+        .irq_ack(core_irq_ack), .ack(irq_ack_v)
+    );
+
+    // El vector atendido, retenido para el arnés: durante los cuatro ciclos de
+    // la entrada la petición ya ha desaparecido, porque el reconocimiento limpia
+    // la bandera en el primero.
+    reg [4:0] irq_vec_q;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)             irq_vec_q <= 5'd0;
+        else if (core_irq_ack)  irq_vec_q <= core_irq_vector;
+    end
+    assign dbg_irq_vector = irq_vec_q;
+
+    // ------------------------------------------------------------- núcleo
+    axioma_core core (
+        .clk(clk), .rst_n(rst_n),
+        .pm_if_addr(pm_if_addr), .pm_if_en(pm_if_en), .pm_if_data(pm_if_data),
+        .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_we(pm_d_we),
+        .pm_d_wdata(pm_d_wdata), .pm_d_rdata(pm_d_rdata),
+        .dm_addr(dm_addr), .dm_re(dm_re), .dm_we(dm_we),
+        .dm_wdata(dm_wdata), .dm_rdata(dm_rdata),
+        .irq_req(core_irq_req), .irq_vector(core_irq_vector), .irq_ack(core_irq_ack),
+        .dbg_pc(dbg_pc), .dbg_ir(dbg_ir), .dbg_retire(dbg_retire),
+        .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry),
+        .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
+        .dbg_reg_addr(dbg_reg_addr), .dbg_reg_data(dbg_reg_data)
+    );
+
+endmodule
+
+`default_nettype wire

@@ -137,6 +137,34 @@ module axioma_seq (
     reg [1:0]  cyc;         // ciclo dentro de la instrucción actual
     reg        irq_hold;    // ciclo de gracia tras SEI
     reg        in_irq;      // entrada a ISR en curso (ciclos 1 a 3)
+
+    // PETICIÓN A LA MEMORIA DE DATOS, REGISTRADA. El ADR 0001 pone la memoria
+    // en flanco de bajada para que el acceso quepa dentro del ciclo, y supone
+    // que esa media década sólo tiene que cubrir el tiempo de acceso de la
+    // memoria —«unos 3-5 ns»—. Eso sólo es cierto si la dirección LLEGA YA
+    // REGISTRADA.
+    //
+    // Al medirlo en el ECP5 resultó que no: la dirección salía combinacional
+    // desde la palabra de instrucción, cruzando el multiplexor de salida de la
+    // memoria de programa, el decodificador, el banco de registros y el sumador
+    // del desplazamiento. 35 ns en media década, y el diseño se quedaba en unos
+    // 15 MHz cuando el objetivo de la fase 5 son 32.
+    //
+    // Con estos registros, la dirección se calcula en un ciclo y se presenta en
+    // el siguiente. El acceso sigue cabiendo dentro de SU ciclo —la memoria lo
+    // captura a mitad y el dato está listo para el flanco que lo cierra—, así
+    // que la cuenta de ciclos no cambia: lo que antes se hacía en el ciclo 0 de
+    // una instrucción de dos, ahora se hace en el 1.
+    //
+    // NO TODAS PUEDEN. `IN`, `OUT`, `SBI`, `CBI`, `SBIC` y `SBIS` son de uno o
+    // dos ciclos y su dirección sale de la propia instrucción: no hay ciclo
+    // anterior donde registrarla, pero tampoco hace falta, porque su camino es
+    // corto. Siguen siendo combinacionales. Y `LDS`/`STS` tampoco pueden: su
+    // dirección es la SEGUNDA PALABRA de la instrucción, que no llega hasta el
+    // ciclo 1, y añadir un ciclo rompería el nivel L3.
+    reg [15:0] dm_addr_q;
+    reg        dm_re_q, dm_we_q;
+    reg [7:0]  dm_wdata_q;
     reg [15:0] tmp16;       // segunda palabra, dirección o dato intermedio
     reg        retire;      // esta instrucción termina en este ciclo
 
@@ -284,6 +312,25 @@ module axioma_seq (
     reg        next_irq_hold;
     reg        next_in_irq;
 
+    reg [15:0] next_dm_addr;
+    reg        next_dm_re, next_dm_we;
+    reg [7:0]  next_dm_wdata;
+
+    // LA DIRECCIÓN DE DATO DE UN REGISTRO DE I/O NO NECESITA UN SUMADOR.
+    // `IN` y `OUT` alcanzan la I/O 0x00-0x3F, que en el espacio de datos es
+    // 0x20-0x5F. Escrito como `io + 0x20` sale un sumador de ocho bits en el
+    // camino crítico; pero como el índice son seis bits y el desplazamiento es
+    // una potencia de dos, no hay acarreo que propagar: los cinco bits bajos
+    // pasan tal cual y los altos sólo dependen del bit 5.
+    //
+    //     io < 32  ->  0x20 | io        io >= 32  ->  0x40 | (io - 32)
+    //
+    // Es el mismo número por un camino que no tiene sumador. Importa porque
+    // estas instrucciones son de un ciclo: su dirección no se puede registrar,
+    // así que cada puerta que lleve encima sale de la media década del ADR 0001.
+    wire [15:0] io_data_addr = {9'b0, d_io_addr[5] ? 2'b10 : 2'b01,
+                                d_io_addr[4:0]};
+
     // La dirección de datos que se presenta a la SRAM, ya traducida.
     reg [15:0] ea;
 
@@ -310,10 +357,19 @@ module axioma_seq (
         pm_d_wdata = 16'h0000;
 
         ea       = 16'h0000;
-        dm_addr  = 16'h0000;
-        dm_re    = 1'b0;
-        dm_we    = 1'b0;
-        dm_wdata = 8'h00;
+
+        // Por defecto, lo que hay en el bus es la petición REGISTRADA el ciclo
+        // anterior. Las instrucciones de I/O directo la pisan con la suya, que
+        // es combinacional pero corta.
+        dm_addr  = dm_addr_q;
+        dm_re    = dm_re_q;
+        dm_we    = dm_we_q;
+        dm_wdata = dm_wdata_q;
+
+        next_dm_addr  = 16'h0000;
+        next_dm_re    = 1'b0;
+        next_dm_we    = 1'b0;
+        next_dm_wdata = 8'h00;
 
         rf_we       = 1'b0;
         rf_w_addr   = d_rd;
@@ -351,12 +407,14 @@ module axioma_seq (
                 // hace la misma cuenta con bytes: `vector * vector_size`, con
                 // vector_size = 4 bytes en el 328P.
                 next_tmp16     = {10'b0, irq_vector, 1'b0};
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = pc[7:0];
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = pc[7:0];
                 next_sp = sp - 16'd1;
                 next_cyc = 2'd1;
             end
             2'd1: begin
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = {2'b00, pc[13:8]};
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = {2'b00, pc[13:8]};
                 next_sp = sp - 16'd1;
                 next_cyc = 2'd2;
             end
@@ -455,7 +513,10 @@ module axioma_seq (
         OPC_LD: begin
             ea = ptr_eff;
             if (cyc == 2'd0) begin
-                dm_addr = ea;  dm_re = 1'b1;
+                // La dirección se CALCULA aquí y se presenta en el ciclo
+                // siguiente, ya registrada. El acceso sigue cabiendo dentro de
+                // su ciclo, así que LD siguen siendo dos.
+                next_dm_addr = ea;  next_dm_re = 1'b1;
                 if (ptr_updates) begin
                     rf_we16 = 1'b1;  rf_w16_data = ptr_wb;
                 end
@@ -470,7 +531,8 @@ module axioma_seq (
             ea = ptr_eff;
             rf_a16_pair = ptr_pair;
             if (cyc == 2'd0) begin
-                dm_addr = ea;  dm_we = 1'b1;  dm_wdata = rf_rr_data;
+                next_dm_addr = ea;  next_dm_we = 1'b1;
+                next_dm_wdata = rf_rr_data;
                 if (ptr_updates) begin
                     rf_we16 = 1'b1;  rf_w16_data = ptr_wb;
                 end
@@ -505,7 +567,8 @@ module axioma_seq (
         // ------------------------------------------- 2 ciclos: PUSH y POP
         OPC_PUSH: begin
             if (cyc == 2'd0) begin
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = rf_rr_data;
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = rf_rr_data;
                 next_sp = sp - 16'd1;
                 next_use_hold = 1'b1;  next_cyc = 2'd1;
             end else begin
@@ -515,7 +578,7 @@ module axioma_seq (
 
         OPC_POP: begin
             if (cyc == 2'd0) begin
-                dm_addr = sp + 16'd1;  dm_re = 1'b1;
+                next_dm_addr = sp + 16'd1;  next_dm_re = 1'b1;
                 next_sp = sp + 16'd1;
                 next_use_hold = 1'b1;  next_cyc = 2'd1;
             end else begin
@@ -526,20 +589,20 @@ module axioma_seq (
 
         // ------------------------------------------------------ I/O directo
         OPC_IN: begin
-            dm_addr = {10'b0, d_io_addr} + 16'h0020;
+            dm_addr = io_data_addr;
             dm_re   = 1'b1;
             rf_we   = 1'b1;  rf_w_data = dm_rdata;
             next_fpc = fpc + 14'd1;  next_pc = pc + 14'd1;  retire = 1'b1;
         end
 
         OPC_OUT: begin
-            dm_addr = {10'b0, d_io_addr} + 16'h0020;
+            dm_addr = io_data_addr;
             dm_we   = 1'b1;  dm_wdata = rf_rr_data;
             next_fpc = fpc + 14'd1;  next_pc = pc + 14'd1;  retire = 1'b1;
         end
 
         OPC_SBI, OPC_CBI: begin
-            dm_addr = {10'b0, d_io_addr} + 16'h0020;
+            dm_addr = io_data_addr;
             if (cyc == 2'd0) begin
                 dm_re = 1'b1;
                 next_tmp16 = {8'h00, dm_rdata};
@@ -555,7 +618,7 @@ module axioma_seq (
         // ------------------------------------------------- saltos por skip
         OPC_CPSE, OPC_SBRC, OPC_SBRS, OPC_SBIC, OPC_SBIS: begin
             if ((d_class == OPC_SBIC) || (d_class == OPC_SBIS)) begin
-                dm_addr = {10'b0, d_io_addr} + 16'h0020;
+                dm_addr = io_data_addr;
                 dm_re   = 1'b1;
             end
             if (cyc == 2'd0) begin
@@ -622,14 +685,16 @@ module axioma_seq (
             rf_a16_pair = 4'd15;                           // Z, para ICALL
             case (cyc)
             2'd0: begin
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = ret_addr[7:0];
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = ret_addr[7:0];
                 next_sp = sp - 16'd1;
                 next_tmp16 = {2'b00, (d_class == OPC_RCALL) ? branch_target
                                                             : rf_a16_rdata[13:0]};
                 next_use_hold = 1'b1;  next_cyc = 2'd1;
             end
             2'd1: begin
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = {2'b00, ret_addr[13:8]};
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = {2'b00, ret_addr[13:8]};
                 next_sp = sp - 16'd1;
                 next_fpc = tmp16[13:0];
                 next_use_hold = 1'b1;  next_cyc = 2'd2;
@@ -648,12 +713,14 @@ module axioma_seq (
             end
             2'd1: begin
                 next_tmp16 = pm_if_data;
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = ret_addr[7:0];
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = ret_addr[7:0];
                 next_sp = sp - 16'd1;
                 next_use_hold = 1'b1;  next_cyc = 2'd2;
             end
             2'd2: begin
-                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = {2'b00, ret_addr[13:8]};
+                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = {2'b00, ret_addr[13:8]};
                 next_sp = sp - 16'd1;
                 next_fpc = tmp16[13:0];
                 next_use_hold = 1'b1;  next_cyc = 2'd3;
@@ -678,19 +745,20 @@ module axioma_seq (
             // diferencial: RET devolvía el byte bajo duplicado.
             case (cyc)
             2'd0: begin
-                dm_addr = sp + 16'd1;  dm_re = 1'b1;       // byte alto
-                next_tmp16 = {8'h00, dm_rdata};            // se captura AQUÍ
+                // Sólo se PIDE la lectura; ocurre en el ciclo 1.
+                next_dm_addr = sp + 16'd1;  next_dm_re = 1'b1;  // byte alto
                 next_sp = sp + 16'd1;
                 next_use_hold = 1'b1;  next_cyc = 2'd1;
             end
             2'd1: begin
-                dm_addr = sp + 16'd1;  dm_re = 1'b1;       // byte bajo
-                next_fpc = {tmp16[5:0], dm_rdata};         // alto ya en tmp16
+                next_tmp16 = {8'h00, dm_rdata};            // se captura AQUÍ
+                next_dm_addr = sp + 16'd1;  next_dm_re = 1'b1;  // byte bajo
                 next_sp = sp + 16'd1;
                 if (d_class == OPC_RETI) sreg_irq_return = 1'b1;
                 next_use_hold = 1'b1;  next_cyc = 2'd2;
             end
             2'd2: begin
+                next_fpc = {tmp16[5:0], dm_rdata};         // alto ya en tmp16
                 next_use_hold = 1'b1;  next_cyc = 2'd3;
             end
             default: begin
@@ -758,6 +826,10 @@ module axioma_seq (
             use_hold <= 1'b0;
             irq_hold <= 1'b0;
             in_irq   <= 1'b0;
+            dm_addr_q  <= 16'h0000;
+            dm_re_q    <= 1'b0;
+            dm_we_q    <= 1'b0;
+            dm_wdata_q <= 8'h00;
             tmp16    <= 16'h0000;
             warmup   <= 1'b1;
         end else begin
@@ -775,6 +847,10 @@ module axioma_seq (
             use_hold <= next_use_hold;
             irq_hold <= next_irq_hold;
             in_irq   <= next_in_irq;
+            dm_addr_q  <= next_dm_addr;
+            dm_re_q    <= next_dm_re;
+            dm_we_q    <= next_dm_we;
+            dm_wdata_q <= next_dm_wdata;
             if (!use_hold) ir_hold <= pm_if_data;
         end
     end

@@ -188,7 +188,7 @@ CATALOG = [
 
 # ------------------------------------------------------ bus de datos
 ("dbus", DBUS, "sim-dbus", "la SRAM no traduce la dirección: no resta la base",
- "assign sram_addr  = addr[10:0] - SRAM_BASE[10:0];",
+ "assign sram_addr  = {addr[10:8] - 3'd1, addr[7:0]};",
  "assign sram_addr  = addr[10:0];"),
 ("dbus", DBUS, "sim-dbus", "el rango de I/O se come el de la SRAM",
  "wire hit_io   = (addr >= IO_BASE)   && (addr <  SRAM_BASE);",
@@ -218,16 +218,20 @@ CATALOG = [
  "OPC_IW: begin\n            rf_a16_pair = d_rd[4:1];",
  "OPC_IW: begin\n            rf_a16_pair = 4'd12;"),
 ("seq", SEQ, "sim-diff", "PUSH incrementa la pila en vez de decrementarla",
- "dm_addr = sp;  dm_we = 1'b1;  dm_wdata = rf_rr_data;\n                next_sp = sp - 16'd1;",
- "dm_addr = sp;  dm_we = 1'b1;  dm_wdata = rf_rr_data;\n                next_sp = sp + 16'd1;"),
+ """                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = rf_rr_data;
+                next_sp = sp - 16'd1;""",
+ """                next_dm_addr = sp;  next_dm_we = 1'b1;
+                next_dm_wdata = rf_rr_data;
+                next_sp = sp + 16'd1;"""),
 ("seq", SEQ, "sim-diff", "el post-incremento de puntero suma 2 en vez de 1",
  "wire [15:0] ptr_wb   = (d_ptr_mode == PTR_POSTINC) ? (ptr_base + 16'd1) :",
  "wire [15:0] ptr_wb   = (d_ptr_mode == PTR_POSTINC) ? (ptr_base + 16'd2) :"),
 ("seq", SEQ, "sim-diff", "MUL escribe el resultado fuera de R1:R0",
  "rf_a16_pair = 4'd0;          // R1:R0", "rf_a16_pair = 4'd1;"),
-("seq", SEQ, "sim-diff", "RET consume la lectura del ciclo equivocado",
- "dm_addr = sp + 16'd1;  dm_re = 1'b1;       // byte alto\n                next_tmp16 = {8'h00, dm_rdata};            // se captura AQUÍ",
- "dm_addr = sp + 16'd1;  dm_re = 1'b1;       // byte alto"),
+("seq", SEQ, "sim-diff", "RET no captura el byte alto de la pila",
+ """                next_tmp16 = {8'h00, dm_rdata};            // se captura AQUÍ""",
+ """                next_tmp16 = tmp16;"""),
 ("seq", SEQ, "sim-diff", "las ramas condicionales invierten la polaridad",
  "wire cond_taken = (sreg[d_cond_bit] == d_cond_set);",
  "wire cond_taken = (sreg[d_cond_bit] != d_cond_set);"),
@@ -354,8 +358,15 @@ CATALOG = [
  "            next_irq_hold = (d_class == OPC_BSET) && (d_bit_num == 3'd7);",
  "            next_irq_hold = 1'b0;"),
 ("seq", SEQ, "sim-diff", "la entrada a ISR apila el byte alto primero",
- "                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = pc[7:0];",
- "                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = {2'b00, pc[13:8]};"),
+ """                next_dm_wdata = pc[7:0];""",
+ """                next_dm_wdata = {2'b00, pc[13:8]};"""),
+# La peticion registrada tiene que durar UN ciclo. Se muta la ESCRITURA y no
+# la lectura a proposito: una lectura pegada relee una direccion vieja y no
+# deja rastro observable —seria un mutante equivalente—, mientras que una
+# escritura pegada corrompe la memoria en cada ciclo.
+("seq", SEQ, "sim-diff", "la escritura a memoria se queda pegada un ciclo de mas",
+ """        next_dm_we    = 1'b0;""",
+ """        next_dm_we    = dm_we_q;"""),
 ("seq", SEQ, "sim-diff", "la interrupción se atiende en mitad de una instrucción",
  "    wire irq_take = irq_req && sreg[SREG_I] && !irq_hold && (cyc == 2'd0);",
  "    wire irq_take = irq_req && sreg[SREG_I] && !irq_hold;"),

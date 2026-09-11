@@ -64,5 +64,52 @@ en media década de reloj. Su puerto de datos (LPM y SPM) tampoco lo necesita: L
 
 **A verificar**
 
-- Cierre de timing real en ECP5 a la frecuencia objetivo (fase 5).
+- ~~Cierre de timing real en ECP5 a la frecuencia objetivo (fase 5).~~ **HECHO, y la suposición de
+  arriba estaba incompleta. Ver la adenda.**
 - Que el dato leído llega antes del flanco de subida en simulación post-P&R con retardos anotados.
+
+---
+
+## Adenda — 11 de septiembre de 2026
+
+**La decisión se mantiene. El razonamiento tenía un agujero.**
+
+Arriba se dice que la media década «tiene margen sobrado» porque «una BRAM del ECP5 accede en unos
+3–5 ns». Eso contabiliza el tiempo de acceso de la memoria, pero **no la lógica que le da de
+comer**. Y en el diseño real esa lógica era casi todo el presupuesto.
+
+Medido con `nextpnr` sobre la ULX3S, el camino crítico resultó ser:
+
+```
+memoria de programa (5,8 ns de clk a dato, más su árbol de multiplexores)
+  -> decodificador -> banco de registros -> sumador del desplazamiento
+  -> dirección de la memoria de datos (flanco de BAJADA)
+```
+
+**35,3 ns en media década**, con el 61 % en rutado. El diseño se quedaba en unos 15 MHz cuando el
+objetivo de la fase 5 son 32.
+
+**La causa no era la decisión, era la implementación.** El ADR supone que la dirección llega lista;
+el secuenciador la calculaba de forma combinacional desde la palabra de instrucción, en el mismo
+ciclo del acceso. Registrándola —se calcula en un ciclo y se presenta en el siguiente— la media
+década vuelve a cubrir sólo lo que el documento suponía.
+
+**Y no cuesta ciclos.** Toda instrucción que toca la SRAM dura dos ciclos o más, así que el acceso
+cabe en el segundo: lo que antes se hacía en el ciclo 0 ahora se hace en el 1, y la cuenta del
+manual no cambia. Verificado: las 10⁶ instrucciones aleatorias dan **exactamente los mismos ciclos**
+que antes del cambio.
+
+**Dos excepciones, y las dos son estructurales:**
+
+- `IN`, `OUT`, `SBI`, `CBI`, `SBIC` y `SBIS` son de uno o dos ciclos y su dirección sale de la
+  propia instrucción: no hay ciclo anterior donde registrarla. No hace falta: su camino es corto, y
+  se le quitó además el sumador del desplazamiento de I/O, que no hacía falta.
+- `LDS` y `STS` toman la dirección de la **segunda palabra** de la instrucción, que no llega hasta
+  el ciclo 1. Registrarla pediría un tercer ciclo y eso rompería el nivel L3, que es justo lo que
+  este ADR existe para proteger.
+
+**Resultado medido:** de 15,55 a **20,28 MHz** con la misma restricción exigente, y el margen sobre
+los 12,5 MHz a los que corre la placa pasa de 1,13× a 1,62×. El camino que manda ahora son 24,7 ns
+con **sólo 4 ns de lógica y 14,6 de rutado**: ya no es profundidad lógica, es distancia. El
+siguiente paso, cuando haga falta, es sacar el dato de escritura de la SRAM del camino
+combinacional, lo que obliga a separar los buses de datos de SRAM y de I/O.

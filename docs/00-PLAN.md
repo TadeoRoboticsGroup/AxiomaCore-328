@@ -809,12 +809,18 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       248 KB para la ULX3S 25F, con el **19 % de las LUT y el 59 % de la BRAM**.
 - [x] **Bootstrap: el programa va dentro del bitstream.** `tools/bin2mem.py` convierte el binario
       de avr-gcc en el fichero que `$readmemh` precarga en la memoria de programa.
-- [ ] **Subir el reloj.** El diseño cierra timing a **14,74 MHz**, medido con `nextpnr`, y se corre
-      a 12,5 MHz con margen. El camino crítico va de flanco de subida a flanco de BAJADA: sale de
-      la BRAM de programa —5,8 ns de clk a dato—, cruza el decodificador y llega a la memoria de
-      datos, que va en flanco de bajada por el [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md).
-      Todo eso tiene que caber en MEDIO ciclo: es el precio de la exactitud de ciclos. El objetivo
-      de la fase 5 son 32 MHz, así que hay trabajo de optimización con un número medido detrás.
+- [x] **Subir el reloj, primera vuelta.** De **15,55 a 20,28 MHz** con la misma restricción
+      exigente, +30 %, y sin tocar una sola cuenta de ciclos. La causa estaba en la implementación,
+      no en el [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md): la dirección de la memoria de
+      datos se calculaba de forma combinacional desde la palabra de instrucción, así que la media
+      década de reloj que el ADR reserva para el acceso tenía que cubrir además el decodificador,
+      el banco de registros y el sumador del desplazamiento. Ahora va registrada. Detalle y
+      medidas en la adenda del ADR.
+- [ ] **Subir el reloj, lo que queda.** El camino que manda son 24,7 ns con **sólo 4 ns de lógica y
+      14,6 de rutado**: ya no es profundidad, es distancia. El siguiente paso es sacar el dato de
+      escritura de la SRAM del camino combinacional, lo que obliga a separar los buses de datos de
+      SRAM y de I/O. Objetivo de la fase 5: 32 MHz.
+
 - [ ] Backend `fpga_bram` como módulo aparte (hoy la memoria inferida ya se mapea a BRAM).
 
 #### Qué placa hace falta, y cuál es el recurso que aprieta

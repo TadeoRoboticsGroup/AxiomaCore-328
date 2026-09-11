@@ -57,7 +57,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/periph/axioma_irq.v` | **Verificado** | **Exhaustivo**: las 67 108 864 combinaciones de las 26 peticiones, 201 326 592 comprobaciones de prioridad y reconocimiento |
 | `rtl/periph/axioma_usart.v` | **Verificado** | 44 082 comprobaciones contra un **receptor escrito desde la hoja de datos**, que decodifica el pin: las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
-| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 248 KB para la ULX3S 25F. `nextpnr` mide **Fmax 14,74 MHz**; se corre a 12,5 MHz, con un 18 % de margen |
+| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 248 KB para la ULX3S 25F. `nextpnr` mide **Fmax 20,28 MHz** bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,62× |
 | `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %) y ve parpadear PB5 |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
@@ -71,7 +71,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 
 ```
 regresión   20/20 objetivos en verde
-mutación   107/107 fallos inyectados, 107 detectados
+mutación   108/108 fallos inyectados, 108 detectados
 síntesis    sin latches · el SoC entero: 4 488 LUT4 y 578 FF en el ECP5
 bitstream   248 KB · 19 % de las LUT y 59 % de la BRAM de la ULX3S 25F
             Fmax 14,74 MHz, y se corre a 12,5 MHz

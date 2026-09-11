@@ -72,7 +72,12 @@ module axioma_dbus (
     // ------------------------------------------------------------ SRAM
     // La traducción de dirección la hace el bus, no la memoria: axioma_dmem ve
     // direcciones desde cero.
-    assign sram_addr  = addr[10:0] - SRAM_BASE[10:0];
+    // Restar 0x100 no necesita un restador: es una potencia de dos, así que
+    // los ocho bits bajos pasan tal cual y sólo hay que decrementar los tres
+    // altos. Lo mismo abajo con los 0x20 de la I/O. Estos dos estaban en el
+    // camino crítico, y en un acceso de I/O directo ese camino sólo tiene media
+    // década de reloj.
+    assign sram_addr  = {addr[10:8] - 3'd1, addr[7:0]};
     assign sram_en    = hit_sram & active;
     assign sram_we    = hit_sram & we;
     assign sram_wdata = wdata;
@@ -80,7 +85,7 @@ module axioma_dbus (
     // ------------------------------------------------------ periféricos
     // El espacio de I/O son 224 bytes, así que el desplazamiento cabe en 8
     // bits por construcción.
-    assign io_addr  = addr[7:0] - IO_BASE[7:0];
+    assign io_addr  = {addr[7:5] - 3'd1, addr[4:0]};
     assign io_re    = hit_io & re;
     assign io_we    = hit_io & we;
     assign io_wdata = wdata;

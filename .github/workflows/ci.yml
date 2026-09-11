@@ -175,6 +175,15 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-timer0
 
+      # El unico periferico con efecto lateral de LECTURA, y aquel para el que
+      # simavr sirve de menos: su modelo NO SERIALIZA nada, asi que la forma de
+      # onda la certifica un receptor escrito desde la hoja de datos que
+      # decodifica el pin y mide el periodo de bit.
+      - name: USART0 contra un receptor de verdad
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-usart
+
       # Exhaustivo de verdad: las 67 108 864 combinaciones de las 26
       # peticiones. El espacio de entrada es enumerable, asi que se barre
       # entero en vez de muestrear.

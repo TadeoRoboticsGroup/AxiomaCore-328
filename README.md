@@ -86,10 +86,9 @@ cumplirse en cuanto el primer ciclo limpiaba el bit `I`.
 
 **Cuánto queda, y medido contra qué.** El [plan](docs/00-PLAN.md) presupuesta las fases en semanas:
 1 + 4 + 2 + 5 + 3 + 2 = **17 semanas** hasta la v1.0 sobre FPGA, y de 6 a 10 más si hay silicio.
-Cerradas las fases 0 y 1 y con la 2 por la mitad, salen **~35 % hasta la v1.0 en FPGA** y **~24 %
-contando el silicio**. Es el presupuesto del propio plan, no una impresión: de la fase 2 están los
-cuatro periféricos y falta la USART y toda la puesta en marcha de la FPGA, que es donde viven las
-sorpresas.
+Con las fases 0 y 1 cerradas y la 2 **cumplida en simulación** —a falta de enchufar la placa—,
+salen **~41 % hasta la v1.0 en FPGA** y **~28 % contando el silicio**. Es el presupuesto del propio
+plan, no una impresión.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando

@@ -48,7 +48,24 @@ def hex2rgba(h):
 
 
 class Canvas:
-    def __init__(self, w, h, theme):
+    # EL FONDO ES TRANSPARENTE, y es una decisión, no un descuido. La superficie
+    # es ARGB32 y se deja SIN PINTAR: así el PNG no lleva un rectángulo opaco
+    # debajo y la figura se posa sobre el color de la página que la muestre, sea
+    # el blanco de GitHub, el de una diapositiva o el de un lector con su propio
+    # tema. Pintar el fondo del tema no arreglaba nada y estropeaba el caso en el
+    # que el color de la página no es exactamente el que supone la paleta: se
+    # veía el borde del rectángulo.
+    #
+    # Lo que SÍ sigue pintado es la placa y las tarjetas de dentro. Son
+    # elementos del diseño —el contraste entre la placa gris y los bloques
+    # blancos es lo que agrupa visualmente el diagrama—, no relleno de fondo.
+    #
+    # `theme["bg"]` se conserva porque se usa para OTRAS cosas: el relleno de
+    # los bloques que tienen que parecer recortados sobre la placa, y el color
+    # del texto sobre una etiqueta de color. No es el fondo del lienzo.
+    #
+    # Quien quiera el rectángulo opaco de vuelta, que pase `fondo=t["bg"]`.
+    def __init__(self, w, h, theme, fondo=None):
         self.w, self.h, self.t = w, h, theme
         self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,
                                           int(w * SCALE), int(h * SCALE))
@@ -57,8 +74,9 @@ class Canvas:
         self.cr.set_antialias(cairo.ANTIALIAS_BEST)
         self.cr.set_line_join(cairo.LINE_JOIN_ROUND)
         self.cr.set_line_cap(cairo.LINE_CAP_ROUND)
-        self.set(theme["bg"])
-        self.cr.paint()
+        if fondo:
+            self.set(fondo)
+            self.cr.paint()
 
     # ---------------------------------------------------------------- básico
     def set(self, colour):

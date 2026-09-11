@@ -100,7 +100,7 @@ def rule(c, x1, y, x2):
 #  Figura 1 — arquitectura del SoC
 # ==========================================================================
 def fig_soc(t):
-    H = 828
+    H = 902
     c = Canvas(W, H, t)
 
     c.text(M, 42, "Arquitectura de AxiomaCore-328", F_TITLE, bold=True)
@@ -109,7 +109,7 @@ def fig_soc(t):
            F_SUB, colour=t["muted"])
 
     # ---- plancha del SoC ----
-    PY, PH = 88, 694
+    PY, PH = 88, 768
     c.box(M, PY, W - 2 * M, PH, t["plate"], t["line"], r=10)
     c.text(M + 16, PY + 22, "axioma328_soc", 11.5, colour=t["muted"], mono=True)
 
@@ -122,7 +122,7 @@ def fig_soc(t):
     block(c, ix, CY + 32, (iw - 12) / 2, 58, "axioma_decode",
           ["combinacional · 65 536 opcodes"], OK)
     block(c, ix + (iw - 12) / 2 + 12, CY + 32, (iw - 12) / 2, 58, "axioma_seq",
-          ["secuenciador multiciclo"], PARTIAL)
+          ["secuenciador multiciclo"], OK)
     bw = (iw - 24) / 3
     for i, (nm, sub) in enumerate([("axioma_regfile", "32 × 8 · par de 16 bits"),
                                    ("axioma_alu", "combinacional pura"),
@@ -138,16 +138,16 @@ def fig_soc(t):
     block(c, 492, RY, 174, RH, "axioma_clkctrl",
           ["CLKPR · PRR", "SMCR"], TODO, title_size=12.5)
     block(c, 678, RY, 174, RH, "axioma_irq",
-          ["26 vectores", "irq_req / irq_ack"], TODO, title_size=12.5)
+          ["26 vectores", "irq_req / irq_ack"], OK, title_size=12.5)
 
     c.path([(IN_L + 210, CY + CH + 4), (IN_L + 210, RY - 5)],
            head="both", colour=t["strong"])
-    c.path([(765, RY - 5), (765, CY + CH + 4)], colour=t["todo"], dash=[4, 3])
+    c.path([(765, RY - 5), (765, CY + CH + 4)], colour=t["strong"])
 
     # ---- bus de datos ----
     BY, BH = 430, 54
-    c.box(IN_L, BY, IN_W, BH, t["todo_bg"], t["todo"], r=7, dash=[5, 3])
-    bar(c, IN_L, BY, IN_W, BH, t["todo"])
+    c.box(IN_L, BY, IN_W, BH, t["ok_bg"], t["ok"], r=7)
+    bar(c, IN_L, BY, IN_W, BH, t["ok"])
     c.text(IN_L + 20, BY + BH / 2 - 8, "axioma_dbus", F_BLOCK, bold=True, mono=True,
            align="leftm")
     c.text(IN_L + 20, BY + BH / 2 + 10,
@@ -159,17 +159,20 @@ def fig_soc(t):
     c.path([(480, CY + CH + 4), (480, BY - 5)], colour=t["strong"])
 
     # ---- lo que cuelga del bus ----
-    GY, GH = 510, 202
+    GY, GH = 510, 276
     c.box(IN_L, GY, IN_W, GH, t["bg"], t["line"], r=8)
     c.text(IN_L + 14, GY + 21, "en el espacio de datos", 11.5, colour=t["muted"],
            mono=True)
     c.path([(450, BY + BH + 4), (450, GY - 5)], colour=t["strong"])
 
     cells = [("axioma_dmem", ["2 KB de SRAM · flanco de bajada"], OK),
+             ("axioma_gpio", ["PORTB · PORTC · PORTD · toggle por PINx"], OK),
+             ("axioma_prescaler", ["10 bits · COMPARTIDO por timer0 y timer1"], OK),
+             ("axioma_timer0", ["8 modos de onda · OC0A/OC0B · T0"], OK),
+             ("axioma_timer1/2", ["registro TEMP de 16 bits · 6 PWM"], TODO),
              ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
-             ("axioma_gpio", ["PORTB · PORTC · PORTD · toggle por PINx"], TODO),
-             ("axioma_timer0/1/2", ["registro TEMP de 16 bits · 6 PWM"], TODO),
-             ("usart · spi · twi", ["generador de baudios · modelos de bus"], TODO),
+             ("usart", ["generador de baudios · modelo de bus"], TODO),
+             ("spi · twi", ["modelos de bus en el banco"], TODO),
              ("adc · ac · wdt", ["SAR de 10 bits · 8 canales"], TODO)]
     gw = (IN_W - 32 - 24) / 3
     for i, (nm, sub, st) in enumerate(cells):
@@ -178,7 +181,7 @@ def fig_soc(t):
         block(c, gx, gy, gw, 62, nm, sub, st, title_size=12)
 
     # ---- pines ----
-    py, ph = 728, 36
+    py, ph = 802, 36
     c.box(IN_L, py, IN_W, ph, t["bg"], t["line"], r=7, dash=[5, 3])
     c.text(IN_L + 20, py + ph / 2, "pines", 11, colour=t["muted"], mono=True,
            align="leftm")
@@ -186,8 +189,9 @@ def fig_soc(t):
            "PB[7:0]    PC[6:0]    PD[7:0]    ADC[7:0]    XTAL    RESET",
            11, colour=t["muted"], mono=True, align="centerm")
 
-    legend(c, M, 806, [(OK, "verificado contra un oráculo independiente"),
-                       (PARTIAL, "verificado en parte"),
+    # La leyenda sólo lista los estados que la figura USA. Ahora mismo no hay
+    # ningún bloque a medio verificar; el día que lo haya, PARTIAL vuelve aquí.
+    legend(c, M, 880, [(OK, "verificado contra un oráculo independiente"),
                        (TODO, "pendiente — fases 2 y 3")])
     return c
 
@@ -254,8 +258,8 @@ def fig_verif(t):
         ("Decodificador", "avr-objdump (binutils)", "0", "discrepancias",
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
-         "120 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "63/63", "detectados",
+         "160 048 instrucciones · 97 de 97 mnemónicos"),
+        ("El propio banco", "prueba de mutación", "92/92", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

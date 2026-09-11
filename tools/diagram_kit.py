@@ -24,18 +24,38 @@ MONO = "DejaVu Sans Mono"
 # oscuro, para que los diagramas no se vean como un parche encendido.
 # --------------------------------------------------------------------------
 LIGHT = dict(
-    bg="#ffffff", plate="#f6f8fa", block="#ffffff", ink="#1f2328",
-    muted="#59636e", line="#d1d9e0", strong="#8c959f",
+    # RELLENOS TRANSLÚCIDOS, no colores planos. Cada capa es un LAVADO sobre lo
+    # que haya debajo —la página—, no un rectángulo que la tape: la placa
+    # oscurece un punto, el panel aclara, y el tinte de estado apenas tiñe. Así
+    # la figura conserva su jerarquía visual sobre cualquier color de página, y
+    # no sólo sobre el blanco exacto que suponía la paleta.
+    #
+    # El orden importa y los alfas se multiplican: tinte de estado sobre panel
+    # sobre placa sobre página. Los valores están elegidos para que la suma dé
+    # aproximadamente los colores planos de GitHub en tema claro, que es donde
+    # se ve el README la mayoría de las veces.
+    plate="#1f23280a", panel="#ffffffb3", block="#ffffffb3",
+    ok_bg="#1a7f371a", partial_bg="#9a67001a", todo_bg="#1f232811",
+    # El borde también es translúcido: uno opaco se vería como una línea ajena
+    # en cuanto la página no fuera del color previsto.
+    line="#1f23282e",
+    # Tintas y trazos: OPACOS. Son lo que hay que leer.
+    ink="#1f2328", muted="#59636e", strong="#8c959f",
     ok="#1a7f37", partial="#9a6700", todo="#818b98",
-    ok_bg="#eaf6ec", partial_bg="#fdf5e3", todo_bg="#f2f4f7",
-    accent="#0969da", shadow="#00000010",
+    accent="#0969da",
+    # Color del texto que va ENCIMA de una etiqueta de color —la píldora
+    # «ORÁCULO», los círculos numerados—. No es el fondo del lienzo: es la tinta
+    # que contrasta con un relleno saturado, y por eso es opaca.
+    chip_ink="#ffffff",
 )
 DARK = dict(
-    bg="#0d1117", plate="#161b22", block="#11161d", ink="#e6edf3",
-    muted="#9198a1", line="#30363d", strong="#6e7681",
+    plate="#ffffff0d", panel="#00000040", block="#00000040",
+    ok_bg="#3fb95024", partial_bg="#d2992224", todo_bg="#ffffff0f",
+    line="#ffffff30",
+    ink="#e6edf3", muted="#9198a1", strong="#6e7681",
     ok="#3fb950", partial="#d29922", todo="#6e7681",
-    ok_bg="#12251a", partial_bg="#241c0d", todo_bg="#1b2129",
-    accent="#4493f8", shadow="#00000000",
+    accent="#4493f8",
+    chip_ink="#0d1117",
 )
 
 
@@ -60,11 +80,13 @@ class Canvas:
     # elementos del diseño —el contraste entre la placa gris y los bloques
     # blancos es lo que agrupa visualmente el diagrama—, no relleno de fondo.
     #
-    # `theme["bg"]` se conserva porque se usa para OTRAS cosas: el relleno de
-    # los bloques que tienen que parecer recortados sobre la placa, y el color
-    # del texto sobre una etiqueta de color. No es el fondo del lienzo.
+    # NO HAY color de fondo en la paleta, y es a propósito: el fondo es la
+    # página. Lo que antes lo hacía —`bg`— se ha partido en dos cosas que no
+    # eran la misma: `panel`, un lavado translúcido para los bloques que deben
+    # parecer recortados sobre la placa, y `chip_ink`, la tinta opaca del texto
+    # que va encima de una etiqueta de color.
     #
-    # Quien quiera el rectángulo opaco de vuelta, que pase `fondo=t["bg"]`.
+    # Quien quiera el rectángulo opaco de vuelta, que pase un color en `fondo`.
     def __init__(self, w, h, theme, fondo=None):
         self.w, self.h, self.t = w, h, theme
         self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,

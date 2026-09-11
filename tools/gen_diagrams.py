@@ -115,7 +115,7 @@ def fig_soc(t):
 
     # ---- núcleo ----
     CY, CH = 122, 170
-    c.box(IN_L, CY, IN_W, CH, t["bg"], t["line"], r=8)
+    c.box(IN_L, CY, IN_W, CH, t["panel"], t["line"], r=8)
     c.text(IN_L + 14, CY + 21, "axioma_core", 11.5, colour=t["muted"], mono=True)
 
     ix, iw = IN_L + 16, IN_W - 32                    # 64 .. 836
@@ -160,7 +160,7 @@ def fig_soc(t):
 
     # ---- lo que cuelga del bus ----
     GY, GH = 510, 276
-    c.box(IN_L, GY, IN_W, GH, t["bg"], t["line"], r=8)
+    c.box(IN_L, GY, IN_W, GH, t["panel"], t["line"], r=8)
     c.text(IN_L + 14, GY + 21, "en el espacio de datos", 11.5, colour=t["muted"],
            mono=True)
     c.path([(450, BY + BH + 4), (450, GY - 5)], colour=t["strong"])
@@ -182,7 +182,7 @@ def fig_soc(t):
 
     # ---- pines ----
     py, ph = 802, 36
-    c.box(IN_L, py, IN_W, ph, t["bg"], t["line"], r=7, dash=[5, 3])
+    c.box(IN_L, py, IN_W, ph, t["panel"], t["line"], r=7, dash=[5, 3])
     c.text(IN_L + 20, py + ph / 2, "pines", 11, colour=t["muted"], mono=True,
            align="leftm")
     c.text(IN_L + IN_W / 2 + 26, py + ph / 2,
@@ -203,7 +203,7 @@ def pill(c, x, y, txt, colour=None, size=9):
     col = colour or c.t["accent"]
     w = c.measure(txt, size, bold=True) + 14
     c.box(x, y - 8, w, 16, col, None, r=8)
-    c.text(x + w / 2, y, txt, size, colour=c.t["bg"], bold=True, align="centerm")
+    c.text(x + w / 2, y, txt, size, colour=c.t["chip_ink"], bold=True, align="centerm")
     return w
 
 
@@ -285,7 +285,7 @@ def badge(c, cx, cy, txt, r=9):
     c.set(c.t["accent"])
     c.cr.arc(cx, cy, r, 0, 6.2832)
     c.cr.fill()
-    c.ctext(cx, cy, txt, 10.5, colour=c.t["bg"], bold=True)
+    c.ctext(cx, cy, txt, 10.5, colour=c.t["chip_ink"], bold=True)
 
 
 def fig_dataspace(t):

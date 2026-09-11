@@ -709,7 +709,7 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 - [x] **Tercer oráculo independiente**: contraste de los mismos 22 282 240 casos contra `simavr`
       ejecutando instrucciones AVR reales. Encontró un fallo que la verificación contra nuestro
       propio modelo no podía encontrar (flag H de `NEG`).
-- [x] **Prueba de mutación** de todo el RTL: **63 fallos inyectados, 63 detectados**. El banco puede fallar, y se comprueba que puede.
+- [x] **Prueba de mutación** de todo el RTL: **92 fallos inyectados, 92 detectados**. El banco puede fallar, y se comprueba que puede.
 - [x] `regfile.v` — 2R/1W más un puerto de 16 bits direccionado por índice de par, de modo que la
       interfaz no puede expresar una dirección impar. 800 064 comprobaciones contra un modelo
       sombra en 200 000 ciclos aleatorios, 0 fallos; 3 de 3 mutantes detectados.
@@ -748,10 +748,19 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 | ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
 | Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |
 
-**Deuda conocida que la fase 1 no puede saldar:** la máquina de estados de entrada a interrupción
-está escrita en `axioma_seq.v` pero `irq_req` está atado a 0 en el top de simulación. Sin
-controlador de interrupciones —fase 2— no hay forma de ejercitarla. Está declarado aquí para que
-no se cuele como «verificado».
+**Deuda conocida que la fase 1 no puede saldar: SALDADA en la fase 2.** La máquina de estados de
+entrada a interrupción estaba escrita en `axioma_seq.v` pero `irq_req` estaba atado a 0 en el top
+de simulación, así que no había forma de ejercitarla. Con el Timer0 y el controlador de
+interrupciones ya se dispara, y al hacerlo aparecieron **dos fallos reales** en esa ruta:
+
+- la dirección del vector se calculaba como `vector × 4` en palabras, cuando cada vector ocupa
+  **dos** palabras y le corresponde `vector × 2`. El núcleo saltaba al doble de lejos;
+- la máquina de estados se sostenía con una condición que incluía `cyc == 0`, y esa condición
+  dejaba de cumplirse en cuanto el primer ciclo limpiaba el bit `I`: los ciclos 1 a 3 de la
+  entrada se caían al `case` de instrucciones y ejecutaban lo que hubiera en el registro de
+  instrucción.
+
+Los dos están en el catálogo de mutación para que no puedan volver.
 
 ### Fase 2 — SoC mínimo y primer bitstream (2 semanas)
 
@@ -761,7 +770,18 @@ no se cuele como «verificado».
 - [x] `gpio.v`, con el toggle por `PINx` —la trampa nº 5— y el sincronizador que obliga al `nop`
       entre escribir `PORTx` y leer `PINx`. Verificado por dos vías: diferencial contra simavr
       sobre los tres puertos, y banco propio contra la hoja de datos con las dos máscaras.
-- [ ] `timer0.v`, `usart.v`, `irq.v`.
+- [x] `timer0.v` **y `prescaler.v`**, que va aparte porque el prescaler es un contador libre de 10
+      bits **compartido** con el Timer1: es la trampa nº 12, y arrancar un temporizador no lo pone
+      a cero. Los ocho modos de onda, el doble búfer de `OCR0x`, las banderas `TIFR0` con su
+      *write-1-to-clear*, `GTCCR` con `TSM`/`PSRSYNC`, el reloj externo por T0 y los pines de
+      comparación. **4 480 668 comprobaciones** contra un modelo de la hoja de datos, 0 fallos, y
+      10 mutantes detectados. El encaminamiento de OC0A/OC0B al pad es de la fase 3, con el resto
+      de los canales PWM.
+- [x] `irq.v` — 26 vectores con prioridad fija. Verificado de forma **exhaustiva**: las
+      67 108 864 combinaciones posibles de peticiones, 201 326 592 comprobaciones. Con él se
+      salda la deuda de la fase 1: la entrada a ISR se ejercita por primera vez, y encontró dos
+      fallos reales en el secuenciador.
+- [ ] `usart.v`.
 - [ ] Backend `fpga_bram`; top de ECP5 + constraints.
 - [ ] Bootstrap: precargar el `.hex` en la BRAM del bitstream.
 
@@ -784,8 +804,15 @@ modelo de simavr antes de escribir el RTL de cada periférico**, no después.
 
 **Camino crítico hasta el criterio de aceptación:** el `delay()` de un `Blink.ino` compilado con el
 core de Arduino llama a `millis()`, que depende de la interrupción de desbordamiento de Timer0. Así
-que `timer0` e `irq` no son opcionales para llegar al LED. `irq` va después de `timer0` porque sin
-una fuente de interrupción real no se puede contrastar diferencialmente.
+que `timer0` e `irq` no son opcionales para llegar al LED. **Ya está recorrido:** los dos están
+hechos y verificados, y `sim/diff/tests/irq_timer0.S` enciende los tres vectores del Timer0 a la
+vez para que se ejercite también la prioridad.
+
+Con el Timer0 hubo que decidir además **quién es el oráculo de qué**, porque simavr no cuenta ciclo
+a ciclo: interpola `TCNT0` desde `avr->cycle` y ancla su base en el ciclo en que se escribe
+`TCCR0B`. *Cuándo* salta la interrupción lo decide el RTL y lo verifica su banco propio contra la
+hoja de datos; *qué hace el núcleo* al saltar lo verifica simavr, al que el arnés le levanta el
+mismo vector. Detalle en [`03-verificacion.md`](03-verificacion.md), capa 4.
 
 **Criterio de aceptación:** un `Blink.ino` compilado con avr-gcc parpadea un LED **en la FPGA**, y
 `Serial.println("Hola")` sale por el UART a 115200 baudios y se lee en el PC.

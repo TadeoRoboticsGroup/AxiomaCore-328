@@ -267,6 +267,41 @@ comprobando:
 la **forma de onda real** sobre los pines, no sólo el contenido de los registros. Un periférico
 puede tener los registros correctos y generar una trama incorrecta.
 
+### El oráculo de cada periférico, y por qué no puede ser uno solo
+
+El núcleo tiene a `simavr`, que es una implementación independiente y buena. Sus **periféricos**
+no están al mismo nivel, así que cada uno se verifica por capas:
+
+| Qué | Con qué |
+|-----|---------|
+| Semántica de los registros | Diferencial contra simavr, con la tabla `COMPARABLE[]` de `sim/diff/diff.cpp`, que crece con cada periférico |
+| Lo que simavr no modela, o modela distinto | Banco propio contra un modelo escrito desde la hoja de datos |
+| Forma de onda en los pines | Modelos de bus en el banco |
+
+Y una regla: **donde discrepen simavr y la hoja de datos, manda la hoja de datos**, y la
+discrepancia se anota en [`01-arquitectura.md`](01-arquitectura.md) §8bis. No es hipotético. Con
+tres registros de E/S aparecieron tres discrepancias; con el Timer0, cinco más.
+
+**El Timer0 es el caso extremo, porque simavr no cuenta ciclo a ciclo:** programa eventos e
+INTERPOLA `TCNT0` desde `avr->cycle` cuando alguien lo lee. Compararlo en paralelo sería comparar
+dos relojes distintos. El reparto que sí funciona:
+
+- **cuándo** salta la interrupción lo decide el RTL, y lo verifica `sim/periph/tb_timer0.cpp`
+  contra un modelo de la hoja de datos: 4 480 668 comprobaciones en 224 032 ciclos, con los ocho
+  modos de onda, el doble búfer de `OCR0x`, las banderas y los pines de comparación;
+- **qué hace el núcleo** al saltar lo verifica simavr: cuando el RTL entra en una ISR, el arnés le
+  levanta ese mismo vector y le deja ejecutar su propia secuencia de entrada. Después se comparan
+  el PC —la dirección del vector—, la pila, el `SP` y el `SREG`.
+
+Esa segunda mitad es la que encontró los dos fallos de la entrada a interrupción: el vector se
+calculaba multiplicado por cuatro en vez de por dos, y la máquina de estados se caía al `case` de
+instrucciones en sus ciclos 1 a 3. Estuvieron escritos y sin ejercer desde la fase 1, que es
+exactamente por lo que estaban declarados como no verificados.
+
+**El controlador de interrupciones sí admite verificación exhaustiva**, porque su espacio de
+entrada es enumerable: las 67 108 864 combinaciones de las 26 peticiones, comprobando prioridad y
+reconocimiento (`make sim-irq`).
+
 ---
 
 ## Capa 5 — Compatibilidad Arduino de extremo a extremo

@@ -23,6 +23,7 @@ axioma328_soc
 ├── axioma_eeprom          1 KB · backend parametrizable
 ├── axioma_dbus            fabric del espacio de datos
 ├── axioma_irq             26 vectores con prioridad fija
+├── axioma_prescaler       contador de 10 bits COMPARTIDO por Timer0 y Timer1, y GTCCR
 ├── axioma_clkctrl         CLKPR, PRR, SMCR, MCUCR, MCUSR
 └── periféricos            gpio · timer0/1/2 · usart · spi · twi · adc · ac · wdt · extint · pcint
 ```
@@ -197,6 +198,12 @@ como un caso por instrucción es la causa del cerrojo inferido en el RTL heredad
 - **`SEI` tiene un ciclo de retardo**: la primera interrupción se atiende después de ejecutar la
   instrucción siguiente. `CLI`, en cambio, es inmediato.
 
+**Cómo se verifica.** La prioridad y el reconocimiento, de forma **exhaustiva**: las 67 108 864
+combinaciones posibles de las 26 peticiones (`make sim-irq`). La entrada en sí, contra simavr: el
+arnés diferencial le levanta el mismo vector que acaba de tomar el RTL y compara después el PC —es
+decir, la dirección del vector—, la pila, el `SP` y el `SREG`. El retardo de `SEI` lo comprueba el
+propio arnés, porque es el RTL quien decide cuándo salta y simavr no le puede desmentir.
+
 ---
 
 ## 7. Memorias
@@ -257,7 +264,7 @@ Cada una necesita un test dirigido desde la fase 1.
 | 9 | **Flags de `NEG`** (ver §5). `H = R3 \| Rd3` — con `Rd3`, no su negado. | Aritmética con signo incorrecta. |
 | 10 | **`ROR`/`ASR`/`LSR`**: `V = N ⊕ C` tras el desplazamiento. | Comparaciones con signo erróneas. |
 | 11 | **Efectos laterales de lectura.** Leer `UDR0` limpia `RXC`; leer `ADCL` bloquea `ADCH`; `TIFRx` se limpia escribiendo 1. | USART y ADC fallan de forma intermitente. |
-| 12 | **Prescaler compartido** entre Timer0 y Timer1; `GTCCR` lo resetea. El baudrate deriva de F_CPU, no del prescaler. | Deriva de temporización difícil de diagnosticar. |
+| 12 | **Prescaler compartido** entre Timer0 y Timer1; `GTCCR` lo resetea. El baudrate deriva de F_CPU, no del prescaler. **Implementado en `axioma_prescaler.v`**, que es un módulo aparte justo por esto. | Deriva de temporización difícil de diagnosticar. |
 
 ---
 
@@ -271,6 +278,12 @@ resolverse contra la hoja de datos antes de la v1.0.
 | Sincronizador de `PINx` | **Resuelto a favor de la hoja de datos.** El 328P pasa el valor del pad por un sincronizador, y por eso entre escribir `PORTx` y leer `PINx` hace falta una instrucción de por medio —el `nop` que aparece en todo el código AVR que relee un pin—. El modelo de ioport de simavr **no lo tiene** y devuelve `PORTx` al instante. | **Implementar el sincronizador.** Sin él el RTL sería más permisivo que el chip: código que funcionara en simulación fallaría en silicio. El mutante que lo elimina **sólo lo caza el banco propio**; el diferencial pasaría igual. |
 | Bit 7 del puerto C | **Resuelto a favor de la hoja de datos.** `PC7` no existe en el ATmega328P y sus bits se leen como cero. simavr no enmascara. | **Enmascarar.** `sim/periph/tb_gpio.cpp` se ejecuta con las dos máscaras, `0xFF` y `0x7F`, porque el diferencial no puede ver esta diferencia. |
 | Pin de entrada con el pull-up apagado | **Indefinido, y no lo define nadie.** simavr conserva el último valor leído; un pad real queda flotando. La hoja de datos no promete nada. | **Tratarlo como los casos de «resultado indefinido» del manual del ISA:** ningún programa de prueba puede depender de él, y `PINx` queda fuera del barrido de memoria del diferencial. |
+| Fase del prescaler al arrancar un temporizador | **Resuelto a favor de la hoja de datos.** El prescaler es un contador libre de 10 bits COMPARTIDO entre Timer0 y Timer1: escribir los bits CS engancha el temporizador a una toma, pero no pone el contador a cero, así que la primera cuenta llega cuando a esa toma le toca. `avr_timer_write` de simavr llama a `avr_timer_reconfigure(p, 1)` y ancla su base en el ciclo de la escritura, es decir, reinicia el prescaler y le da uno propio a cada temporizador. | **Prescaler libre y compartido**, en su propio módulo. Es la trampa nº 12. El diferencial no lo puede ver: lo comprueba `sim/periph/tb_timer0.cpp`. |
+| `GTCCR` | **Resuelto a favor de la hoja de datos.** simavr **no lo modela**: `grep GTCCR` no aparece en `avr_timer.c`, sólo en las cabeceras de registros, así que para él es un byte de almacenamiento. | **Implementar TSM y PSRSYNC.** `PSRSYNC` pone el contador compartido a cero y se autolimpia salvo con `TSM` puesto, que es lo que permite configurar los dos temporizadores y arrancarlos a la vez. `PSRASY` se almacena hasta que exista el Timer2. |
+| Escribir `TCNT0` con un valor ≥ TOP | **Resuelto a favor de la hoja de datos.** simavr lo convierte en cero (`if (tcnt >= p->tov_top) tcnt = 0;`). | **Guardar lo que se escribe.** |
+| Leer `TCNT0` con el temporizador parado | **Resuelto a favor de la hoja de datos.** `_avr_timer_get_current_tcnt` devuelve 0 cuando no hay ciclos programados. | **Conservar la cuenta.** Un temporizador parado no pierde su valor. |
+| Cuándo salta la interrupción del Timer0 | **No comparable con simavr, y no es fallo de ninguno.** simavr no cuenta ciclo a ciclo: INTERPOLA `TCNT0` desde `avr->cycle` cuando alguien lo lee, con su propia base de tiempo. Son dos relojes distintos. | **Repartir el oráculo.** *Cuándo* salta lo decide el RTL y lo verifica el banco propio contra la hoja de datos; *qué hace el núcleo* al saltar lo verifica simavr, al que el arnés le levanta el mismo vector para que ejecute su propia secuencia de entrada. `TCNT0`, `TIFR0` y `GTCCR` quedan fuera de la tabla `COMPARABLE[]`. |
+| La toma de clk/1 bajo `TSM` | **Sin confirmar.** La figura «Prescaler for Timer/Counter0 and Timer/Counter1» saca `clk_I/O` directamente, sin pasar por el contador de 10 bits, de modo que el reset del prescaler no debería detener a un temporizador con `CS=001`. La hoja de datos no lo dice con palabras. | **Lectura literal de la figura:** `tick_1` no lo afecta ni `PSRSYNC` ni `TSM`. Pendiente de confirmar. |
 | `SPM Z+` (opcode `0x95F8`) | **Sin confirmar.** binutils lo decodifica en todas las arquitecturas AVR, incluso avr2, así que no es *device-aware* y no sirve como prueba de que el 328P lo tenga. `boot.h` de avr-libc no lo usa para este dispositivo. La emulación de SPM en simavr parece incompleta. | **Aceptarlo.** Un superset solo puede añadir compatibilidad: un programa que lo use funcionará, y uno que no, queda igual. Marcarlo ilegal sí podría romper código real. |
 
 ## 9. Mapa de registros

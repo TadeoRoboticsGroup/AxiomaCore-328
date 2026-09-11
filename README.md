@@ -50,22 +50,29 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/mem/axioma_dmem.v` | **Verificado** | 22 049 comprobaciones, incluido el barrido completo de las 2048 direcciones y la disciplina de flanco del [ADR 0001](docs/adr/0001-memorias-en-flanco-de-bajada.md) |
 | `rtl/bus/axioma_dbus.v` | **Verificado** | 790 976 comprobaciones sobre las 65 536 direcciones del espacio de datos, 0 fallos |
 | `rtl/periph/axioma_gpio.v` | **Verificado** | Diferencial contra `simavr` sobre los tres puertos, más 909 881 comprobaciones por máscara contra un modelo de la hoja de datos |
-| `rtl/core/axioma_seq.v` | **Verificado**, salvo la entrada a ISR | 7 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
-| `rtl/core/axioma_core.v` | **Verificado**, salvo la entrada a ISR | Ídem. Es el módulo que une todo |
-| Tabla de ciclos (nivel L3) | **Verificada** | 120 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
+| `rtl/periph/axioma_timer0.v` | **Verificado** | 4 480 668 comprobaciones en 224 032 ciclos contra un modelo de la hoja de datos: los ocho modos de onda, el doble búfer de `OCR0x`, las banderas y los pines de comparación |
+| `rtl/periph/axioma_prescaler.v` | **Verificado** | Ídem: es el contador **compartido** con el Timer1, y la trampa nº 12 —que arrancar un temporizador no lo pone a cero— sólo se puede comprobar con los dos juntos |
+| `rtl/periph/axioma_irq.v` | **Verificado** | **Exhaustivo**: las 67 108 864 combinaciones de las 26 peticiones, 201 326 592 comprobaciones de prioridad y reconocimiento |
+| `rtl/core/axioma_seq.v` | **Verificado** | 9 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
+| `rtl/core/axioma_core.v` | **Verificado** | Ídem. Es el módulo que une todo |
+| Tabla de ciclos (nivel L3) | **Verificada** | 160 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
-| Entrada a interrupción | **Sin verificar** | La máquina de estados existe en `axioma_seq.v`, pero `irq_req` está atado a 0: sin controlador de interrupciones no hay forma de ejercitarla |
-| Timers, USART, SPI, TWI, ADC | Pendientes | Fases 2 y 3 |
+| Entrada a interrupción | **Verificada** | 294 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
+| Timer1/2, USART, SPI, TWI, ADC | Pendientes | Fases 2 y 3 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   13/13 objetivos en verde
-mutación    74/74 fallos inyectados, 74 detectados
+regresión   15/15 objetivos en verde
+mutación    92/92 fallos inyectados, 92 detectados
 ```
 
-**La fase 1 cumple su criterio de aceptación.** Lo que queda de ella es una deuda que no puede
-saldarse dentro de la fase: la entrada a interrupción necesita el controlador de la fase 2 para
-poder probarse. Hasta la v1.0 sobre FPGA, ~35 %; con silicio, ~20 %.
+**La fase 1 cumple su criterio de aceptación, y su única deuda está saldada.** La entrada a
+interrupción, que no se podía ejercitar sin un controlador, ya se dispara desde el Timer0. Al
+hacerlo aparecieron **dos fallos reales** en esa ruta: el secuenciador calculaba la dirección del
+vector multiplicando por cuatro en vez de por dos, y su máquina de estados de entrada se caía al
+`case` de instrucciones en los ciclos 1 a 3, porque la condición que la sostenía dejaba de
+cumplirse en cuanto el primer ciclo limpiaba el bit `I`. Hasta la v1.0 sobre FPGA, ~40 %; con
+silicio, ~22 %.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -143,10 +150,10 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 source env.sh
 make check-tools
 make lint regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
-     sim-gpio sim-simavr sim-decode sim-diff sim-random
+     sim-gpio sim-timer0 sim-irq sim-simavr sim-decode sim-diff sim-random
 ```
 
-Los trece objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los quince objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan
@@ -277,14 +284,15 @@ Criterio de aceptación de la fase 1, sin ambigüedad, y su estado:
 
 | Requisito | Estado |
 |-----------|--------|
-| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 7 programas dirigidos |
+| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 9 programas dirigidos |
 | 10⁶ instrucciones aleatorias sin divergencia | 10⁶, 0 divergencias |
 | ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
 | Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |
 
-Lo siguiente es la **fase 2**: el bus de datos, los primeros periféricos y el controlador de
-interrupciones —que además desbloquea la única parte del secuenciador que hoy no se puede
-ejercitar— y con ello el primer bitstream con un LED parpadeando en la FPGA.
+La **fase 2** está en marcha: ya están el bus de datos, los puertos de E/S, el Timer0 con su
+prescaler compartido y el controlador de interrupciones —que desbloqueó la única parte del
+secuenciador que no se podía ejercitar—. Quedan la USART, el top de ECP5 y el backend de BRAM,
+y con ellos el primer bitstream con un LED parpadeando en la FPGA.
 
 ---
 

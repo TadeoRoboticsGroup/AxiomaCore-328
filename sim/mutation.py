@@ -414,6 +414,12 @@ CATALOG = [
 ("usart", USART, "sim-usart", "el error de trama no se registra",
  """                                rx_fifo0 <= {!rx_voto_ahora, rx_upe,""",
  """                                rx_fifo0 <= {1'b0, rx_upe,"""),
+# Este solo lo caza el banco de extremo a extremo: tb_usart mira el pin TXD
+# directamente, sin pasar por la habilitacion, asi que un transmisor que nunca
+# se adueña del pin le parece correcto. Al otro lado de un cable, en cambio, no
+# sale nada.
+("usart", USART, "sim-hello", "el transmisor nunca se adueña del pin",
+ "assign txd_en = txen;", "assign txd_en = 1'b0;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

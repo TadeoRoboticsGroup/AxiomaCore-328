@@ -1,0 +1,90 @@
+/* AxiomaCore-328 - Blink y Serial, el criterio de aceptación de la fase 2
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Compilado con avr-gcc y avr-libc SIN MODIFICAR NADA: <avr/io.h>,
+ * <avr/interrupt.h> y <util/setbaud.h> son exactamente las que usaría un
+ * ATmega328P de verdad. `setbaud.h` calcula el divisor a partir de F_CPU y
+ * BAUD y decide él solo si hace falta el modo de doble velocidad — es el
+ * mecanismo que usa el core de Arduino, y ejercita de paso que nuestro mapa de
+ * registros coincida con el que avr-libc espera.
+ *
+ * LA VELOCIDAD NO SON 115200, y no es un capricho. A 12,5 MHz ese baudio no
+ * sale: el divisor más cercano deja un error del -3,1 %, y una trama 8N1
+ * aguanta como mucho un ±2,5 % sumando los dos extremos. A 19200 el error es
+ * del -0,76 %. El problema no es la USART sino el reloj, y el reloj es 12,5
+ * MHz porque el diseño cierra timing a 14,74: subirlo es la tarea de
+ * optimización que ya está en el plan, y arregla las dos cosas a la vez.
+ *
+ * Un ATmega328P real a 16 MHz tampoco llega limpio a 115200: se queda en
+ * +2,1 % usando U2X. Por eso el core de Arduino activa U2X siempre.
+ */
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+#define BAUD 19200
+#include <util/setbaud.h>
+
+/* Timer0 a clk/64: desborda cada 256 * 64 ciclos. */
+#define OVF_POR_SEGUNDO  (F_CPU / 64UL / 256UL)
+
+static volatile uint16_t desbordes;
+
+ISR(TIMER0_OVF_vect)
+{
+    desbordes++;
+}
+
+static void usart_init(void)
+{
+    UBRR0H = UBRRH_VALUE;
+    UBRR0L = UBRRL_VALUE;
+#if USE_2X
+    UCSR0A |= (1 << U2X0);
+#else
+    UCSR0A &= (uint8_t)~(1 << U2X0);
+#endif
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);   /* 8 bits, sin paridad, 1 parada */
+    UCSR0B = (1 << TXEN0) | (1 << RXEN0);
+}
+
+/* Espera a que el búfer de transmisión esté libre. UDRE0 dice que cabe otro
+ * byte, no que el anterior haya salido entero: es TXC0 el que dice eso. */
+static void usart_putchar(char c)
+{
+    while (!(UCSR0A & (1 << UDRE0)))
+        ;
+    UDR0 = (uint8_t)c;
+}
+
+static void usart_print(const char *s)
+{
+    while (*s)
+        usart_putchar(*s++);
+}
+
+int main(void)
+{
+    DDRB = 0xFF;
+    PORTB = 0x00;
+
+    TCCR0A = 0x00;
+    TCCR0B = (1 << CS01) | (1 << CS00);       /* clk/64 */
+    TIMSK0 = (1 << TOIE0);
+
+    usart_init();
+    sei();
+
+    usart_print("Hola, AxiomaCore-328\r\n");
+
+    for (;;) {
+        if (desbordes >= (uint16_t)(OVF_POR_SEGUNDO / 2)) {
+            uint8_t sreg = SREG;
+            cli();
+            desbordes = 0;
+            SREG = sreg;
+
+            PINB = (1 << PB5);                /* escribir PINx CONMUTA PORTx */
+            usart_print("tic\r\n");
+        }
+    }
+}

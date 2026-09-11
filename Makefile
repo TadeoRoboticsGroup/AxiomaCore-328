@@ -74,6 +74,7 @@ help:
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
 	@echo "  make sim-fw           Blink.c compilado con avr-gcc, contra simavr"
+	@echo "  make sim-hello        Blink y Serial leidos del pin (criterio fase 2)"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
@@ -374,7 +375,7 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 
 .PHONY: sim-core
 sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 \
-          sim-usart sim-irq sim-soc sim-simavr sim-decode sim-diff
+          sim-usart sim-irq sim-soc sim-fw sim-hello sim-simavr sim-decode sim-diff
 
 # --- firmware: C de verdad, compilado con avr-gcc y avr-libc ---
 # Que un programa en C sin modificar compile y corra es medio criterio de
@@ -387,6 +388,21 @@ $(FW_DIR)/blink.bin: fw/blink/blink.c
 	@mkdir -p $(FW_DIR)
 	@$(AVR_CC) -o $(FW_DIR)/blink.elf $<
 	@avr-objcopy -O binary $(FW_DIR)/blink.elf $@
+
+$(FW_DIR)/hello.bin: fw/hello/hello.c
+	@mkdir -p $(FW_DIR)
+	@$(AVR_CC) -o $(FW_DIR)/hello.elf $<
+	@avr-objcopy -j .text -j .data -O binary $(FW_DIR)/hello.elf $@
+
+# --- el criterio de aceptacion de la fase 2, leido del pin ---
+.PHONY: sim-hello
+sim-hello: $(FW_DIR)/hello.bin
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vhello -o tb_soc_uart \
+	  --top-module tb_soc_uart_top \
+	  sim/soc/tb_soc_uart_top.v $(SOC_SRCS) sim/soc/tb_soc_uart.cpp >/dev/null
+	@echo -e "$(BOLD)Blink y Serial de extremo a extremo$(NC)"
+	@./$(BUILD)/vhello/tb_soc_uart $(FW_DIR)/hello.bin
 
 $(FW_DIR)/blink.mem: $(FW_DIR)/blink.bin
 	@$(PYTHON) tools/bin2mem.py $< $@

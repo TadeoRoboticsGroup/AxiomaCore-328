@@ -239,6 +239,15 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-fw
 
+      # EL CRITERIO DE ACEPTACION DE LA FASE 2, menos el cable: un programa en
+      # C sin modificar corre sobre el SoC completo y el banco lee el PIN como
+      # lo leeria un conversor USB-serie. No mira ningun registro para sacar
+      # los caracteres: decodifica la forma de onda.
+      - name: Blink y Serial leidos del pin
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-hello
+
       # QUE EL RTL SIGA SINTETIZANDO NO LO COMPROBABA NADIE. El lint de
       # verilator no es un sintetizador: no infiere latches ni dice cuanta area
       # ocupa cada modulo, y el README citaba numeros de LUT que nadie volvia a

@@ -872,7 +872,22 @@ hoja de datos; *qué hace el núcleo* al saltar lo verifica simavr, al que el ar
 mismo vector. Detalle en [`03-verificacion.md`](03-verificacion.md), capa 4.
 
 **Criterio de aceptación:** un `Blink.ino` compilado con avr-gcc parpadea un LED **en la FPGA**, y
-`Serial.println("Hola")` sale por el UART a 115200 baudios y se lee en el PC.
+`Serial.println("Hola")` sale por el UART y se lee en el PC.
+
+**CUMPLIDO EN SIMULACIÓN** (`make sim-hello`), que es todo menos el cable: `fw/hello/hello.c` se
+compila con avr-gcc y avr-libc **sin modificar** —incluido `<util/setbaud.h>`, que calcula el
+divisor él solo—, corre sobre el SoC completo, y el banco **decodifica el pin** como lo haría un
+conversor USB-serie. 27 tramas leídas, 0 mal formadas, el texto correcto, PB5 parpadeando y la
+velocidad medida a −0,76 % del nominal. No se mira ningún registro para sacar los caracteres.
+
+**La velocidad no son 115200, y el motivo no es la USART sino el reloj.** A 12,5 MHz el divisor más
+cercano a 115200 deja un error del −3,1 %, y una trama 8N1 aguanta como mucho un ±2,5 % sumando los
+dos extremos; a 19200 el error es del −0,76 %. Subir el reloj —la tarea de optimización de timing
+que ya está anotada— arregla las dos cosas a la vez. Conviene saber que un ATmega328P real a 16 MHz
+tampoco llega limpio a 115200: se queda en +2,1 % usando U2X, que es justo por lo que el core de
+Arduino activa U2X siempre.
+
+Lo único que queda del criterio es **enchufar la placa**.
 
 ### Fase 3 — Periféricos completos (5 semanas)
 

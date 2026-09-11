@@ -288,7 +288,8 @@ sim-irq:
 # bancos. La primera medida encontro cuatro caminos que nadie ejecutaba jamas.
 .PHONY: coverage
 coverage:
-	@$(PYTHON) tools/coverage.py
+	@SIMAVR_INCLUDE=$(SIMAVR_INCLUDE) SIMAVR_LIB=$(SIMAVR_LIB) \
+	  $(PYTHON) tools/coverage.py
 
 # --- robustez: los caminos que la cobertura encontro sin ejecutar ---
 .PHONY: sim-robust

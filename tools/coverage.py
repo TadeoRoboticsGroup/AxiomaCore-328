@@ -74,10 +74,17 @@ def main():
     umbral = float(sys.argv[1]) if len(sys.argv) > 1 else UMBRAL_POR_DEFECTO
     print(f"{NEGRITA}Cobertura de código{FIN}")
 
-    simavr_inc = os.environ.get("SIMAVR_INCLUDE", "")
-    simavr_lib = os.environ.get("SIMAVR_LIB", "")
-    if not simavr_inc:
-        print(f"  {ROJO}falta SIMAVR_INCLUDE — ¿se hizo `source env.sh`?{FIN}")
+    # De dónde salen las rutas de simavr. Se toman del entorno, y el Makefile
+    # las pasa SIEMPRE desde sus propias variables: asi este script funciona
+    # igual lanzado a mano tras `source env.sh` que desde la CI, que no lo
+    # hace. Sin esto fallaba solo en el servidor, que es el peor sitio donde
+    # descubrir una dependencia implicita.
+    casa = os.path.expanduser("~")
+    simavr_inc = os.environ.get("SIMAVR_INCLUDE") or f"{casa}/eda/simavr-src/simavr/sim"
+    simavr_lib = os.environ.get("SIMAVR_LIB") or f"{casa}/eda/simavr-src/simavr/obj-x86_64-linux-gnu"
+    if not Path(simavr_inc).is_dir():
+        print(f"  {ROJO}no encuentro simavr en {simavr_inc}{FIN}")
+        print(f"  {GRIS}instalacion desde cero: INSTALL.md{FIN}")
         return 1
 
     COV.mkdir(parents=True, exist_ok=True)

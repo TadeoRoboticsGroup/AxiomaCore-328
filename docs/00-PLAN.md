@@ -908,7 +908,7 @@ estas son las razones concretas:
 | # | Bloqueo | Dónde se resuelve |
 |---|---------|-------------------|
 | 1 | **`SPM` no es el del 328P.** No hay `SPMCSR` ni granularidad de página: lo que hay es la escritura de una palabra. Un bootloader real corrompería la Flash | Fase 4 |
-| 2 | **Doble flanco de reloj.** El diseño usa biestables en flanco de bajada y una SRAM de datos en flanco de bajada. Una foundry necesita un macro de SRAM que acepte reloj invertido —o un inversor y un segundo árbol de reloj— y STA sobre los dos flancos. El [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md) afirma que los macros de Sky130 lo admiten: **sin verificar** | Fase 6 |
+| 2 | **Doble flanco de reloj.** ACOTADO el 11-sep: lo único que obliga a que el **macro de SRAM** sea de flanco de bajada son `LDS` y `STS`; todo lo demás presenta la dirección ya registrada y funcionaría con un macro normal. Los flancos de bajada que quedan son celdas estándar de `axioma_dbus`, donde invertir el reloj es rutina. Mitigación identificada: una cola de prebúsqueda de dos palabras. Ver la adenda 2 del [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md) | Fase 6, y **ya no bloquea la fase 3** |
 | 3 | **Sincronizador de una sola etapa en `PINx`.** Es deliberado —lo exige la temporización documentada del `nop`— pero es un riesgo de metaestabilidad que hay que firmar con un cálculo de MTBF, no dar por bueno | Fase 5 |
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |

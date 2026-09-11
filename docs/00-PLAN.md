@@ -807,6 +807,31 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       de la fase 5 son 32 MHz, así que hay trabajo de optimización con un número medido detrás.
 - [ ] Backend `fpga_bram` como módulo aparte (hoy la memoria inferida ya se mapea a BRAM).
 
+#### Qué placa hace falta, y cuál es el recurso que aprieta
+
+**No hace falta tener la placa para seguir.** El flujo completo —síntesis, emplazamiento, rutado y
+análisis de tiempos— corre en el PC: `nextpnr` da Fmax y utilización sin hardware delante. Lo único
+que exige placa es ejecutarlo de verdad. Y la co-simulación diferencial contra `simavr` es una
+verificación **más fuerte** que ver parpadear un LED: el LED prueba que integra, el diferencial
+prueba que ejecuta bien instrucción a instrucción y con los ciclos exactos.
+
+El recurso que decide no es la lógica, es la **memoria**. Medido sobre el diseño de hoy:
+
+| Flash | BRAM (DP16KD) | LUT |
+|-------|---------------|-----|
+| 32 KB — la del ATmega328P | 33 | 4 628 (19 % de la 25F) |
+| 16 KB | 17 | ídem |
+| 8 KB | 9 | ídem |
+
+`axioma_progmem` ya tiene el parámetro `WORDS`, así que recortar la Flash es cambiar un número —a
+costa, claro, de dejar de ser una réplica en ese punto.
+
+Consecuencia práctica: cualquier placa con un **ECP5 25F** sirve sin tocar nada del flujo, sólo el
+fichero de constraints. Las hay desde 15-25 $ —las controladoras de paneles LED llevan justo ese
+chip— frente a los 145 $ de una ULX3S, que lo que añade es comodidad (USB-JTAG, SDRAM, HDMI) y no
+capacidad que este diseño necesite. Con un FPGA más pequeño de otra familia hay que decidir entre
+recortar la Flash o cambiar de flujo, y los portes a iCE40 y Gowin ya están en la fase 5.
+
 #### El oráculo de los periféricos, decidido y estrenado
 
 El núcleo tenía a `simavr`, que ejecuta AVR de verdad. Los periféricos **no tienen un oráculo tan

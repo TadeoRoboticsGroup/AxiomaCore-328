@@ -48,6 +48,7 @@ help:
 	@echo "  make lpf              regenera las constraints de la ULX3S"
 	@echo "  make diagrams         regenera las figuras del README"
 	@echo "  make lint             lint del RTL con verilator"
+	@echo "  make synth-check      sintesis con yosys: sin latches, y area medida"
 	@echo "  make clean            limpia los artefactos de construcción"
 	@echo ""
 	@echo -e "$(BOLD)Fase 1$(NC)  $(DIM)núcleo ISA$(NC)"
@@ -136,6 +137,13 @@ lint:
 	  echo -e "$(GREEN)lint limpio$(NC)"; \
 	  $(if $(RTL_WIP),echo -e "$(DIM)  excluidos por estar en desarrollo: $(RTL_WIP)$(NC)";) \
 	fi
+
+# --- síntesis: latches y área ---
+# El lint de verilator NO es un sintetizador: no infiere latches ni mide área.
+# Este objetivo pasa yosys por todo el RTL y falla si aparece un solo latch.
+.PHONY: synth-check
+synth-check:
+	@$(DIAG_PYTHON) tools/synth_check.py
 
 # ------------------------------------------------------------- fase 1: sim
 VEC_DIR := $(BUILD)/alu_vec

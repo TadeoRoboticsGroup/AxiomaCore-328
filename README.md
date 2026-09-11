@@ -26,8 +26,10 @@ validado en FPGA y preparado para tape-out en un PDK abierto.
 </picture>
 
 Un núcleo AVR de 8 bits con pipeline de dos etapas, un secuenciador multiciclo que congela la
-etapa de búsqueda, y memorias tras una interfaz con backend intercambiable —simulación, BRAM de
-FPGA o macros de SRAM en silicio— que es lo que evita que el port a ASIC sea una reescritura.
+etapa de búsqueda, y memorias tras una interfaz pensada para cambiar de backend —simulación, BRAM
+de FPGA o macros de SRAM en silicio— que es lo que evita que el port a ASIC sea una reescritura.
+De esa interfaz hay hoy **una implementación**: memoria inferida, que vale para simulación y que la
+síntesis mapea a BRAM; la de Sky130 es de la fase 6.
 
 Los colores del diagrama no son decorativos: marcan qué está contrastado contra un oráculo
 independiente y qué no. Ése es el criterio con el que se mide este proyecto.
@@ -62,8 +64,9 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   15/15 objetivos en verde
+regresión   16/16 objetivos en verde
 mutación    92/92 fallos inyectados, 92 detectados
+síntesis    sin latches · núcleo 5 315 LUT4 / 357 FF en el ECP5
 ```
 
 **La fase 1 cumple su criterio de aceptación, y su única deuda está saldada.** La entrada a
@@ -149,11 +152,11 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 ```bash
 source env.sh
 make check-tools
-make lint regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
+make lint synth-check regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
      sim-gpio sim-timer0 sim-irq sim-simavr sim-decode sim-diff sim-random
 ```
 
-Los quince objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los dieciséis objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan
@@ -299,7 +302,7 @@ y con ellos el primer bitstream con un LED parpadeando en la FPGA.
 ## Estructura del repositorio
 
 ```
-rtl/      core · bus · mem (backends sim/fpga_bram/sky130_sram) · periph · soc · fpga
+rtl/      core · bus · mem (backends/: marcadores vacíos hasta la fase 6) · periph · soc · fpga
 sim/      alu · decode · mem · diff (co-simulación) · perf (tabla de ciclos) · isa
 tools/    generadores: gen_regmap.py · gen_ulx3s_lpf.py · gen_diagrams.py
 docs/     plan, arquitectura, verificación, legal, ADR

@@ -326,6 +326,28 @@ Sketches compilados con avr-gcc y ejecutados en RTL y en FPGA:
 
 ---
 
+## La comprobación que no es una capa: que el RTL siga sintetizando
+
+`verilator --lint-only` **no es un sintetizador**. No infiere latches, no resuelve la jerarquía
+como lo hará la herramienta que fabrica el bitstream, y no dice cuánta área ocupa nada. Durante la
+fase 1 el README citó números de LUT del ECP5 que ningún comando volvía a medir: eran una foto de
+un día, no una propiedad comprobada.
+
+`make synth-check` pasa yosys por todo el RTL y:
+
+- **falla si se infiere un solo latch.** Un latch es una rama de un `always @(*)` que no asigna una
+  señal, y es el fallo clásico del RTL escrito a mano. **La simulación no lo distingue de la lógica
+  correcta**, porque el simulador conserva el valor anterior igual que el latch: aparece en
+  silicio. Ningún banco de los de arriba lo puede cazar;
+- **mide el área de cada módulo por separado** y la publica. El área no es criterio de fallo: es un
+  número que se enseña, para que un cambio que duplique un módulo se vea en el diff de la CI en vez
+  de descubrirse al cerrar el timing en la fase 5.
+
+Se sintetiza módulo a módulo a propósito: así el área es atribuible y uno que crece no se esconde
+dentro del total.
+
+---
+
 ## Capa 6 — Verificación formal
 
 SymbiYosys sobre propiedades acotadas, donde el coste es bajo y el valor alto:

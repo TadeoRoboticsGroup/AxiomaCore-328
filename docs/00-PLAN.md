@@ -781,6 +781,9 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       67 108 864 combinaciones posibles de peticiones, 201 326 592 comprobaciones. Con él se
       salda la deuda de la fase 1: la entrada a ISR se ejercita por primera vez, y encontró dos
       fallos reales en el secuenciador.
+- [x] `make synth-check`: yosys sobre todo el RTL, falla ante un latch y mide el área de cada
+      módulo. Cierra un hueco que venía de la fase 1 —el lint de verilator no es un sintetizador—
+      y entra en la CI junto con los dos bancos nuevos, que tampoco estaban.
 - [ ] `usart.v`.
 - [ ] Backend `fpga_bram`; top de ECP5 + constraints.
 - [ ] Bootstrap: precargar el `.hex` en la BRAM del bitstream.

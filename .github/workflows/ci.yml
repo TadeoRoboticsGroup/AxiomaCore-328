@@ -165,6 +165,24 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-gpio
 
+      # El temporizador y su prescaler van en el mismo banco porque la trampa
+      # numero 12 —el prescaler es libre y compartido, y arrancar el
+      # temporizador no lo pone a cero— solo se puede comprobar con los dos
+      # juntos. El modelo de referencia sale de la hoja de datos, no de simavr,
+      # que aqui se aparta de ella en cinco puntos.
+      - name: Timer0 y prescaler compartido contra la hoja de datos
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-timer0
+
+      # Exhaustivo de verdad: las 67 108 864 combinaciones de las 26
+      # peticiones. El espacio de entrada es enumerable, asi que se barre
+      # entero en vez de muestrear.
+      - name: Controlador de interrupciones, exhaustivo
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-irq
+
       - name: Cachear simavr
         id: cache-simavr
         uses: actions/cache@v4
@@ -202,5 +220,12 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-random
 
-      # Pendiente de la fase 2: sin controlador de interrupciones, irq_req está
-      # atado a 0 y la máquina de entrada a ISR no se puede ejercitar.
+      # QUE EL RTL SIGA SINTETIZANDO NO LO COMPROBABA NADIE. El lint de
+      # verilator no es un sintetizador: no infiere latches ni dice cuanta area
+      # ocupa cada modulo, y el README citaba numeros de LUT que nadie volvia a
+      # medir. Este paso pasa yosys por todo el RTL, falla si aparece un latch
+      # y publica el area.
+      - name: Sintesis - sin latches y con area medida
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make synth-check

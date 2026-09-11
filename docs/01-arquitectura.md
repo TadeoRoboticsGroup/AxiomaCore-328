@@ -211,6 +211,12 @@ propio arnés, porque es el RTL quien decide cuándo salta y simavr no le puede 
 Interfaz única, backend intercambiable en tiempo de compilación. Ésta es la decisión que hace
 viable el port a ASIC sin reescribir.
 
+> **Estado, a 11-sep-2026.** Lo que existe es **la interfaz y una sola implementación**: memoria
+> inferida, que sirve para simulación y que la síntesis mapea a BRAM del ECP5 —comprobado con
+> `make synth-check`—. El backend de Sky130 es de la fase 6 y los directorios de
+> `rtl/mem/backends/` están **vacíos**: son marcadores de sitio, no código. Que la frontera esté
+> puesta desde el principio es lo que hace barato el port; no es lo mismo que tenerlo portado.
+
 ```verilog
 module axioma_progmem #(
     parameter WORDS    = 16384,

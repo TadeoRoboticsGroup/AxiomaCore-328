@@ -134,7 +134,7 @@ def fig_soc(t):
     RY, RH = 316, 100
     block(c, IN_L, RY, 420, RH, "axioma_progmem",
           ["16K × 16 bits · 32 KB · puerto IF y puerto LPM/SPM",
-           "backend intercambiable: sim · BRAM · SRAM de Sky130"], OK)
+           "memoria inferida: simulación y BRAM · Sky130 en la fase 6"], OK)
     block(c, 492, RY, 174, RH, "axioma_clkctrl",
           ["CLKPR · PRR", "SMCR"], TODO, title_size=12.5)
     block(c, 678, RY, 174, RH, "axioma_irq",

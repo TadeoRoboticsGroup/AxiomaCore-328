@@ -345,6 +345,34 @@ interna. Comprueba tres cosas:
 
 ---
 
+## La cobertura: la única que dice lo que NO se ha probado
+
+Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mutación cubre parte de
+ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
+romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
+
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: el arnés diferencial con sus
+once programas y los diez aleatorios, el banco del Timer0, el de la USART, el de robustez y el de
+extremo a extremo. La fusión es lo que importa: medir sólo el diferencial da un 80 % y una
+conclusión falsa, porque el Timer0 y la USART salen bajos cuando su funcionalidad la cubren **sus**
+bancos.
+
+**Qué encontró la primera medida.** Cuatro caminos que ningún banco pisaba jamás:
+
+| Camino | Qué había dentro |
+|--------|------------------|
+| `SPM` | **Tres fallos.** Escribía `{Rd, Rd}` en vez de la palabra `R1:R0`; `SPM Z+` decodificaba el post-incremento sin escribir `Z` de vuelta; y cuando se arregló eso, avanzaba **un byte** donde una palabra son dos |
+| Ejecución de un opcode ilegal | Sin comprobar que el núcleo no se cuelga. En un chip que va a fabricarse, un opcode corrupto no puede parar la máquina |
+| Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
+| `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
+
+Hoy está en **99,7 %**, con 13 de 16 módulos al 100 %. Los cinco puntos que faltan **no son
+alcanzables** y están adjudicados uno a uno: el `default:` de un `case` completo en la ALU, la señal
+de calentamiento que sólo toca el reset, y el `$readmemh` que sólo corre cuando el programa va
+dentro del bitstream. El umbral está en el 99 %: si baja, hay un camino nuevo que nadie ejercita.
+
+---
+
 ## La comprobación que no es una capa: que el RTL siga sintetizando
 
 `verilator --lint-only` **no es un sintetizador**. No infiere latches, no resuelve la jerarquía

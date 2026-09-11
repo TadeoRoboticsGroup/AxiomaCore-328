@@ -326,10 +326,46 @@ int main(int argc, char **argv) {
                 diverged = n; break;
             }
             uint32_t pc_antes = avr->pc;
+
+            // MANDA EL RTL, Y ESO HAY QUE IMPONERLO. simavr levanta
+            // interrupciones POR SU CUENTA: su modelo de USART pone UDRE en
+            // cuanto el búfer está libre, y con UDRIE habilitado se iría al
+            // vector él solo, una instrucción antes que el RTL. Entonces los
+            // dos estarían en el mismo sitio pero desfasados un paso, y todo lo
+            // que viniera después divergiría.
+            //
+            // Así que antes de darle el vector se le limpia lo que tuviera
+            // pendiente. Con esto su estado de interrupciones es EXACTAMENTE el
+            // que decidió el RTL, que es el reparto de oráculos de este arnés:
+            // el RTL decide cuándo, simavr ejecuta la entrada.
+            for (int i = 0; i < avr->interrupts.vector_count; i++)
+                if (avr->interrupts.vector[i])
+                    avr_clear_interrupt(avr, avr->interrupts.vector[i]);
+
             avr_raise_interrupt(avr, vec);
-            avr_service_interrupts(avr);
+
+            // Y SE INSISTE HASTA QUE LO ATIENDE. Limpiar `pending` no vacía la
+            // cola interna de simavr: las entradas se quedan dentro y su
+            // servicio, que elige la de número más bajo, descarta UNA por
+            // llamada cuando encuentra que ya no está pendiente. Con una sola
+            // llamada podía tocarle una entrada rancia y no atender la nuestra.
+            //
+            // El retardo de SEI lo gobierna y lo comprueba el propio arnés
+            // —`sei_anterior`—, así que aquí se fuerza la cuenta interna: si no,
+            // la primera interrupción tras un SEI se quedaría sin atender y
+            // parecería un fallo del RTL.
+            for (int intento = 0; intento < 32 && avr->pc == pc_antes; intento++) {
+                avr->interrupt_state = 1;
+                avr_service_interrupts(avr);
+            }
             if (avr->pc == pc_antes) {
                 printf("\n  simavr NO ATENDIÓ EL VECTOR %d\n", v);
+                printf("    simavr: SREG=0x%02X (I=%d)  interrupt_state=%d\n",
+                       avr_sreg_byte(), avr->sreg[S_I], avr->interrupt_state);
+                printf("    UCSR0B=0x%02X UCSR0A=0x%02X TIMSK0=0x%02X\n",
+                       avr->data[0xC1], avr->data[0xC0], avr->data[0x6E]);
+                printf("    habilitacion del vector: %d   pendiente: %d\n",
+                       avr_regbit_get(avr, vec->enable), vec->pending);
                 printf("    lo habitual es que su habilitación (TIMSK) o el bit I\n"
                        "    no estén puestos en simavr, es decir, que el RTL haya\n"
                        "    saltado sin que tocara.\n");
@@ -338,12 +374,11 @@ int main(int argc, char **argv) {
             irq_entries++;
         } else {
             avr->pc = avr_run_one(avr);
-            // Hay que llamarlo tras CADA instrucción aunque no haya nada
-            // pendiente: es lo que lleva la cuenta del retardo de SEI dentro de
-            // simavr (`interrupt_state` se pone a -1 al poner el bit I y sólo
-            // vuelve a cero en la siguiente llamada). Sin esto, la primera
-            // interrupción de verdad se quedaría sin atender.
-            avr_service_interrupts(avr);
+            // NO se llama aquí a `avr_service_interrupts`. Hacerlo dejaba que
+            // simavr se fuera a un vector por su cuenta —su USART levanta UDRE
+            // sola—, y quien decide cuándo salta una interrupción en este arnés
+            // es el RTL. Se atiende sólo en la rama de arriba, con el vector
+            // que el RTL acaba de tomar.
         }
 
         // --- comparación ---
@@ -550,6 +585,17 @@ int main(int argc, char **argv) {
         if (mem_bad)
             printf("\n  %ld bytes distintos en el espacio de datos\n", mem_bad);
     }
+
+#if VM_COVERAGE
+    // COBERTURA DE CÓDIGO. Sólo existe si se compila con `--coverage`; en la
+    // compilación normal esto no está. Verilator no vuelca nada por su cuenta:
+    // el banco tiene que pedirlo, y sin esta llamada la instrumentación corre
+    // y se tira a la basura — que es lo que pasaba.
+    {
+        const char *cov = getenv("AXIOMA_COV");
+        Verilated::threadContextp()->coveragep()->write(cov ? cov : "coverage.dat");
+    }
+#endif
 
     delete rtl;
 

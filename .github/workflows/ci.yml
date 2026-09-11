@@ -248,6 +248,14 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-fw
 
+      # Los dos caminos que la medida de COBERTURA encontro sin ejecutar
+      # jamas: SPM —que tenia tres fallos dentro— y que el nucleo sobreviva a
+      # un opcode corrupto sin colgarse.
+      - name: SPM y opcode ilegal
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-robust
+
       # EL CRITERIO DE ACEPTACION DE LA FASE 2, menos el cable: un programa en
       # C sin modificar corre sobre el SoC completo y el banco lee el PIN como
       # lo leeria un conversor USB-serie. No mira ningun registro para sacar
@@ -262,6 +270,15 @@ jobs:
       # ocupa cada modulo, y el README citaba numeros de LUT que nadie volvia a
       # medir. Este paso pasa yosys por todo el RTL, falla si aparece un latch
       # y publica el area.
+      # LA COBERTURA ES UNA PUERTA, no un informe. Un «0 divergencias» no dice
+      # nada sobre lo que NO se ejecuto, y el catalogo de mutacion lo escribe
+      # una persona: solo prueba lo que a alguien se le ocurrio romper. Si baja
+      # del umbral, hay un camino nuevo que nadie ejercita.
+      - name: Cobertura del RTL, fusionando todas las fuentes
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make coverage
+
       - name: Sintesis - sin latches y con area medida
         run: |
           source ~/eda/oss-cad-suite/environment

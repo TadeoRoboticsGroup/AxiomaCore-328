@@ -17,6 +17,9 @@ module tb_soc_uart_top (
     input  wire        clk,
     input  wire        rst_n,
 
+    // La línea de recepción la conduce el banco: es el PC hablándole al chip.
+    input  wire        rxd,
+
     input  wire        prog_we,
     input  wire [13:0] prog_addr,
     input  wire [15:0] prog_data,
@@ -40,8 +43,7 @@ module tb_soc_uart_top (
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
-        // Nada conectado a la entrada del puerto serie: en reposo, que es el 1.
-        .uart_rxd(1'b1), .uart_txd(txd), .uart_txd_en(txd_en),
+        .uart_rxd(rxd), .uart_txd(txd), .uart_txd_en(txd_en),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

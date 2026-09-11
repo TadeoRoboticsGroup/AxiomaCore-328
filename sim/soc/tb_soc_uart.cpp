@@ -15,6 +15,11 @@
 //      PROGRAMA configuró —el banco lee UBRR y U2X del propio periférico—, y se
 //      exige bit de arranque a cero y de parada a uno en cada carácter.
 //   2. QUE EL TEXTO SEA EL QUE ES. Byte a byte.
+//   3bis. QUE EL CHIP ESCUCHE. Se le transmite un byte por RXD y tiene que
+//      salir de vuelta por TXD: el eco lo hace su ISR de recepción. Es la
+//      única forma de ejercitar el vector USART_RX, que necesita a alguien
+//      hablándole al chip, y lo encontró sin disparar nunca la medida de
+//      cobertura.
 //   3. QUE LA VELOCIDAD SEA LA QUE DEBERÍA. Aparte, y contra el baudio nominal:
 //      un periférico puede emitir tramas perfectas a una velocidad equivocada,
 //      y en el otro extremo del cable eso es basura.
@@ -25,6 +30,7 @@
 #include "verilated.h"
 #include <cstdio>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -60,7 +66,9 @@ int main(int argc, char **argv) {
     printf("  programa: %s  (%zu palabras)\n", argv[1], prog.size());
 
     dut = new Vtb_soc_uart_top;
-    dut->clk = 0; dut->rst_n = 0; dut->prog_we = 0; dut->eval();
+    dut->clk = 0; dut->rst_n = 0; dut->prog_we = 0;
+    dut->rxd = 1;                      // línea de recepción en reposo
+    dut->eval();
     for (int i = 0; i < 4; i++) tick();
     for (size_t i = 0; i < prog.size(); i++) {
         dut->prog_we = 1; dut->prog_addr = (uint16_t)i; dut->prog_data = prog[i];
@@ -86,11 +94,32 @@ int main(int argc, char **argv) {
     int  pb5_previo = -1;
     long conmutaciones = 0;
 
+    // El byte que se le manda al chip para que lo devuelva, y en qué ciclo.
+    // Se espera a que haya salido el saludo para no mezclar las dos cosas.
+    const uint8_t ECO = 'Z';
+    long          eco_en = 0;
+    int           eco_bit = -2;
+    long          eco_cuenta = 0;
+
     // Medio segundo de parpadeo son F_CPU/2 ciclos; se deja margen para pillar
     // la primera conmutación y algún «tic» detrás.
     const long CICLOS = 8000000;
     for (long c = 0; c < CICLOS; c++) {
         dut->eval();
+
+        // --- el PC le habla al chip ---
+        // Una trama 8N1 puesta en RXD con el mismo ritmo que el chip usa.
+        if (periodo && eco_en == 0 && texto.size() >= 22) eco_en = c + periodo * 4;
+        if (eco_en && c >= eco_en) {
+            if (eco_bit == -2) { eco_bit = -1; eco_cuenta = 0; }
+            if (--eco_cuenta <= 0) {
+                eco_cuenta = periodo;
+                if (eco_bit == -1)      dut->rxd = 0;                 // arranque
+                else if (eco_bit < 8)   dut->rxd = (ECO >> eco_bit) & 1;
+                else                    dut->rxd = 1;                 // parada
+                if (eco_bit < 9) eco_bit++;
+            }
+        }
 
         // --- el LED ---
         if (dut->portb_oe & 0x20) {
@@ -129,6 +158,13 @@ int main(int argc, char **argv) {
         tick();
     }
 
+#if VM_COVERAGE
+    {
+        const char *cov = getenv("AXIOMA_COV");
+        Verilated::threadContextp()->coveragep()->write(cov ? cov : "coverage.dat");
+    }
+#endif
+
     delete dut;
 
     // ------------------------------------------------------ veredicto
@@ -150,6 +186,13 @@ int main(int argc, char **argv) {
     if (texto.find("tic\r\n", strlen(ESPERADO)) == std::string::npos) {
         printf("  FALLA: no llego ningun \"tic\" del bucle principal\n");
         fails++;
+    }
+    if (texto.find((char)ECO, strlen(ESPERADO)) == std::string::npos) {
+        printf("  FALLA: el chip no hizo eco del byte recibido ('%c')\n", ECO);
+        printf("         eso significa que el vector USART_RX no disparo\n");
+        fails++;
+    } else {
+        printf("  el chip devolvio el byte '%c' que se le envio por RXD\n", ECO);
     }
 
     double baud = F_CPU / (double)periodo;

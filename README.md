@@ -70,8 +70,10 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   20/20 objetivos en verde
-mutación   108/108 fallos inyectados, 108 detectados
+regresión   22/22 objetivos en verde
+mutación   111/111 fallos inyectados, 111 detectados
+cobertura   99,7 % del RTL, fusionando todas las fuentes
+            13 de 16 módulos al 100 %; los 5 puntos restantes, adjudicados
 síntesis    sin latches · el SoC entero: 4 488 LUT4 y 578 FF en el ECP5
 bitstream   248 KB · 19 % de las LUT y 59 % de la BRAM de la ULX3S 25F
             Fmax 14,74 MHz, y se corre a 12,5 MHz
@@ -166,11 +168,11 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 source env.sh
 make check-tools
 make lint synth-check regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
-     sim-gpio sim-timer0 sim-usart sim-irq sim-soc sim-fw sim-hello sim-simavr \
-     sim-decode sim-diff sim-random
+     sim-gpio sim-timer0 sim-usart sim-irq sim-soc sim-robust sim-fw sim-hello \
+     sim-simavr sim-decode sim-diff sim-random coverage
 ```
 
-Los veinte objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los veintidós objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan

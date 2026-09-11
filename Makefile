@@ -73,6 +73,8 @@ help:
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
+	@echo "  make sim-robust       SPM y opcode ilegal: que nada se cuelgue"
+	@echo "  make coverage         cobertura del RTL fusionando todas las fuentes"
 	@echo "  make sim-fw           Blink.c compilado con avr-gcc, contra simavr"
 	@echo "  make sim-hello        Blink y Serial leidos del pin (criterio fase 2)"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
@@ -279,6 +281,24 @@ sim-irq:
 	  --top-module axioma_irq rtl/periph/axioma_irq.v sim/periph/tb_irq.cpp >/dev/null
 	@echo -e "$(BOLD)Controlador de interrupciones, exhaustivo$(NC)"
 	@./$(BUILD)/virq/tb_irq
+
+# --- cobertura de codigo: puerta, no informe ---
+# Fusiona TODAS las fuentes. Medir solo el diferencial da un 80 % y una
+# conclusion falsa: el Timer0 y la USART salen bajos porque los cubren SUS
+# bancos. La primera medida encontro cuatro caminos que nadie ejecutaba jamas.
+.PHONY: coverage
+coverage:
+	@$(PYTHON) tools/coverage.py
+
+# --- robustez: los caminos que la cobertura encontro sin ejecutar ---
+.PHONY: sim-robust
+sim-robust:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vrobust -o tb_soc_robust \
+	  --top-module axioma_sim_top sim/diff/axioma_sim_top.v $(SOC_SRCS) \
+	  sim/soc/tb_soc_robust.cpp >/dev/null
+	@echo -e "$(BOLD)SPM y opcode ilegal$(NC)"
+	@./$(BUILD)/vrobust/tb_soc_robust
 
 # --- integracion: el mapa de I/O del SoC ---
 # Cada periferico esta verificado por su cuenta; que esten bien COLOCADOS no lo

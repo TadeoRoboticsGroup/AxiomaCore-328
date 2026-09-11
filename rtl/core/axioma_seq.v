@@ -81,8 +81,6 @@ module axioma_seq (
     // ---- SREG ----
     input  wire [7:0]  sreg,
     output reg         sreg_alu_we,
-    output reg         sreg_wr_en,
-    output reg  [7:0]  sreg_wr_data,
     output reg         sreg_bit_en,
     output reg  [2:0]  sreg_bit_num,
     output reg         sreg_bit_val,
@@ -379,8 +377,6 @@ module axioma_seq (
         rf_w16_data = alu_result16;
 
         sreg_alu_we     = 1'b0;
-        sreg_wr_en      = 1'b0;
-        sreg_wr_data    = 8'h00;
         sreg_bit_en     = 1'b0;
         sreg_bit_num    = d_bit_num;
         sreg_bit_val    = 1'b0;
@@ -792,12 +788,38 @@ module axioma_seq (
             endcase
         end
 
+        // ---------------------------------------------------------- SPM
+        // ESTO NO ES TODAVÍA EL SPM DEL ATmega328P, y conviene decirlo antes
+        // que nada: el del chip se gobierna con SPMCSR —borrado de página,
+        // llenado del búfer temporal, escritura de página— y trabaja por
+        // PÁGINAS, no por palabras. Aquí sólo está la escritura de UNA palabra.
+        // Ningún bootloader real funcionará con esto. SPMCSR y la máquina de
+        // páginas son de la fase 4, que es donde vive el bootloader.
+        //
+        // Lo que sí está, está bien y verificado (`make sim-robust`). Tenía dos
+        // fallos que nadie podía ver porque NINGÚN programa lo ejecutaba:
+        //
+        //   - escribía `{Rd, Rd}`, duplicando un byte. El AVR escribe la
+        //     palabra R1:R0, así que hacen falta los dos puertos de 8 bits: el
+        //     de 16 está ocupado leyendo Z para la dirección.
+        //   - `SPM Z+` decodificaba el post-incremento y NO escribía Z de
+        //     vuelta, así que el puntero no avanzaba nunca.
         OPC_SPM: begin
             pm_d_addr  = rf_a16_rdata[14:1];
             pm_d_en    = 1'b1;
             pm_d_we    = 1'b1;
-            pm_d_wdata = {rf_rd_data, rf_rd_data};
-            rf_a16_pair = 4'd15;
+            pm_d_wdata = {rf_rr_data, rf_rd_data};      // R1:R0
+            rf_a16_pair = 4'd15;                        // Z
+            if (ptr_updates) begin
+                // DOS, no uno. `SPM Z+` escribe una PALABRA, así que el puntero
+                // avanza dos bytes; el `+1` de `ptr_wb` es el de LD, ST y LPM,
+                // que mueven bytes. Lo encontró el banco de robustez en su
+                // primera ejecución: Z se quedaba en 0x0141 donde tocaba
+                // 0x0142. Tercer fallo de SPM, y de los tres ninguno era
+                // visible mientras ningún programa lo ejecutara.
+                rf_we16     = 1'b1;
+                rf_w16_data = rf_a16_rdata + 16'd2;
+            end
             next_fpc = fpc + 14'd1;  next_pc = pc + 14'd1;  retire = 1'b1;
         end
 

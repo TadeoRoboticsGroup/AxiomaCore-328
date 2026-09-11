@@ -89,8 +89,7 @@ module axioma_core (
     wire [7:0]  alu_sreg_out_w, alu_sreg_mask_w;
 
     wire [7:0]  sreg_w;
-    wire        sreg_alu_we_w, sreg_wr_en_w, sreg_bit_en_w, sreg_bit_val_w;
-    wire [7:0]  sreg_wr_data_w;
+    wire        sreg_alu_we_w, sreg_bit_en_w, sreg_bit_val_w;
     wire [2:0]  sreg_bit_num_w;
     wire        sreg_t_en_w, sreg_t_val_w, sreg_irq_enter_w, sreg_irq_return_w;
 
@@ -147,8 +146,17 @@ module axioma_core (
     wire       sp_wr_hi   = hit_sph;
     wire [7:0] sp_wr_data = s_dm_wdata;
 
-    wire       sreg_wr_final    = sreg_wr_en_w | (s_dm_we & hit_sreg);
-    wire [7:0] sreg_wr_data_fin = (s_dm_we & hit_sreg) ? s_dm_wdata : sreg_wr_data_w;
+    // ESCRIBIR SREG ES UNA ESCRITURA AL ESPACIO DE DATOS, y sólo eso. El
+    // secuenciador tenía además un par de puertos propios —`sreg_wr_en` y
+    // `sreg_wr_data`— que nunca llegaba a activar: la medida de cobertura los
+    // encontró sin conmutar nunca. Era lógica muerta, y en un diseño que va a
+    // fabricarse eso no es sólo área: es un camino que nadie puede verificar y
+    // que el siguiente que lea el código dará por bueno.
+    //
+    // `OUT 0x3F, Rr` y `STS 0x5F, Rr` entran los dos por aquí, que es como
+    // funciona el chip: SREG es una dirección más del espacio de datos.
+    wire       sreg_wr_final    = s_dm_we & hit_sreg;
+    wire [7:0] sreg_wr_data_fin = s_dm_wdata;
 
     // ------------------------------------------------------- instancias
     axioma_seq seq (
@@ -169,8 +177,7 @@ module axioma_core (
         .alu_result(alu_result_w), .alu_result16(alu_result16_w),
         .alu_mul_result(alu_mul_w),
         .sreg(sreg_w),
-        .sreg_alu_we(sreg_alu_we_w), .sreg_wr_en(sreg_wr_en_w),
-        .sreg_wr_data(sreg_wr_data_w),
+        .sreg_alu_we(sreg_alu_we_w),
         .sreg_bit_en(sreg_bit_en_w), .sreg_bit_num(sreg_bit_num_w),
         .sreg_bit_val(sreg_bit_val_w),
         .sreg_t_en(sreg_t_en_w), .sreg_t_val(sreg_t_val_w),

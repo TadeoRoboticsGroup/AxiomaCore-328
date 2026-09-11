@@ -821,6 +821,10 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       escritura de la SRAM del camino combinacional, lo que obliga a separar los buses de datos de
       SRAM y de I/O. Objetivo de la fase 5: 32 MHz.
 
+- [x] **Cobertura de código como puerta** (`make coverage`), fusionando todas las fuentes. La
+      primera medida encontró **cuatro caminos que ningún banco ejecutaba jamás**, y dentro de uno
+      —`SPM`— había **tres fallos**. Hoy: 99,7 %, con los cinco puntos restantes adjudicados como
+      inalcanzables. Detalle en [`03-verificacion.md`](03-verificacion.md).
 - [ ] Backend `fpga_bram` como módulo aparte (hoy la memoria inferida ya se mapea a BRAM).
 
 #### Qué placa hace falta, y cuál es el recurso que aprieta
@@ -894,6 +898,26 @@ tampoco llega limpio a 115200: se queda en +2,1 % usando U2X, que es justo por l
 Arduino activa U2X siempre.
 
 Lo único que queda del criterio es **enchufar la placa**.
+
+#### Lo que BLOQUEA un tape-out, hoy
+
+Auditado el 11-sep-2026 contra lo que exige una foundry, no contra lo que exige una FPGA. El núcleo
+y los periféricos que existen están verificados; **el conjunto no está listo para fabricar**, y
+estas son las razones concretas:
+
+| # | Bloqueo | Dónde se resuelve |
+|---|---------|-------------------|
+| 1 | **`SPM` no es el del 328P.** No hay `SPMCSR` ni granularidad de página: lo que hay es la escritura de una palabra. Un bootloader real corrompería la Flash | Fase 4 |
+| 2 | **Doble flanco de reloj.** El diseño usa biestables en flanco de bajada y una SRAM de datos en flanco de bajada. Una foundry necesita un macro de SRAM que acepte reloj invertido —o un inversor y un segundo árbol de reloj— y STA sobre los dos flancos. El [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md) afirma que los macros de Sky130 lo admiten: **sin verificar** | Fase 6 |
+| 3 | **Sincronizador de una sola etapa en `PINx`.** Es deliberado —lo exige la temporización documentada del `nop`— pero es un riesgo de metaestabilidad que hay que firmar con un cálculo de MTBF, no dar por bueno | Fase 5 |
+| 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
+| 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
+| 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
+| 7 | **23 de los 26 vectores no tienen fuente.** Faltan timer1/2, SPI, TWI, ADC, comparador, watchdog, EEPROM e interrupciones externas | Fase 3 |
+| 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
+
+Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
+enumerado** en vez de implícito.
 
 ### Fase 3 — Periféricos completos (5 semanas)
 

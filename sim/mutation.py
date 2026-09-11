@@ -431,6 +431,21 @@ CATALOG = [
 # sale nada.
 ("usart", USART, "sim-hello", "el transmisor nunca se adueña del pin",
  "assign txd_en = txen;", "assign txd_en = 1'b0;"),
+# ------------------------------------------------- SPM y el opcode ilegal
+# Los tres fallos que tenia SPM, y el que colgaria el nucleo con un opcode
+# corrupto. Ninguno era visible antes: la cobertura demostro que NADIE
+# ejecutaba estos caminos.
+("spm", SEQ, "sim-robust", "SPM duplica un byte en vez de escribir R1:R0",
+ """            pm_d_wdata = {rf_rr_data, rf_rd_data};      // R1:R0""",
+ """            pm_d_wdata = {rf_rd_data, rf_rd_data};"""),
+("spm", SEQ, "sim-robust", "SPM Z+ avanza un byte en vez de una palabra",
+ """                rf_w16_data = rf_a16_rdata + 16'd2;""",
+ """                rf_w16_data = rf_a16_rdata + 16'd1;"""),
+("spm", SEQ, "sim-robust", "un opcode ilegal cuelga el nucleo",
+ """        default: begin       // OPC_ILLEGAL: se trata como NOP y se señala fuera
+            next_fpc = fpc + 14'd1;  next_pc = pc + 14'd1;  retire = 1'b1;""",
+ """        default: begin       // OPC_ILLEGAL: se trata como NOP y se señala fuera
+            next_fpc = fpc;  next_pc = pc;  retire = 1'b0;"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

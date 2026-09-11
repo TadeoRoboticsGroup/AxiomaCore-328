@@ -219,7 +219,10 @@ module axioma_decode (
         16'b1001_0101_1001_1000: op_class = OPC_BREAK;
         16'b1001_0101_1010_1000: op_class = OPC_WDR;
         16'b1001_0101_1100_1000: begin op_class = OPC_LPM; rd = 5'd0; rd_we = 1'b1; ptr_sel = PTR_Z; end
-        16'b1001_0101_1110_1000: begin op_class = OPC_SPM; ptr_sel = PTR_Z; end
+        // SPM escribe la palabra R1:R0, así que necesita los DOS puertos de
+        // lectura de 8 bits: el de 16 está ocupado leyendo Z para la dirección.
+        16'b1001_0101_1110_1000: begin op_class = OPC_SPM; ptr_sel = PTR_Z;
+                                       rd = 5'd0; rr = 5'd1; end
         // SPM Z+ (0x95F8). CUESTIÓN ABIERTA: no he podido confirmar con las
         // herramientas locales si el ATmega328P lo implementa. binutils lo
         // decodifica en TODAS las arquitecturas, incluso avr2, así que no es
@@ -228,7 +231,9 @@ module axioma_decode (
         // compatibilidad, nunca quitarla: un programa que lo use funcionará y
         // uno que no, queda igual. Pendiente de confirmar contra la hoja de
         // datos; ver docs/01-arquitectura.md.
-        16'b1001_0101_1111_1000: begin op_class = OPC_SPM; ptr_sel = PTR_Z; ptr_mode = PTR_POSTINC; end
+        16'b1001_0101_1111_1000: begin op_class = OPC_SPM; ptr_sel = PTR_Z;
+                                       ptr_mode = PTR_POSTINC;
+                                       rd = 5'd0; rr = 5'd1; end
 
         // ------------------------ 1001 0100 .sss 1000 : BSET y BCLR
         16'b1001_0100_0???_1000: begin op_class = OPC_BSET; bit_num = insn[6:4]; end

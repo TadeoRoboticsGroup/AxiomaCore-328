@@ -34,6 +34,18 @@ ISR(TIMER0_OVF_vect)
     desbordes++;
 }
 
+/* Eco de lo que llegue por el puerto serie. Es lo que hace una consola, y es
+ * además la única forma de ejercitar el vector USART_RX: hace falta que
+ * ALGUIEN transmita hacia el chip. La medida de cobertura lo encontró sin
+ * disparar ni una vez. */
+ISR(USART_RX_vect)
+{
+    uint8_t c = UDR0;                  /* leerlo limpia RXC0: la trampa nº 11 */
+    while (!(UCSR0A & (1 << UDRE0)))
+        ;
+    UDR0 = c;
+}
+
 static void usart_init(void)
 {
     UBRR0H = UBRRH_VALUE;
@@ -44,7 +56,7 @@ static void usart_init(void)
     UCSR0A &= (uint8_t)~(1 << U2X0);
 #endif
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);   /* 8 bits, sin paridad, 1 parada */
-    UCSR0B = (1 << TXEN0) | (1 << RXEN0);
+    UCSR0B = (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0);
 }
 
 /* Espera a que el búfer de transmisión esté libre. UDRE0 dice que cabe otro

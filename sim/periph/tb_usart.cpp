@@ -28,6 +28,7 @@
 #include "Vaxioma_usart.h"
 #include "verilated.h"
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <random>
 #include <vector>
@@ -480,6 +481,15 @@ int main(int argc, char **argv) {
         }
     }
 
+
+#if VM_COVERAGE
+    // Sólo existe al compilar con `--coverage`. Sin esta llamada la
+    // instrumentación corre y se tira a la basura.
+    {
+        const char *cov = getenv("AXIOMA_COV");
+        Verilated::threadContextp()->coveragep()->write(cov ? cov : "coverage.dat");
+    }
+#endif
     delete dut;
     printf("  %ld comprobaciones, %d fallos\n", checks, fails);
     if (fails) {

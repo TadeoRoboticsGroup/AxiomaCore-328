@@ -29,6 +29,7 @@
 #include "Vtb_timer0_top.h"
 #include "verilated.h"
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <random>
 
@@ -505,6 +506,15 @@ int main(int argc, char **argv) {
         step(we, a, d, t0, (rng() % 4096) == 0, (rng() % 4096) == 0, (rng() % 4096) == 0);
     }
 
+
+#if VM_COVERAGE
+    // Sólo existe al compilar con `--coverage`. Sin esta llamada la
+    // instrumentación corre y se tira a la basura.
+    {
+        const char *cov = getenv("AXIOMA_COV");
+        Verilated::threadContextp()->coveragep()->write(cov ? cov : "coverage.dat");
+    }
+#endif
     delete dut;
 
     printf("  %ld comprobaciones en %ld ciclos, %d fallos\n", checks, tcyc, fails);

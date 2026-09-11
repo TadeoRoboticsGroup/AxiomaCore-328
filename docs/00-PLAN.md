@@ -794,8 +794,18 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       módulo. Cierra un hueco que venía de la fase 1 —el lint de verilator no es un sintetizador—
       y entra en la CI junto con los dos bancos nuevos, que tampoco estaban.
 - [ ] `usart.v`.
-- [ ] Backend `fpga_bram`; top de ECP5 + constraints.
-- [ ] Bootstrap: precargar el `.hex` en la BRAM del bitstream.
+- [x] **Top de ECP5 y bitstream.** `rtl/fpga/ecp5/axioma_ulx3s_top.v`: PLL, secuencia de reset,
+      celdas de pad con triestado y PORTB espejado en los LED. `make bitstream-ulx3s` produce
+      248 KB para la ULX3S 25F, con el **19 % de las LUT y el 59 % de la BRAM**.
+- [x] **Bootstrap: el programa va dentro del bitstream.** `tools/bin2mem.py` convierte el binario
+      de avr-gcc en el fichero que `$readmemh` precarga en la memoria de programa.
+- [ ] **Subir el reloj.** El diseño cierra timing a **14,74 MHz**, medido con `nextpnr`, y se corre
+      a 12,5 MHz con margen. El camino crítico va de flanco de subida a flanco de BAJADA: sale de
+      la BRAM de programa —5,8 ns de clk a dato—, cruza el decodificador y llega a la memoria de
+      datos, que va en flanco de bajada por el [ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md).
+      Todo eso tiene que caber en MEDIO ciclo: es el precio de la exactitud de ciclos. El objetivo
+      de la fase 5 son 32 MHz, así que hay trabajo de optimización con un número medido detrás.
+- [ ] Backend `fpga_bram` como módulo aparte (hoy la memoria inferida ya se mapea a BRAM).
 
 #### El oráculo de los periféricos, decidido y estrenado
 

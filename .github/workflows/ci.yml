@@ -230,6 +230,15 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-random
 
+      # Un programa en C compilado con avr-gcc y avr-libc SIN MODIFICAR,
+      # contrastado contra simavr. Ejercita de una vez el arranque que genera
+      # el compilador, la tabla de vectores, la entrada y salida de ISR, el
+      # Timer0 y el puerto de E/S. Es medio criterio de compatibilidad L2.
+      - name: Firmware en C contra simavr
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-fw
+
       # QUE EL RTL SIGA SINTETIZANDO NO LO COMPROBABA NADIE. El lint de
       # verilator no es un sintetizador: no infiere latches ni dice cuanta area
       # ocupa cada modulo, y el README citaba numeros de LUT que nadie volvia a

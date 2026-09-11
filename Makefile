@@ -20,7 +20,15 @@ BUILD      := build
 # Ficheros en desarrollo, excluidos del lint mientras no estén terminados.
 # La lista es EXPLÍCITA a propósito: un glob de exclusión acabaría escondiendo
 # ficheros de verdad rotos sin que nadie se entere.
-RTL_WIP  :=
+# El PLL del ECP5 instancia la primitiva EHXPLLL: yosys la conoce, verilator
+# no. Se excluye del lint y en su lugar se elabora el modelo de sim/models/,
+# que declara el mismo modulo con los mismos puertos. Asi el top de la placa
+# —donde vive el cableado de los pads— se analiza igual. En sintesis se usa el
+# de verdad: el modelo esta fuera de rtl/, asi que RTL_SRCS no lo recoge.
+RTL_VENDOR := rtl/fpga/ecp5/axioma_pll.v
+LINT_STUBS := sim/models/axioma_pll_stub.v
+
+RTL_WIP  := $(RTL_VENDOR)
 RTL_SRCS := $(filter-out $(RTL_WIP),$(shell find $(RTL_DIR) -name '*.v' 2>/dev/null))
 # Los .vh viven junto a los módulos que los definen.
 INCDIRS  := $(addprefix -I,$(sort $(dir $(shell find $(RTL_DIR) -name '*.vh' 2>/dev/null))))
@@ -28,7 +36,10 @@ INCDIRS  := $(addprefix -I,$(sort $(dir $(shell find $(RTL_DIR) -name '*.vh' 2>/
 # con MULTITOP. Se lintan todos los ficheros JUNTOS a propósito: así se detectan
 # fallos entre ficheros, como una guarda de inclusión que deja sin constantes al
 # segundo módulo que incluye una cabecera.
-LINT_TOP := $(if $(wildcard $(RTL_DIR)/soc/axioma328_soc.v),--top-module $(TOP_SOC),-Wno-MULTITOP)
+# El top del lint es el de la PLACA si existe: envuelve al SoC, asi que elabora
+# todo el diseno de una vez —incluidas las celdas de pad y el reset—. Si no, el
+# SoC. Y si tampoco, se permiten varios tops.
+LINT_TOP := $(if $(wildcard $(RTL_DIR)/fpga/ecp5/$(ECP5_TOP).v),--top-module $(ECP5_TOP),$(if $(wildcard $(RTL_DIR)/soc/axioma328_soc.v),--top-module $(TOP_SOC),-Wno-MULTITOP))
 
 GREEN := \033[0;32m
 RED   := \033[0;31m
@@ -61,6 +72,7 @@ help:
 	@echo "  make sim-timer0       Timer0 y prescaler compartido vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
+	@echo "  make sim-fw           Blink.c compilado con avr-gcc, contra simavr"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
@@ -134,9 +146,9 @@ lint:
 	@if [ -z "$(RTL_SRCS)" ]; then \
 	  echo -e "$(DIM)Todavía no hay RTL en $(RTL_DIR)/ — nada que analizar. Ver docs/00-PLAN.md, fase 1.$(NC)"; \
 	else \
-	  verilator --lint-only -Wall -Wno-DECLFILENAME $(LINT_TOP) $(INCDIRS) $(RTL_SRCS) && \
+	  verilator --lint-only -Wall -Wno-DECLFILENAME $(LINT_TOP) $(INCDIRS) $(RTL_SRCS) $(LINT_STUBS) && \
 	  echo -e "$(GREEN)lint limpio$(NC)"; \
-	  $(if $(RTL_WIP),echo -e "$(DIM)  excluidos por estar en desarrollo: $(RTL_WIP)$(NC)";) \
+	  $(if $(RTL_WIP),echo -e "$(DIM)  primitivas del fabricante elaboradas con su modelo: $(RTL_WIP)$(NC)";) \
 	fi
 
 # --- síntesis: latches y área ---
@@ -349,6 +361,27 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 sim-irq \
           sim-soc sim-simavr sim-decode sim-diff
 
+# --- firmware: C de verdad, compilado con avr-gcc y avr-libc ---
+# Que un programa en C sin modificar compile y corra es medio criterio de
+# compatibilidad L2. El otro medio es que los registros esten donde dice
+# avr-libc, y de eso se encarga el mapa generado.
+FW_DIR := $(BUILD)/fw
+AVR_CC := avr-gcc -mmcu=atmega328p -DF_CPU=12500000UL -Os -std=gnu99 -Wall -Wextra
+
+$(FW_DIR)/blink.bin: fw/blink/blink.c
+	@mkdir -p $(FW_DIR)
+	@$(AVR_CC) -o $(FW_DIR)/blink.elf $<
+	@avr-objcopy -O binary $(FW_DIR)/blink.elf $@
+
+$(FW_DIR)/blink.mem: $(FW_DIR)/blink.bin
+	@$(PYTHON) tools/bin2mem.py $< $@
+
+.PHONY: sim-fw
+sim-fw: $(BUILD)/vdiff/Vaxioma_sim_top $(FW_DIR)/blink.bin $(PERF_DIR)/cycles.bin
+	@echo -e "$(BOLD)Firmware en C contra simavr$(NC)"
+	@LD_LIBRARY_PATH=$(SIMAVR_LIB):$$LD_LIBRARY_PATH \
+	  ./$(BUILD)/vdiff/diff $(FW_DIR)/blink.bin 50000 $(PERF_DIR)/cycles.bin | tail -3
+
 # ------------------------------------------- regresión de instrucciones aleatorias
 # Último requisito del criterio de aceptación de la fase 1: 10^6 instrucciones
 # aleatorias sin divergencia. Los programas se GENERAN con semilla fija, así que
@@ -378,10 +411,10 @@ $(BUILD):
 	@mkdir -p $(BUILD)
 
 .PHONY: bitstream-ulx3s
-bitstream-ulx3s: env | $(BUILD)
+bitstream-ulx3s: env $(FW_DIR)/blink.mem | $(BUILD)
 	@if [ ! -f "$(RTL_DIR)/fpga/ecp5/$(ECP5_TOP).v" ]; then \
 	  echo -e "$(DIM)Falta $(RTL_DIR)/fpga/ecp5/$(ECP5_TOP).v — fase 2. Ver docs/00-PLAN.md.$(NC)"; exit 1; fi
-	yosys -p "read_verilog -I$(RTL_DIR) $(RTL_SRCS); synth_ecp5 -top $(ECP5_TOP) -json $(BUILD)/axioma.json"
+	yosys -p "read_verilog $(INCDIRS) $(RTL_SRCS) $(RTL_VENDOR); synth_ecp5 -top $(ECP5_TOP) -json $(BUILD)/axioma.json"
 	nextpnr-ecp5 --$(ECP5_DEV) --package $(ECP5_PKG) \
 	             --json $(BUILD)/axioma.json --lpf $(ECP5_LPF) \
 	             --textcfg $(BUILD)/axioma.config --report $(BUILD)/timing.json

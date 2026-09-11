@@ -56,6 +56,8 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/periph/axioma_prescaler.v` | **Verificado** | Ídem: es el contador **compartido** con el Timer1, y la trampa nº 12 —que arrancar un temporizador no lo pone a cero— sólo se puede comprobar con los dos juntos |
 | `rtl/periph/axioma_irq.v` | **Verificado** | **Exhaustivo**: las 67 108 864 combinaciones de las 26 peticiones, 201 326 592 comprobaciones de prioridad y reconocimiento |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
+| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 248 KB para la ULX3S 25F. `nextpnr` mide **Fmax 14,74 MHz**; se corre a 12,5 MHz, con un 18 % de margen |
+| `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
 | `rtl/core/axioma_seq.v` | **Verificado** | 9 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
 | `rtl/core/axioma_core.v` | **Verificado** | Ídem. Es el módulo que une todo |
@@ -66,10 +68,11 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   17/17 objetivos en verde
+regresión   18/18 objetivos en verde
 mutación    97/97 fallos inyectados, 97 detectados
-síntesis    sin latches · el SoC entero: 4 488 LUT4 y 578 FF en el ECP5,
-            un 19 % de la ULX3S 25F
+síntesis    sin latches · el SoC entero: 4 488 LUT4 y 578 FF en el ECP5
+bitstream   248 KB · 19 % de las LUT y 59 % de la BRAM de la ULX3S 25F
+            Fmax 14,74 MHz, y se corre a 12,5 MHz
 ```
 
 **La fase 1 cumple su criterio de aceptación, y su única deuda está saldada.** La entrada a
@@ -162,10 +165,11 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 source env.sh
 make check-tools
 make lint synth-check regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
-     sim-gpio sim-timer0 sim-irq sim-soc sim-simavr sim-decode sim-diff sim-random
+     sim-gpio sim-timer0 sim-irq sim-soc sim-fw sim-simavr sim-decode sim-diff \
+     sim-random
 ```
 
-Los diecisiete objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los dieciocho objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan

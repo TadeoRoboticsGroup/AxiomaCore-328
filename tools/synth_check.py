@@ -53,6 +53,10 @@ MODULOS = [
     # El dispositivo entero. Es el unico numero que significa algo de cara a la
     # FPGA: los de arriba son atribucion, este es el area.
     ("axioma328_soc",    SOC),
+    # Y el top de la placa, que es lo que acaba en el bitstream: anade el PLL,
+    # la secuencia de reset y las celdas de pad con triestado.
+    ("axioma_ulx3s_top", ["rtl/fpga/ecp5/axioma_ulx3s_top.v",
+                          "rtl/fpga/ecp5/axioma_pll.v"] + SOC),
 ]
 
 VERDE, ROJO, GRIS, NEGRITA, FIN = "\033[0;32m", "\033[0;31m", "\033[2m", "\033[1m", "\033[0m"
@@ -64,8 +68,18 @@ def yosys(script):
     return r.returncode, r.stdout + r.stderr
 
 
+# El PLL instancia EHXPLLL, una primitiva del fabricante. Para la pasada de
+# latches se sustituye por el mismo modelo que usa el lint: lo que se busca ahí
+# son ramas de un always @(*) sin asignar, y una instancia de primitiva no
+# tiene ninguna. En la síntesis de verdad sí se usa el PLL real, porque
+# `synth_ecp5` conoce la primitiva.
+VENDOR = "rtl/fpga/ecp5/axioma_pll.v"
+STUB   = "sim/models/axioma_pll_stub.v"
+
+
 def todos_los_fuentes():
-    return sorted(str(p.relative_to(ROOT)) for p in (ROOT / "rtl").rglob("*.v"))
+    fuentes = [str(p.relative_to(ROOT)) for p in (ROOT / "rtl").rglob("*.v")]
+    return sorted(f for f in fuentes if f != VENDOR) + [STUB]
 
 
 def main():
@@ -75,7 +89,8 @@ def main():
     # Se lee el RTL entero de una vez, para que la comprobación vea también las
     # instancias entre módulos. `check -assert` aborta ante una jerarquía rota.
     src = " ".join(todos_los_fuentes())
-    rc, out = yosys(f"read_verilog -Irtl/soc {src}; hierarchy -check; proc; opt; check -assert")
+    rc, out = yosys(f"read_verilog -Irtl/soc {src}; "
+                    "hierarchy -check; proc; opt; check -assert")
     if rc != 0:
         print(f"  {ROJO}yosys no puede leer el RTL{FIN}")
         print("\n".join(out.splitlines()[-25:]))

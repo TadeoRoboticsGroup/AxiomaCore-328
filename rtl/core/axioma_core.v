@@ -56,6 +56,7 @@ module axioma_core (
     output wire [15:0] dbg_ir,
     output wire        dbg_retire,
     output wire        dbg_illegal,
+    output wire        dbg_irq_entry,
     output wire [15:0] dbg_sp,
     output wire [7:0]  dbg_sreg,
     input  wire [4:0]  dbg_reg_addr,
@@ -178,7 +179,7 @@ module axioma_core (
         .sp_wr_en(sp_wr_en), .sp_wr_hi(sp_wr_hi), .sp_wr_data(sp_wr_data),
         .sp(sp_w),
         .dbg_pc(dbg_pc), .dbg_ir(dbg_ir), .dbg_retire(dbg_retire),
-        .dbg_illegal(dbg_illegal)
+        .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry)
     );
 
     axioma_alu alu (

@@ -108,7 +108,8 @@ module axioma_seq (
     output wire [13:0] dbg_pc,
     output wire [15:0] dbg_ir,
     output wire        dbg_retire,       // se retiró una instrucción este ciclo
-    output wire        dbg_illegal       // codificación no válida en ejecución
+    output wire        dbg_illegal,      // codificación no válida en ejecución
+    output wire        dbg_irq_entry     // lo retirado fue una ENTRADA A ISR
 );
 
 `include "axioma_alu_ops.vh"
@@ -135,6 +136,7 @@ module axioma_seq (
     reg        use_hold;
     reg [1:0]  cyc;         // ciclo dentro de la instrucción actual
     reg        irq_hold;    // ciclo de gracia tras SEI
+    reg        in_irq;      // entrada a ISR en curso (ciclos 1 a 3)
     reg [15:0] tmp16;       // segunda palabra, dirección o dato intermedio
     reg        retire;      // esta instrucción termina en este ciclo
 
@@ -150,6 +152,11 @@ module axioma_seq (
     assign dbg_pc     = pc;
     assign dbg_ir     = insn;
     assign dbg_retire = retire;
+    // El arnés diferencial necesita distinguir una entrada a ISR de una
+    // instrucción retirada: en el RTL cuesta cuatro ciclos y es un paso propio,
+    // mientras que simavr la resuelve pegada al final de la instrucción
+    // anterior y sin cobrar ciclos.
+    assign dbg_irq_entry = retire & irq_go;
 
     // ------------------------------------------------- decodificador principal
     wire [5:0]  d_class;
@@ -242,6 +249,14 @@ module axioma_seq (
     // el ciclo de gracia de SEI pendiente.
     wire irq_take = irq_req && sreg[SREG_I] && !irq_hold && (cyc == 2'd0);
 
+    // Y una vez empezada hay que TERMINARLA. La condición de arriba deja de
+    // cumplirse en cuanto el ciclo 0 pone I a cero, así que sin este registro
+    // los ciclos 1 a 3 de la entrada se caerían al case de instrucciones y
+    // ejecutarían lo que hubiera en el registro de instrucción. Es la clase de
+    // fallo que sólo aparece cuando la ruta se ejerce de verdad: hasta ahora
+    // `irq_req` estaba atado a cero en el top de simulación.
+    wire irq_go = irq_take | in_irq;
+
 
     // =====================================================================
     //  MÁQUINA DE ESTADOS
@@ -267,6 +282,7 @@ module axioma_seq (
     reg [15:0] next_tmp16;
     reg        next_use_hold;
     reg        next_irq_hold;
+    reg        next_in_irq;
 
     // La dirección de datos que se presenta a la SRAM, ya traducida.
     reg [15:0] ea;
@@ -284,6 +300,7 @@ module axioma_seq (
         next_tmp16    = tmp16;
         next_use_hold = 1'b0;
         next_irq_hold = 1'b0;
+        next_in_irq   = 1'b0;
         retire        = 1'b0;
 
         pm_if_en   = 1'b1;
@@ -321,14 +338,19 @@ module axioma_seq (
             // Se mantiene fpc para que mem[0] llegue al final de este ciclo.
             next_fpc = fpc;
             next_pc  = pc;
-        end else if (irq_take) begin
+        end else if (irq_go) begin
             // ---- entrada a interrupción: 4 ciclos + el JMP del vector ----
             next_use_hold = 1'b1;
+            next_in_irq   = 1'b1;
             case (cyc)
             2'd0: begin
                 sreg_irq_enter = 1'b1;
                 irq_ack        = 1'b1;
-                next_tmp16     = {9'b0, irq_vector, 2'b00};   // vector x2 palabras
+                // Cada vector ocupa DOS PALABRAS —un JMP, porque la Flash es de
+                // 32 KB—, así que el vector n vive en la palabra 2n. simavr
+                // hace la misma cuenta con bytes: `vector * vector_size`, con
+                // vector_size = 4 bytes en el 328P.
+                next_tmp16     = {10'b0, irq_vector, 1'b0};
                 dm_addr = sp;  dm_we = 1'b1;  dm_wdata = pc[7:0];
                 next_sp = sp - 16'd1;
                 next_cyc = 2'd1;
@@ -346,6 +368,7 @@ module axioma_seq (
                 next_fpc = tmp16[13:0];
                 next_pc  = tmp16[13:0];
                 next_use_hold = 1'b0;
+                next_in_irq   = 1'b0;
                 retire   = 1'b1;
             end
             endcase
@@ -734,6 +757,7 @@ module axioma_seq (
             ir_hold  <= 16'h0000;
             use_hold <= 1'b0;
             irq_hold <= 1'b0;
+            in_irq   <= 1'b0;
             tmp16    <= 16'h0000;
             warmup   <= 1'b1;
         end else begin
@@ -750,6 +774,7 @@ module axioma_seq (
             tmp16    <= next_tmp16;
             use_hold <= next_use_hold;
             irq_hold <= next_irq_hold;
+            in_irq   <= next_in_irq;
             if (!use_hold) ir_hold <= pm_if_data;
         end
     end

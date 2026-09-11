@@ -13,7 +13,16 @@
 //
 // Los programas de prueba deben seguir EVITANDO los periféricos que simavr
 // modela y aquí todavía no existen. Ahora mismo ya existen de verdad los tres
-// puertos de E/S; SPL, SPH y SREG los intercepta axioma_core antes del bus.
+// puertos de E/S, el Timer0 con su prescaler y el controlador de
+// interrupciones; SPL, SPH y SREG los intercepta axioma_core antes del bus.
+//
+// EL TIMER0 NO SE COMPARA CONTRA EL DE simavr, y es deliberado. simavr no
+// cuenta ciclo a ciclo: interpola TCNT0 desde `avr->cycle` y ancla su base en
+// el ciclo en que se escribe TCCR0B, con lo que su cuenta va desfasada
+// respecto de un prescaler libre de verdad. Aquí el reparto es el de la
+// estrategia por capas: CUÁNDO salta la interrupción lo decide el RTL y lo
+// verifica el banco propio contra la hoja de datos; QUÉ hace el núcleo al
+// saltar lo verifica simavr, al que el arnés le levanta el mismo vector.
 //
 // MODELO DE PAD. Sin nada conectado por fuera:
 //   - un pin de SALIDA se lee a sí mismo;
@@ -40,6 +49,8 @@ module axioma_sim_top (
     output wire [15:0] dbg_ir,
     output wire        dbg_retire,
     output wire        dbg_illegal,
+    output wire        dbg_irq_entry,
+    output wire [4:0]  dbg_irq_vector,
     output wire [15:0] dbg_sp,
     output wire [7:0]  dbg_sreg,
     input  wire [4:0]  dbg_reg_addr,
@@ -124,7 +135,87 @@ module axioma_sim_top (
         .pad_in(pd_in), .pad_out(gd_out), .pad_oe(gd_oe), .pad_pullup(gd_pu)
     );
 
-    wire periph_sel = gb_sel | gc_sel | gd_sel;
+    // ------------------------------------------ Timer0 y su prescaler
+    // El prescaler es compartido —trampa nº 12— y por eso es un módulo aparte:
+    // en la fase 3 el Timer1 se engancha al MISMO contador.
+    wire tick_1, tick_8, tick_64, tick_256, tick_1024;
+    wire [7:0] ps_rd, tm_rd;
+    wire       ps_sel, tm_sel;
+    wire       tm_ovf, tm_compa, tm_compb;
+    wire       ack_ovf, ack_compa, ack_compb;
+
+    axioma_prescaler presc (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ps_rd), .io_sel(ps_sel),
+        .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
+        .tick_256(tick_256), .tick_1024(tick_1024),
+        /* verilator lint_off PINCONNECTEMPTY */
+        .count()
+        /* verilator lint_on PINCONNECTEMPTY */
+    );
+
+    // OC0A (PD6) y OC0B (PD5) se quedan sin encaminar hasta la fase 3, que es
+    // donde el plan pone los seis canales PWM: para llevarlos al pad hay que
+    // tocar axioma_gpio y darle una entrada de anulación. Lo que SÍ está
+    // verificado ya es la lógica que los genera, en sim/periph/tb_timer0.cpp.
+    axioma_timer0 timer0 (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(tm_rd), .io_sel(tm_sel),
+        .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
+        .tick_256(tick_256), .tick_1024(tick_1024),
+        .t0_pin(pd_in[4]),                       // T0 es PD4
+        /* verilator lint_off PINCONNECTEMPTY */
+        .oc0a(), .oc0a_en(), .oc0b(), .oc0b_en(),
+        /* verilator lint_on PINCONNECTEMPTY */
+        .irq_ovf(tm_ovf), .irq_compa(tm_compa), .irq_compb(tm_compb),
+        .ack_ovf(ack_ovf), .ack_compa(ack_compa), .ack_compb(ack_compb)
+    );
+
+    // ------------------------------------------ controlador de interrupciones
+    // Los vectores cuyo periférico todavía no existe van atados a cero. El
+    // controlador no los distingue: se verifican los 26 en su banco propio.
+    wire [25:0] irq_src;
+    wire [25:0] irq_ack_v;
+    wire        core_irq_req, core_irq_ack;
+    wire [4:0]  core_irq_vector;
+
+    // Los anchos de esta concatenación SON el mapa de vectores: 9 + 3 + 14 = 26.
+    // Con un bit de más abajo, TIMER0_COMPA se convierte en TIMER1_OVF y el
+    // núcleo salta a un vector que no es. Lo destapó irq_timer0.S en su primera
+    // ejecución, saltando a la palabra 0x1A en vez de a la 0x1C.
+    assign irq_src = { 9'b0,          // 25..17: SPI en adelante, sin periférico
+                       tm_ovf,        // 16 TIMER0_OVF
+                       tm_compb,      // 15 TIMER0_COMPB
+                       tm_compa,      // 14 TIMER0_COMPA
+                       14'b0 };       // 13..0: Timer1, Timer2, PCINT, INT, RESET
+
+    // Los reconocimientos de los vectores sin periférico no van a ninguna
+    // parte, igual que sus peticiones: se declaran sin usar a propósito.
+    wire unused_ack = &{1'b0, irq_ack_v[25:17], irq_ack_v[13:0]};
+
+    assign ack_compa = irq_ack_v[14];
+    assign ack_compb = irq_ack_v[15];
+    assign ack_ovf   = irq_ack_v[16];
+
+    axioma_irq irqc (
+        .src(irq_src),
+        .irq_req(core_irq_req), .irq_vector(core_irq_vector),
+        .irq_ack(core_irq_ack), .ack(irq_ack_v)
+    );
+
+    // El vector que se atendió, retenido para el arnés: durante los cuatro
+    // ciclos de la entrada la petición ya ha desaparecido, porque el
+    // reconocimiento limpia la bandera en el primero.
+    reg [4:0] irq_vec_q;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)             irq_vec_q <= 5'd0;
+        else if (core_irq_ack)  irq_vec_q <= core_irq_vector;
+    end
+    assign dbg_irq_vector = irq_vec_q;
+
+    wire periph_sel = gb_sel | gc_sel | gd_sel | ps_sel | tm_sel;
 
     // ------------------------------------------ relleno: I/O plana, 224 bytes
     // Sólo responde donde no hay periférico de verdad.
@@ -149,7 +240,7 @@ module axioma_sim_top (
     always @(negedge clk) if (io_re) flat_sel_q <= flat_hit;
 
     // Cada fuente deja su lectura a cero cuando no le toca, y se combinan.
-    assign io_rdata = (periph_sel ? (gb_rd | gc_rd | gd_rd) : 8'h00)
+    assign io_rdata = (periph_sel ? (gb_rd | gc_rd | gd_rd | ps_rd | tm_rd) : 8'h00)
                     | (flat_sel_q ? flat_rdata : 8'h00);
     // El relleno reclama todo lo que no reclama un periférico, de modo que en
     // la fase 2 el espacio de I/O sigue estando completo.
@@ -163,11 +254,10 @@ module axioma_sim_top (
         .pm_d_wdata(c_pm_d_wdata), .pm_d_rdata(pm_d_rdata),
         .dm_addr(dm_addr), .dm_re(dm_re), .dm_we(dm_we),
         .dm_wdata(dm_wdata), .dm_rdata(dm_rdata),
-        /* verilator lint_off PINCONNECTEMPTY */
-        .irq_req(1'b0), .irq_vector(5'd0), .irq_ack(),
-        /* verilator lint_on PINCONNECTEMPTY */
+        .irq_req(core_irq_req), .irq_vector(core_irq_vector), .irq_ack(core_irq_ack),
         .dbg_pc(dbg_pc), .dbg_ir(dbg_ir), .dbg_retire(dbg_retire),
-        .dbg_illegal(dbg_illegal), .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
+        .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry),
+        .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
         .dbg_reg_addr(dbg_reg_addr), .dbg_reg_data(dbg_reg_data)
     );
 
@@ -189,6 +279,14 @@ module axioma_sim_top (
             8'h09:   dbg_periph = gpio_d.sync1;
             8'h0A:   dbg_periph = gpio_d.ddr_q;
             8'h0B:   dbg_periph = gpio_d.port_q;
+            8'h15:   dbg_periph = {5'b0, timer0.tifr_q};
+            8'h23:   dbg_periph = {presc.tsm_q, 5'b0, presc.psrasy_q, presc.psrsync_q};
+            8'h24:   dbg_periph = {timer0.com_q, 2'b00, timer0.wgm_q[1:0]};
+            8'h25:   dbg_periph = {4'b0000, timer0.wgm_q[2], timer0.cs_q};
+            8'h26:   dbg_periph = timer0.tcnt_q;
+            8'h27:   dbg_periph = timer0.ocra_buf;
+            8'h28:   dbg_periph = timer0.ocrb_buf;
+            8'h4E:   dbg_periph = {5'b0, timer0.timsk_q};
             default: dbg_periph = io[dbg_io_index];
         endcase
     end

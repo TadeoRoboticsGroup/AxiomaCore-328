@@ -57,11 +57,13 @@ help:
 	@echo "  make sim-mem          memorias de programa y datos"
 	@echo "  make sim-dbus         fabric del espacio de datos, 65 536 direcciones"
 	@echo "  make sim-gpio         puertos de E/S: sincronizador y toggle por PINx"
+	@echo "  make sim-timer0       Timer0 y prescaler compartido vs hoja de datos"
+	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-simavr       contraste contra simavr (tercer oráculo)"
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
 	@echo "  make cycles-table     regenera la tabla de ciclos del contrato L3"
-	@echo "  make sim-core         las tres"
+	@echo "  make sim-core         todas las anteriores"
 	@echo "  make sim-random       10^6 instrucciones aleatorias vs simavr"
 	@echo "  make mutation         prueba de mutación de TODO el RTL (~5 min)"
 	@echo "  make sim-isa          suite dirigida de las 131 instrucciones"
@@ -220,6 +222,28 @@ sim-gpio:
 	  rtl/periph/axioma_gpio.v sim/periph/tb_gpio.cpp >/dev/null
 	@./$(BUILD)/vgpio7/tb_gpio7 127
 
+# --- Timer0 y su prescaler compartido ---
+# Van juntos porque la trampa nº 12 —el prescaler es libre y no se reinicia al
+# arrancar el temporizador— sólo se puede comprobar con los dos a la vez.
+.PHONY: sim-timer0
+sim-timer0:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vtimer0 -o tb_timer0 \
+	  --top-module tb_timer0_top \
+	  sim/periph/tb_timer0_top.v rtl/periph/axioma_timer0.v \
+	  rtl/periph/axioma_prescaler.v sim/periph/tb_timer0.cpp >/dev/null
+	@echo -e "$(BOLD)Timer0 contra la hoja de datos$(NC)"
+	@./$(BUILD)/vtimer0/tb_timer0
+
+# --- controlador de interrupciones ---
+.PHONY: sim-irq
+sim-irq:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/virq -o tb_irq \
+	  --top-module axioma_irq rtl/periph/axioma_irq.v sim/periph/tb_irq.cpp >/dev/null
+	@echo -e "$(BOLD)Controlador de interrupciones, exhaustivo$(NC)"
+	@./$(BUILD)/virq/tb_irq
+
 # --- fabric del espacio de datos ---
 .PHONY: sim-dbus
 sim-dbus:
@@ -242,7 +266,9 @@ DIFF_DIR  := $(BUILD)/diff
 DIFF_SRCS := rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
              rtl/core/axioma_alu.v rtl/core/axioma_sreg.v rtl/core/axioma_regfile.v \
              rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v \
-             rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v
+             rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v \
+             rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
+             rtl/periph/axioma_irq.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 
 $(DIFF_DIR)/%.bin: sim/diff/tests/%.S
@@ -289,7 +315,8 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 	test $$ko -eq 0
 
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-simavr sim-decode sim-diff
+sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 sim-irq \
+          sim-simavr sim-decode sim-diff
 
 # ------------------------------------------- regresión de instrucciones aleatorias
 # Último requisito del criterio de aceptación de la fase 1: 10^6 instrucciones

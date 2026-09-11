@@ -13,9 +13,31 @@
 // `avr_run_one()` ejecuta UNA instrucción completa y DEVUELVE el PC nuevo; el
 // llamante tiene que asignarlo.
 //
-// LÍMITE CONOCIDO: en la fase 1 no hay periféricos y el espacio de I/O del RTL
-// es memoria plana, mientras que simavr sí los modela. Los programas de prueba
-// deben evitar los periféricos. SPL, SPH y SREG sí están soportados.
+// LÍMITE CONOCIDO: el espacio de I/O del RTL sólo tiene periférico de verdad
+// donde ya se ha escrito uno; el resto es memoria plana, mientras que simavr
+// los modela todos. Los programas de prueba deben evitar los que aquí no
+// existen. SPL, SPH y SREG los intercepta el propio núcleo.
+//
+// INTERRUPCIONES: QUIÉN ES EL ORÁCULO DE QUÉ.
+// El Timer0 del RTL y el de simavr NO cuentan igual, y no es un fallo de
+// ninguno de los dos: simavr no cuenta ciclo a ciclo, sino que interpola TCNT0
+// desde `avr->cycle` y ancla su base en el ciclo en que se escribe TCCR0B, con
+// lo que su cuenta va desfasada respecto de un prescaler libre. Compararlos en
+// paralelo sería comparar dos relojes distintos.
+//
+// Así que el trabajo se reparte, que es la estrategia por capas de la fase 2:
+//
+//   CUÁNDO salta   lo decide el RTL, y lo verifica sim/periph/tb_timer0.cpp
+//                  contra un modelo escrito desde la hoja de datos.
+//   QUÉ hace el     lo verifica simavr: cuando el RTL entra en una ISR, el
+//   núcleo          arnés levanta ESE MISMO vector en simavr y le deja ejecutar
+//                   SU secuencia de entrada. Se comparan después el PC —es
+//                   decir, la dirección del vector—, la pila, el SP y el SREG.
+//
+// Esa segunda mitad es justo la parte del núcleo que nunca se había ejercido, y
+// encontró dos fallos reales en la primera ejecución: el vector se calculaba
+// multiplicado por cuatro en vez de por dos, y la máquina de estados de entrada
+// se caía al case de instrucciones en sus ciclos 1 a 3.
 //
 // CAPA 3 - EXACTITUD DE CICLOS (contrato L3).
 // Además del estado, se comprueba CUÁNTOS CICLOS tarda cada instrucción. El
@@ -34,6 +56,7 @@
 extern "C" {
 #include "sim_avr.h"
 #include "sim_core.h"
+#include "sim_interrupts.h"
 }
 
 #include <cstdio>
@@ -136,15 +159,28 @@ static void rtl_load(const std::vector<uint16_t> &words) {
 static uint8_t rtl_reg(int i) { rtl->dbg_reg_addr = i; rtl->eval(); return rtl->dbg_reg_data; }
 static uint8_t rtl_mem(uint16_t a) { rtl->dbg_mem_addr = a; rtl->eval(); return rtl->dbg_mem_data; }
 
+// Qué se acaba de retirar. Hay que capturarlo ANTES del flanco, a la vez que
+// `dbg_retire`: después del flanco el RTL ya está en el ciclo siguiente y
+// `dbg_irq_entry` habla de otra cosa. Es el mismo error de fase que en su día
+// hizo que cada instrucción se ejecutara dos veces.
+static bool rtl_irq_entry = false;
+static int  rtl_irq_vector = 0;
+
 // Avanza el RTL hasta retirar una instrucción. Devuelve los ciclos consumidos.
 static int rtl_step(int limit = 64) {
     int cycles = 0;
     while (cycles < limit) {
         rtl->eval();
-        bool retiring = rtl->dbg_retire;
+        bool retiring   = rtl->dbg_retire;
+        bool irq_entry  = rtl->dbg_irq_entry;
+        int  irq_vector = rtl->dbg_irq_vector;
         tick();
         cycles++;
-        if (retiring) return cycles;
+        if (retiring) {
+            rtl_irq_entry  = irq_entry;
+            rtl_irq_vector = irq_vector;
+            return cycles;
+        }
     }
     return -1;                                  // atascado
 }
@@ -156,6 +192,17 @@ static uint8_t avr_sreg_byte() {
     return s;
 }
 static uint16_t avr_sp() { return avr->data[R_SPL] | (avr->data[R_SPH] << 8); }
+
+// Vector de simavr por número. La tabla es pública y la rellena cada periférico
+// al inicializarse, así que esto no inventa nada: pide el vector que el propio
+// simavr registró para, por ejemplo, el desbordamiento del Timer0.
+static avr_int_vector_t *find_vector(int n) {
+    for (int i = 0; i < avr->interrupts.vector_count; i++)
+        if (avr->interrupts.vector[i] &&
+            avr->interrupts.vector[i]->vector == n)
+            return avr->interrupts.vector[i];
+    return nullptr;
+}
 
 // -------------------------------------------------------------- programa
 static std::vector<uint16_t> load_bin(const char *path) {
@@ -219,6 +266,8 @@ int main(int argc, char **argv) {
     // ---- bucle diferencial ----
     long n = 0, diverged = -1;
     long total_cycles = 0, ref_cycles = 0, checked = 0;
+    long irq_entries = 0;
+    bool sei_anterior = false;
 
     // Discrepancias entre la tabla del manual y la cuenta de simavr. NO son un
     // fallo del RTL: se informan para adjudicarlas contra el manual.
@@ -253,7 +302,49 @@ int main(int argc, char **argv) {
         }
         total_cycles += cyc;
 
-        avr->pc = avr_run_one(avr);
+        bool irq_entry = rtl_irq_entry;
+        if (irq_entry) {
+            // ---- el RTL ha entrado en una interrupción ----
+            int v = rtl_irq_vector;
+
+            // EL RETARDO DE SEI (trampa nº 2) SE COMPRUEBA AQUÍ, y no en
+            // simavr: como es el RTL quien decide cuándo salta, simavr no puede
+            // desmentirle. La regla del manual es que la instrucción SIGUIENTE
+            // a SEI se ejecuta entera antes de atender nada.
+            if (sei_anterior) {
+                printf("\n  INTERRUPCIÓN ATENDIDA DEMASIADO PRONTO\n");
+                printf("    entró en el vector %d justo después de SEI, sin dejar\n"
+                       "    ejecutar la instrucción siguiente (manual del ISA,\n"
+                       "    trampa nº 2 de docs/01-arquitectura.md §8).\n", v);
+                diverged = n; break;
+            }
+
+            avr_int_vector_t *vec = find_vector(v);
+            if (!vec) {
+                printf("\n  VECTOR %d DESCONOCIDO PARA simavr\n", v);
+                printf("    el RTL saltó a un vector que simavr no tiene registrado.\n");
+                diverged = n; break;
+            }
+            uint32_t pc_antes = avr->pc;
+            avr_raise_interrupt(avr, vec);
+            avr_service_interrupts(avr);
+            if (avr->pc == pc_antes) {
+                printf("\n  simavr NO ATENDIÓ EL VECTOR %d\n", v);
+                printf("    lo habitual es que su habilitación (TIMSK) o el bit I\n"
+                       "    no estén puestos en simavr, es decir, que el RTL haya\n"
+                       "    saltado sin que tocara.\n");
+                diverged = n; break;
+            }
+            irq_entries++;
+        } else {
+            avr->pc = avr_run_one(avr);
+            // Hay que llamarlo tras CADA instrucción aunque no haya nada
+            // pendiente: es lo que lleva la cuenta del retardo de SEI dentro de
+            // simavr (`interrupt_state` se pone a -1 al poner el bit I y sólo
+            // vuelve a cero en la siguiente llamada). Sin esto, la primera
+            // interrupción de verdad se quedaría sin atender.
+            avr_service_interrupts(avr);
+        }
 
         // --- comparación ---
         const char *what = nullptr;
@@ -299,6 +390,26 @@ int main(int argc, char **argv) {
         }
 
         // ------------------------------- capa 3: exactitud de ciclos -------
+        // La entrada a interrupción no es una instrucción y no está en la tabla
+        // de opcodes, pero el manual sí le pone precio: 4 ciclos, más los 3 del
+        // JMP del vector, que se cobran solos porque ese JMP se ejecuta como
+        // cualquier otra instrucción. simavr no cobra ninguno —su servicio de
+        // interrupciones no toca `avr->cycle`—, así que aquí no hay contraste
+        // que hacer con él.
+        if (irq_entry) {
+            checked++;
+            covered["entrada a ISR"]++;
+            if (cyc != 4) {
+                printf("\n  LA ENTRADA A ISR NO CUESTA 4 CICLOS\n");
+                printf("    vector %d: RTL=%d ciclos, manual=4\n",
+                       rtl_irq_vector, cyc);
+                diverged = n; break;
+            }
+            sei_anterior = false;
+            continue;
+        }
+        sei_anterior = (insn == 0x9478);        // SEI = BSET 7
+
         int words = (int)(avr->pc / 2) - (int)pc_before;
         int want  = expected_cycles(insn, sreg_before, words);
         int scyc  = (int)(avr->cycle - avr_cyc_before);
@@ -379,8 +490,22 @@ int main(int argc, char **argv) {
             {0x0027, 0x0028, "DDRC y PORTC"},
             {0x002A, 0x002B, "DDRD y PORTD"},
             {0x003E, 0x003E, "GPIOR0"},
+            {0x0044, 0x0045, "TCCR0A y TCCR0B"},
+            {0x0047, 0x0048, "OCR0A y OCR0B"},
             {0x004A, 0x004B, "GPIOR1 y GPIOR2"},
+            {0x006E, 0x006E, "TIMSK0"},
         };
+        // DEL TIMER0 SE COMPARA LO QUE ES ALMACENAMIENTO EN LOS DOS LADOS, y
+        // nada más. Quedan fuera, con motivo:
+        //   TCNT0 (0x46)  simavr lo interpola desde `avr->cycle` con su propia
+        //                 base de tiempo; son dos relojes distintos.
+        //   TIFR0 (0x35)  aquí la pone el temporizador cuando desborda; en
+        //                 simavr sólo cuando el arnés levanta el vector.
+        //   GTCCR (0x43)  para simavr es un byte de almacenamiento; en el chip
+        //                 PSRSYNC se autolimpia y se lee siempre como cero.
+        // Y de TCCR0B sólo coincide lo que se lee: FOC0A y FOC0B son pulsos de
+        // escritura y valen cero al leerse, mientras que simavr guarda el byte
+        // entero. Ningún programa de prueba los escribe.
         // PINB, PINC y PIND quedan FUERA a propósito: en un pin de entrada sin
         // pull-up el pad está flotando y su valor no lo define nadie —ni la
         // hoja de datos ni simavr—. Compararlo sería comparar ruido. Lo que sí
@@ -431,7 +556,12 @@ int main(int argc, char **argv) {
     printf("  %ld instrucciones, %ld ciclos, 0 divergencias\n", n, total_cycles);
     printf("  ciclos: %ld comprobados contra el manual, 0 desviaciones "
            "(simavr contó %ld)\n", checked, ref_cycles);
+    // La cuenta de entradas a ISR va en esta misma línea a propósito: el
+    // objetivo de `make sim-diff` imprime las tres últimas de cada programa.
+    char isr[64] = "";
+    if (irq_entries)
+        snprintf(isr, sizeof(isr), " · %ld entradas a ISR", irq_entries);
     printf("  cobertura de ciclos: %zu mnemónicos distintos · "
-           "espacio de datos idéntico\n", covered.size());
+           "espacio de datos idéntico%s\n", covered.size(), isr);
     return 0;
 }

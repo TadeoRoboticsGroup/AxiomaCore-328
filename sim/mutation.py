@@ -43,6 +43,9 @@ DMEM    = "rtl/mem/axioma_dmem.v"
 PROGMEM = "rtl/mem/axioma_progmem.v"
 DBUS    = "rtl/bus/axioma_dbus.v"
 GPIO    = "rtl/periph/axioma_gpio.v"
+PRESC   = "rtl/periph/axioma_prescaler.v"
+TIMER0  = "rtl/periph/axioma_timer0.v"
+IRQ     = "rtl/periph/axioma_irq.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
 CATALOG = [
@@ -276,14 +279,111 @@ CATALOG = [
 ("decode", DECODE, "sim-decode", "elpm deja de rechazarse",
  "        16'b1001_000?_????_0101: begin op_class = OPC_LPM;  rd = f_rd5; rd_we = 1'b1; ptr_sel = PTR_Z; ptr_mode = PTR_POSTINC; end",
  "        16'b1001_000?_????_0101: begin op_class = OPC_LPM;  rd = f_rd5; rd_we = 1'b1; ptr_sel = PTR_Z; ptr_mode = PTR_POSTINC; end\n        16'b1001_000?_????_0110: begin op_class = OPC_LPM;  rd = f_rd5; rd_we = 1'b1; ptr_sel = PTR_Z; end"),
+# ------------------------------------------- prescaler compartido (trampa 12)
+("timer0", PRESC, "sim-timer0", "PSRSYNC deja de poner el prescaler a cero",
+ "            cnt <= psr_now ? 10'd0 : (cnt + 10'd1);",
+ "            cnt <= cnt + 10'd1;"),
+("timer0", PRESC, "sim-timer0", "TSM no retiene el reset: el prescaler no se puede parar",
+ "            end else if (!tsm_q) begin", "            end else begin"),
+("timer0", PRESC, "sim-timer0", "la toma de /64 se desfasa un ciclo",
+ "assign tick_64   = (cnt[5:0] == 6'b111111)     && !psr_now;",
+ "assign tick_64   = (cnt[5:0] == 6'b111110)     && !psr_now;"),
+
+# ---------------------------------------------------------------- Timer0
+# Ninguno de estos lo puede cazar el contraste contra simavr: su temporizador
+# interpola TCNT0 desde su propio contador de ciclos y ni siquiera modela GTCCR.
+("timer0", TIMER0, "sim-timer0", "en CTC el desbordamiento se marca en TOP y no en MAX",
+ """    wire ev_tov = ck && (mode_pc   ? (dir_down && at_bottom) :
+                         mode_fast ? at_top :
+                                     at_max);""",
+ """    wire ev_tov = ck && (mode_pc   ? (dir_down && at_bottom) :
+                         mode_fast ? at_top :
+                                     at_top);"""),
+("timer0", TIMER0, "sim-timer0", "OCR0x pierde el doble búfer y cambia a mitad de periodo",
+ """                if (hit_ocra) begin
+                    ocra_buf <= io_wdata;
+                    if (!mode_pwm) ocra_act <= io_wdata;
+                end""",
+ """                if (hit_ocra) begin
+                    ocra_buf <= io_wdata;
+                    ocra_act <= io_wdata;
+                end"""),
+("timer0", TIMER0, "sim-timer0", "escribir TCNT0 ya no tapa la comparación siguiente",
+ "wire ev_compa = ck && !tcnt_block && (tcnt_q == ocra_act);",
+ "wire ev_compa = ck && (tcnt_q == ocra_act);"),
+("timer0", TIMER0, "sim-timer0", "atender el vector no limpia la bandera en su origen",
+ """            if (ev_tov)                                  tifr_q[0] <= 1'b1;
+            else if (ack_ovf ||""",
+ """            if (ev_tov)                                  tifr_q[0] <= 1'b1;
+            else if (1'b0 ||"""),
+("timer0", TIMER0, "sim-timer0", "TIFR0 se limpia escribiendo cualquier cosa, no un uno",
+ "                     (io_we && hit_tifr && io_wdata[1])) tifr_q[1] <= 1'b0;",
+ "                     (io_we && hit_tifr)) tifr_q[1] <= 1'b0;"),
+("timer0", TIMER0, "sim-timer0", "la petición ignora la habilitación de TIMSK0",
+ "assign irq_ovf   = tifr_q[0] & timsk_q[0];", "assign irq_ovf   = tifr_q[0];"),
+# Este es el fallo que se cometió al escribir el MODELO de este mismo banco: en
+# PWM de fase correcta el pin se decide con el sentido de la cuenta ANTERIOR al
+# flanco, no con el que queda. Sólo se nota en el modo 5, donde TOP es OCR0A y
+# la comparación cae justo en el ciclo en que la cuenta da la vuelta.
+("timer0", TIMER0, "sim-timer0", "el pin de PWM de fase correcta usa el sentido nuevo",
+ "                    else if (com_a == 2'd2) oc0a_q <= dir_down;",
+ "                    else if (com_a == 2'd2) oc0a_q <= dir_next;"),
+
+# ------------------------------------------ controlador de interrupciones
+("irq", IRQ, "sim-irq", "gana el vector de número más ALTO en vez del más bajo",
+ "        for (i = 25; i >= 1; i = i - 1)", "        for (i = 1; i <= 25; i = i + 1)"),
+("irq", IRQ, "sim-irq", "el vector 0 (RESET) cuenta como interrupción",
+ "        for (i = 25; i >= 1; i = i - 1)", "        for (i = 25; i >= 0; i = i - 1)"),
+("irq", IRQ, "sim-irq", "el reconocimiento vuelve a todos los que piden a la vez",
+ "assign ack[g] = irq_ack && any && (vec == g[4:0]);",
+ "assign ack[g] = irq_ack && src[g];"),
+
+# ------------------------------------------- entrada a ISR del secuenciador
+# La ruta que estuvo escrita y sin ejercer desde la fase 1. Los dos primeros
+# mutantes son los dos fallos REALES que tenía cuando por fin se disparó.
+("seq", SEQ, "sim-diff", "el vector se calcula por cuatro en vez de por dos",
+ "                next_tmp16     = {10'b0, irq_vector, 1'b0};",
+ "                next_tmp16     = {9'b0, irq_vector, 2'b00};"),
+("seq", SEQ, "sim-diff", "la entrada a ISR no se sostiene y se cae al case de instrucciones",
+ "    wire irq_go = irq_take | in_irq;", "    wire irq_go = irq_take;"),
+("seq", SEQ, "sim-diff", "SEI pierde su ciclo de gracia (trampa 2)",
+ "            next_irq_hold = (d_class == OPC_BSET) && (d_bit_num == 3'd7);",
+ "            next_irq_hold = 1'b0;"),
+("seq", SEQ, "sim-diff", "la entrada a ISR apila el byte alto primero",
+ "                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = pc[7:0];",
+ "                dm_addr = sp;  dm_we = 1'b1;  dm_wdata = {2'b00, pc[13:8]};"),
+("seq", SEQ, "sim-diff", "la interrupción se atiende en mitad de una instrucción",
+ "    wire irq_take = irq_req && sreg[SREG_I] && !irq_hold && (cyc == 2'd0);",
+ "    wire irq_take = irq_req && sreg[SREG_I] && !irq_hold;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"
 
 
-def run(target):
-    return subprocess.run(["make", target], cwd=ROOT,
-                          capture_output=True, text=True).returncode == 0
+# EL PYTHON DE LA OSS CAD SUITE ENVENENA A SUS HIJOS. Su `py3bin/python3` se
+# pone `PYTHONHOME` a sí mismo en el propio entorno del proceso, y esa variable
+# la hereda todo lo que lance. El Makefile usa OTRO intérprete —el del venv del
+# proyecto, que es el que tiene numpy—, y ese intérprete arrancado con un
+# PYTHONHOME ajeno muere con «No module named 'encodings'».
+#
+# No se nota al ejecutar `make mutation`, porque entonces quien lanza este
+# script ya es el python del venv. Se nota al ejecutarlo a mano como
+# `python3 sim/mutation.py`, que es justo lo que dice el modo de empleo de
+# arriba: la mutación acababa con «tras restaurar, sim-decode NO pasa» sin que
+# hubiera nada roto.
+ENTORNO = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+
+
+def run(target, quiet=True):
+    r = subprocess.run(["make", target], cwd=ROOT, capture_output=True, text=True,
+                       env=ENTORNO)
+    if not quiet and r.returncode != 0:
+        # Un fallo TRAS restaurar no es un mutante detectado: es que algo va mal
+        # de verdad. Sin la salida no hay por dónde empezar a mirar.
+        print(f"    --- salida de `make {target}` ---")
+        for linea in (r.stdout + r.stderr).strip().splitlines()[-25:]:
+            print(f"    {linea}")
+    return r.returncode == 0
 
 
 class Lock:
@@ -385,7 +485,7 @@ def main():
     # Se reconstruye y se exige que todo vuelva a estar en verde, lo que de
     # paso demuestra que la restauración fue buena.
     print("\n  reconstruyendo tras restaurar...")
-    rotos = [t for t in sorted({c[2] for c in cat}) if not run(t)]
+    rotos = [t for t in sorted({c[2] for c in cat}) if not run(t, quiet=False)]
     if rotos:
         print("  ERROR: tras restaurar, estos objetivos NO pasan:", *rotos, sep="\n    ")
         return 2

@@ -110,7 +110,7 @@ def fig_soc(t):
 
     # ---- plancha del SoC ----
     PY, PH = 88, 768
-    c.box(M, PY, W - 2 * M, PH, t["plate"], t["line"], r=10)
+    c.box(M, PY, W - 2 * M, PH, t["plate"], t["line_strong"], r=10, lw=1.6)
     c.text(M + 16, PY + 22, "axioma328_soc", 11.5, colour=t["muted"], mono=True)
 
     # ---- núcleo ----
@@ -218,7 +218,7 @@ def fig_verif(t):
 
     # ---------------------------------------------------------- flujo
     PY, PH = 106, 272
-    c.box(M, PY, W - 2 * M, PH, t["plate"], t["line"], r=10)
+    c.box(M, PY, W - 2 * M, PH, t["plate"], t["line_strong"], r=10, lw=1.6)
     c.text(M + 16, PY + 22, "co-simulación diferencial", 11.5, colour=t["muted"],
            mono=True)
 

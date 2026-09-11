@@ -36,9 +36,13 @@ LIGHT = dict(
     # se ve el README la mayoría de las veces.
     plate="#1f23280a", panel="#ffffffb3", block="#ffffffb3",
     ok_bg="#1a7f371a", partial_bg="#9a67001a", todo_bg="#1f232811",
-    # El borde también es translúcido: uno opaco se vería como una línea ajena
-    # en cuanto la página no fuera del color previsto.
-    line="#1f23282e",
+    # LOS BORDES SON LO QUE DIBUJA LAS TARJETAS. Con los rellenos convertidos en
+    # lavados translúcidos, el contorno pasa a ser lo que dice dónde empieza y
+    # acaba cada recuadro, así que lleva contraste de verdad y dos pesos: uno
+    # para la plancha que lo envuelve todo y otro para las tarjetas de dentro.
+    # Siguen siendo translúcidos, para que no se vean como una línea ajena en
+    # cuanto la página no sea del color previsto.
+    line="#1f23284d", line_strong="#1f232873",
     # Tintas y trazos: OPACOS. Son lo que hay que leer.
     ink="#1f2328", muted="#59636e", strong="#8c959f",
     ok="#1a7f37", partial="#9a6700", todo="#818b98",
@@ -51,7 +55,7 @@ LIGHT = dict(
 DARK = dict(
     plate="#ffffff0d", panel="#00000040", block="#00000040",
     ok_bg="#3fb95024", partial_bg="#d2992224", todo_bg="#ffffff0f",
-    line="#ffffff30",
+    line="#ffffff59", line_strong="#ffffff87",
     ink="#e6edf3", muted="#9198a1", strong="#6e7681",
     ok="#3fb950", partial="#d29922", todo="#6e7681",
     accent="#4493f8",

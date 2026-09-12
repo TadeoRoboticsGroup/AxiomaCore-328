@@ -39,6 +39,7 @@ module tb_soc_top (
     output wire        sel_timer1,
     output wire        sel_extint,
     output wire        sel_timer2,
+    output wire        sel_spi,
 
     output wire [7:0]  io_rdata
 );
@@ -84,6 +85,7 @@ module tb_soc_top (
     assign sel_timer1 = soc.t1_sel;
     assign sel_extint = soc.ei_sel;
     assign sel_timer2 = soc.t2_sel;
+    assign sel_spi    = soc.sp_sel;
 
 endmodule
 

@@ -50,6 +50,7 @@ RTL = ("rtl/soc/axioma328_soc.v rtl/core/axioma_core.v rtl/core/axioma_seq.v "
        "rtl/periph/axioma_timer1.v rtl/periph/axioma_timer2.v "
        "rtl/periph/axioma_timer8.v "
        "rtl/periph/axioma_usart.v rtl/periph/axioma_extint.v "
+       "rtl/periph/axioma_spi.v "
        "rtl/periph/axioma_irq.v")
 
 # UNOPTFLAT se silencia SÓLO aquí. La instrumentación de cobertura cambia la
@@ -116,6 +117,8 @@ def main():
               "rtl/periph/axioma_usart.v sim/periph/tb_usart.cpp")
     construir("build/vcove", "tb_extintc", "axioma_extint",
               "rtl/periph/axioma_extint.v sim/periph/tb_extint.cpp")
+    construir("build/vcovs", "tb_spic", "axioma_spi",
+              "rtl/periph/axioma_spi.v sim/periph/tb_spi.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
               f"sim/soc/tb_soc_uart_top.v {RTL} sim/soc/tb_soc_uart.cpp")
 
@@ -134,6 +137,7 @@ def main():
     sh("AXIOMA_COV=build/cov/timer2.dat ./build/vcov2/tb_timer2c"); n += 1
     sh("AXIOMA_COV=build/cov/usart.dat ./build/vcovu/tb_usartc"); n += 1
     sh("AXIOMA_COV=build/cov/extint.dat ./build/vcove/tb_extintc"); n += 1
+    sh("AXIOMA_COV=build/cov/spi.dat ./build/vcovs/tb_spic"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")
 

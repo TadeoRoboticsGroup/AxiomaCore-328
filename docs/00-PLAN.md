@@ -709,7 +709,7 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 - [x] **Tercer oráculo independiente**: contraste de los mismos 22 282 240 casos contra `simavr`
       ejecutando instrucciones AVR reales. Encontró un fallo que la verificación contra nuestro
       propio modelo no podía encontrar (flag H de `NEG`).
-- [x] **Prueba de mutación** de todo el RTL: **92 fallos inyectados, 92 detectados**. El banco puede fallar, y se comprueba que puede.
+- [x] **Prueba de mutación** de todo el RTL: **160 fallos inyectados, 160 detectados** —eran 92 al cerrar la fase 1; el catálogo crece con cada periférico—. El banco puede fallar, y se comprueba que puede.
 - [x] `regfile.v` — 2R/1W más un puerto de 16 bits direccionado por índice de par, de modo que la
       interfaz no puede expresar una dirección impar. 800 064 comprobaciones contra un modelo
       sombra en 200 000 ciclos aleatorios, 0 fallos; 3 de 3 mutantes detectados.
@@ -806,8 +806,8 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       para lo que existe el voto por mayoría.
 - [x] **Top de ECP5 y bitstream.** `rtl/fpga/ecp5/axioma_ulx3s_top.v`: PLL, secuencia de reset,
       celdas de pad con triestado y PORTB espejado en los LED. `make bitstream-ulx3s` produce
-      269 KB para la ULX3S 25F, con el **27 % de las LUT y el 58 % de la BRAM** — la medida es de
-      después del Timer1 y de la USART, que es lo que ha subido las LUT.
+      276 KB para la ULX3S 25F, con el **29 % de las LUT y el 58 % de la BRAM** — la medida es de
+      después del Timer2 y del SPI, que es lo que ha subido las LUT.
 - [x] **Bootstrap: el programa va dentro del bitstream.** `tools/bin2mem.py` convierte el binario
       de avr-gcc en el fichero que `$readmemh` precarga en la memoria de programa.
 - [x] **Subir el reloj, primera vuelta.** De **15,55 a 20,28 MHz** con la misma restricción
@@ -952,7 +952,37 @@ enumerado** en vez de implícito.
 
       Los seis canales llegan al pad y `make sim-hello` **los mide todos en el pin a la vez**, con
       seis ciclos de trabajo distintos a propósito: un mapa de pines cruzado cambia las cifras.
-- [ ] `spi.v`, `twi.v` (con modelos de bus en el testbench).
+- [x] **`spi.v`, maestro y esclavo.** Los cuatro modos de `CPOL`/`CPHA`, `DORD`, las ocho
+      divisiones de reloj con `SPI2X`, el doble búfer de recepción, `WCOL`, la secuencia de dos
+      accesos que limpia `SPIF` —la trampa nº 11 otra vez— y la detección de colisión de maestros.
+
+      **El oráculo es el otro extremo del cable.** simavr no serializa nada: su `avr_spi_write`
+      guarda el byte, programa un temporizador de `clkdiv*8` ciclos y levanta la interrupción, de
+      modo que leer `SPDR` devuelve **lo que se escribió**. Así que el banco implementa un maestro
+      y un esclavo desde la hoja de datos y los enchufa al DUT; si los dos extremos no coinciden
+      bit a bit, uno de los dos está mal.
+
+      **Encontró tres fallos reales en el RTL, y los tres son de los que no dan ningún error:**
+      el maestro muestreaba `MISO` a través del sincronizador de dos etapas —a `fosc/4` eso es un
+      bit entero y todo llega desplazado—; el reloj se cortaba medio periodo antes de volver al
+      reposo; y `SPIF` se levantaba con ese medio periodo todavía por delante, con lo que el
+      modismo `while(!(SPSR&(1<<SPIF))); SPDR = siguiente;` se llevaba un `WCOL` y perdía el byte
+      en silencio.
+
+      **Y un cuarto de compatibilidad:** la colisión de maestros sólo aplica si `SS` es ENTRADA. Sin
+      eso, un `digitalWrite(SS, LOW)` —como selecciona a su esclavo cualquier sketch de Arduino—
+      borraba `MSTR` en la primera transferencia.
+
+      El SPI comparte pines con los temporizadores —PB3 es `MOSI` y `OC2A`; PB2 es `SS` y `OC1B`—
+      y con `SPE` puesto manda el SPI, que es lo que dice la tabla de anulaciones. Para forzar la
+      dirección hizo falta darle a `axioma_gpio` una anulación **de dirección** separada de la de
+      valor: la tabla 18-1 sí fuerza a entrada `MISO` en el maestro y `SS`, `MOSI` y `SCK` en el
+      esclavo, mientras que los canales de comparación no fuerzan la dirección nunca.
+
+      `make sim-hello` cierra el lazo a nivel de SoC: el firmware hace una transacción de arranque
+      de tres bytes y el banco **la decodifica del pin** con el reloj de `SCK`, como un analizador
+      lógico. Es lo único que ve si el SoC encamina el pin a quien manda en cada momento.
+- [ ] `twi.v` (con modelos de bus en el testbench).
 - [ ] `adc.v` (controlador SAR; comparador externo o modelo), `ac.v`, `wdt.v`.
 - [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos
       —uno por pin y con dirección de flanco, otro por puerto y sólo «algo cambió»— pero comparten
@@ -974,7 +1004,7 @@ enumerado** en vez de implícito.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 15—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta —hoy lo hacen 16—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

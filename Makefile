@@ -74,6 +74,7 @@ help:
 	@echo "  make sim-timer1       Timer1 de 16 bits: los 16 modos y el TEMP"
 	@echo "  make sim-timer2       Timer2: prescaler propio y modo asincrono"
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
+	@echo "  make sim-spi          SPI: los cuatro modos, maestro y esclavo"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -270,6 +271,14 @@ sim-timer2:
 	  rtl/periph/axioma_prescaler.v sim/periph/tb_timer2.cpp >/dev/null
 	@./$(BUILD)/vtimer2/tb_timer2
 
+.PHONY: sim-spi
+sim-spi:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vspi -o tb_spi \
+	  --top-module axioma_spi \
+	  rtl/periph/axioma_spi.v sim/periph/tb_spi.cpp >/dev/null
+	@./$(BUILD)/vspi/tb_spi
+
 .PHONY: sim-extint
 sim-extint:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
@@ -357,7 +366,8 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
             rtl/periph/axioma_timer1.v rtl/periph/axioma_timer2.v \
             rtl/periph/axioma_timer8.v rtl/periph/axioma_usart.v \
-            rtl/periph/axioma_extint.v rtl/periph/axioma_irq.v
+            rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
+            rtl/periph/axioma_irq.v
 
 .PHONY: sim-soc
 sim-soc:
@@ -394,7 +404,7 @@ DIFF_SRCS := rtl/soc/axioma328_soc.v \
              rtl/periph/axioma_gpior.v rtl/periph/axioma_prescaler.v \
              rtl/periph/axioma_timer0.v rtl/periph/axioma_timer1.v \
              rtl/periph/axioma_timer2.v rtl/periph/axioma_timer8.v \
-             rtl/periph/axioma_extint.v \
+             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
              rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 

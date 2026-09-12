@@ -532,6 +532,7 @@ int main(int argc, char **argv) {
             {0x0080, 0x0081, "TCCR1A y TCCR1B"},
             {0x0088, 0x008B, "OCR1A y OCR1B"},
             {0x006F, 0x006F, "TIMSK1"},
+            {0x004C, 0x004C, "SPCR"},
             {0x00C2, 0x00C2, "UCSR0C"},
             {0x00C4, 0x00C5, "UBRR0L y UBRR0H"},
         };
@@ -556,6 +557,15 @@ int main(int argc, char **argv) {
         // Y de TCCR0B sólo coincide lo que se lee: FOC0A y FOC0B son pulsos de
         // escritura y valen cero al leerse, mientras que simavr guarda el byte
         // entero. Ningún programa de prueba los escribe.
+        //
+        // DEL SPI SÓLO SE COMPARA SPCR, y por el mismo motivo que con la
+        // USART: simavr no modela el cable. Su `avr_spi_write` guarda el byte
+        // en SPDR y programa un temporizador; **leer SPDR devuelve lo que se
+        // escribió**, porque no hay nada al otro lado. En el SoC, MISO está
+        // forzado a entrada con su pull-up, así que un maestro sin nada
+        // conectado recibe 0xFF. Y SPSR queda fuera porque simavr limpia SPIF
+        // al leer SPDR, sin la secuencia de dos accesos de la hoja de datos, y
+        // no modela WCOL en absoluto.
         //
         // DE LA USART SE COMPARA MENOS TODAVÍA, porque simavr NO MODELA EL
         // CABLE: transporta bytes enteros por IRQs internas y aproxima el

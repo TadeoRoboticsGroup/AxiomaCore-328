@@ -163,19 +163,23 @@ def fig_soc(t):
     c.box(IN_L, GY, IN_W, GH, t["panel"], t["line"], r=8)
     c.text(IN_L + 14, GY + 21, "en el espacio de datos", 11.5, colour=t["muted"],
            mono=True)
+    nota = "timer0 y timer2 comparten axioma_timer8, el motor de onda de 8 bits"
+    c.text(IN_L + IN_W - 14 - c.measure(nota, 10.5, mono=True), GY + 21,
+           nota, 10.5, colour=t["muted"], mono=True)
     c.path([(450, BY + BH + 4), (450, GY - 5)], colour=t["strong"])
 
     cells = [("axioma_dmem", ["2 KB de SRAM · flanco de bajada"], OK),
-             ("axioma_gpio", ["PORTB · PORTC · PORTD · toggle por PINx"], OK),
+             ("axioma_gpio", ["PORTB/C/D · toggle por PINx · anulación"], OK),
              ("axioma_gpior", ["GPIOR0/1/2 · almacenamiento puro"], OK),
              ("axioma_prescaler", ["10 bits · COMPARTIDO por timer0 y timer1"], OK),
              ("axioma_timer0", ["8 modos de onda · OC0A/OC0B · T0"], OK),
-             ("axioma_timer1/2", ["registro TEMP de 16 bits · 6 PWM"], TODO),
+             ("axioma_timer1", ["16 bits · captura · TEMP compartido"], OK),
+             ("axioma_timer2", ["prescaler propio · modo asíncrono"], OK),
+             ("axioma_usart", ["generador de baudios · FIFO de 2"], OK),
+             ("axioma_spi", ["maestro y esclavo · los cuatro modos"], OK),
+             ("axioma_extint", ["INT0/1 · PCINT0/1/2"], OK),
              ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
-             ("usart", ["generador de baudios · modelo de bus"], TODO),
-             ("spi · twi", ["modelos de bus en el banco"], TODO),
-             ("adc · ac · wdt", ["SAR de 10 bits · 8 canales"], TODO),
-             ("extint · pcint", ["INT0/1 · PCINT0/1/2"], TODO)]
+             ("twi · adc · ac · wdt", ["modelos de bus en el banco"], TODO)]
     gw = (IN_W - 32 - 24) / 3
     for i, (nm, sub, st) in enumerate(cells):
         gx = IN_L + 16 + (i % 3) * (gw + 12)
@@ -194,7 +198,7 @@ def fig_soc(t):
     # La leyenda sólo lista los estados que la figura USA. Ahora mismo no hay
     # ningún bloque a medio verificar; el día que lo haya, PARTIAL vuelve aquí.
     legend(c, M, 954, [(OK, "verificado contra un oráculo independiente"),
-                       (TODO, "pendiente — fases 2 y 3")])
+                       (TODO, "pendiente — fase 3 en adelante")])
     return c
 
 
@@ -261,7 +265,7 @@ def fig_verif(t):
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
          "160 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "92/92", "detectados",
+        ("El propio banco", "prueba de mutación", "160/160", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

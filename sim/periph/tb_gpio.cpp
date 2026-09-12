@@ -55,9 +55,19 @@ struct Model {
     // pin, el VALOR lo pone él. La DIRECCIÓN sigue siendo de DDRx — el manual
     // es explícito, y modelarlo al revés haría funcionar un `analogWrite()` sin
     // `pinMode()`, que en el chip no saca nada.
+    // Y la anulación de la DIRECCIÓN, que es otra señal y otro mecanismo: el
+    // `DDOE` del diagrama de pin de la hoja de datos. La usa el SPI —tabla
+    // 18-1—, no los canales de comparación.
     uint8_t ovr_en = 0, ovr_val = 0;
+    uint8_t dir_ovr_en = 0, dir_ovr_val = 0;
     uint8_t salida() const { return (uint8_t)((port & ~ovr_en) | (ovr_val & ovr_en)); }
-    uint8_t pad() const { return (uint8_t)((salida() & ddr) | ((~ddr & port) & ~ddr)); }
+    uint8_t oe() const {
+        return (uint8_t)((ddr & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en));
+    }
+    uint8_t pull() const { return (uint8_t)(~oe() & port & 0xFF); }
+    uint8_t pad() const {
+        return (uint8_t)((salida() & oe()) | (pull() & ~oe()));
+    }
 
     // Un ciclo de reloj. El sincronizador captura el pad ANTES de que la
     // escritura de este ciclo tenga efecto: por eso se calcula primero.
@@ -90,7 +100,8 @@ int main(int argc, char **argv) {
 
     dut->rst_n = 0; dut->clk = 0;
     dut->io_addr = 0; dut->io_re = 0; dut->io_we = 0; dut->io_wdata = 0;
-    dut->pad_in = 0; dut->ovr_en = 0; dut->ovr_val = 0; dut->eval();
+    dut->pad_in = 0; dut->ovr_en = 0; dut->ovr_val = 0;
+    dut->dir_ovr_en = 0; dut->dir_ovr_val = 0; dut->eval();
     tick();
     dut->rst_n = 1; dut->eval();
 
@@ -110,6 +121,15 @@ int main(int argc, char **argv) {
                                      : rng() % 2 == 0 ? A_DDR : A_PORT);
         const uint8_t data = (uint8_t)(rng() & 0xFF);
 
+        // Las dos anulaciones se mueven tambien en el barrido aleatorio: sin
+        // eso solo estarian probadas en la fase dirigida, con una mascara fija.
+        if ((rng() % 37) == 0) {
+            m.ovr_en      = (uint8_t)rng();  m.ovr_val      = (uint8_t)rng();
+            m.dir_ovr_en  = (uint8_t)rng();  m.dir_ovr_val  = (uint8_t)rng();
+            dut->ovr_en     = m.ovr_en;      dut->ovr_val     = m.ovr_val;
+            dut->dir_ovr_en = m.dir_ovr_en;  dut->dir_ovr_val = m.dir_ovr_val;
+        }
+
         // El pad se realimenta como en el SoC: es lo que hace que un pin de
         // salida se lea a sí mismo y uno de entrada con pull-up lea 1.
         dut->pad_in = m.pad();
@@ -119,9 +139,9 @@ int main(int argc, char **argv) {
         dut->eval();
 
         // Las salidas de pad son combinacionales sobre el estado actual.
-        chk("pad_out",    dut->pad_out,    m.port,          t);
-        chk("pad_oe",     dut->pad_oe,     m.ddr,           t);
-        chk("pad_pullup", dut->pad_pullup, (~m.ddr) & m.port & 0xFF, t);
+        chk("pad_out",    dut->pad_out,    m.salida(),      t);
+        chk("pad_oe",     dut->pad_oe,     m.oe(),          t);
+        chk("pad_pullup", dut->pad_pullup, m.pull(),        t);
         chk("io_sel",     dut->io_sel,     1,               t);
 
         // Lectura del ciclo actual, antes del flanco.
@@ -132,6 +152,14 @@ int main(int argc, char **argv) {
     }
 
     // ---------------- 3. el sincronizador, dirigido ----------------
+    // Las dos anulaciones se sueltan antes de empezar: el barrido aleatorio las
+    // deja donde le toco, y una fase dirigida que dependa de lo que dejo la
+    // anterior no comprueba lo que cree comprobar.
+    m.ovr_en = 0; m.ovr_val = 0; m.dir_ovr_en = 0; m.dir_ovr_val = 0;
+    dut->ovr_en = 0; dut->ovr_val = 0;
+    dut->dir_ovr_en = 0; dut->dir_ovr_val = 0;
+    dut->eval();
+
     // Es la comprobación que el diferencial contra simavr NO puede hacer.
     // Se escribe PORTx con todo el puerto como salida y se lee PINx en el
     // ciclo siguiente: tiene que devolver todavía el valor ANTERIOR.
@@ -200,6 +228,35 @@ int main(int argc, char **argv) {
         dut->pad_in = m.pad(); dut->eval();
         chk("la direccion la sigue mandando DDRx", dut->pad_oe, 0x00, 0);
         dut->ovr_en = 0; m.ovr_en = 0;
+        escribir(A_DDR, 0xFF);
+
+        // PERO LA DIRECCION SI SE ANULA cuando quien lo pide es el otro
+        // mecanismo. Es la tabla 18-1 del SPI: «this pin is configured as an
+        // input regardless of the setting of DDB2». Con DDRx a salida y la
+        // anulacion de direccion pidiendo entrada, el pin NO conduce.
+        escribir(A_DDR, 0xFF);
+        dut->dir_ovr_en = 0x04; dut->dir_ovr_val = 0x00;   // el bit 2, como SS
+        m.dir_ovr_en = 0x04;    m.dir_ovr_val = 0x00;
+        dut->pad_in = m.pad(); dut->eval();
+        chk("el SPI fuerza el pin a entrada", dut->pad_oe & 0x04, 0x00, 0);
+        chk("y no toca la direccion de los demas",
+            dut->pad_oe & ~0x04, m.oe() & ~0x04, 0);
+
+        // Y con PORTx a uno, ese pin forzado a entrada lleva pull-up: es lo
+        // que evita que un esclavo sin maestro se quede seleccionado por ruido.
+        escribir(A_PORT, 0xFF);
+        dut->pad_in = m.pad(); dut->eval();
+        chk("un SS forzado a entrada lleva pull-up", dut->pad_pullup & 0x04, 0x04, 0);
+
+        // Al reves: forzada a SALIDA con DDRx a entrada.
+        escribir(A_DDR, 0x00);
+        dut->dir_ovr_en = 0x08; dut->dir_ovr_val = 0x08;   // el bit 3, como MOSI
+        m.dir_ovr_en = 0x08;    m.dir_ovr_val = 0x08;
+        dut->pad_in = m.pad(); dut->eval();
+        chk("y puede forzarlo a salida", dut->pad_oe & 0x08, 0x08, 0);
+
+        dut->dir_ovr_en = 0; dut->dir_ovr_val = 0;
+        m.dir_ovr_en = 0;    m.dir_ovr_val = 0;
         escribir(A_DDR, 0xFF);
     }
 

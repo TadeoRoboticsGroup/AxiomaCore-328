@@ -47,6 +47,28 @@ static const double BAUD_NOMINAL = 19200.0;
 // extremos. Se exige la mitad para dejar sitio al otro lado.
 static const double TOLERANCIA = 0.025;
 
+// Comprobacion de la trama SPI, fuera de main para no alargarlo.
+static int fails_spi = 0;
+static std::vector<uint8_t> *spi_leidos = nullptr;
+static const uint8_t *spi_esperados = nullptr;
+static void checks_spi() {
+    if (!spi_leidos) return;
+    if (spi_leidos->size() != 3) {
+        printf("  FALLA: se esperaban 3 bytes por MOSI y llegaron %zu; "
+               "el SPI no se adueña del pin\n", spi_leidos->size());
+        fails_spi++;
+        return;
+    }
+    for (int i = 0; i < 3; i++)
+        if ((*spi_leidos)[i] != spi_esperados[i]) {
+            printf("  FALLA: byte %d de la trama SPI: leido 0x%02X, "
+                   "esperado 0x%02X\n", i, (*spi_leidos)[i], spi_esperados[i]);
+            fails_spi++;
+        }
+    if (!fails_spi)
+        printf("  la trama SPI llego entera y en orden: A5 3C 81\n");
+}
+
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     if (argc < 2) { fprintf(stderr, "uso: %s <programa.bin>\n", argv[0]); return 2; }
@@ -116,6 +138,21 @@ int main(int argc, char **argv) {
         {"OC2B (PD3)", 1, 3, 159.0},
     };
 
+    // LA TRANSACCION SPI DEL ARRANQUE, decodificada del PIN. El firmware manda
+    // tres bytes por MOSI (PB3) con el reloj en SCK (PB5) antes de soltar los
+    // pines, y el banco los lee como los leeria un analizador logico: muestrea
+    // MOSI en cada flanco de SUBIDA de SCK, que es lo que toca en modo 0.
+    //
+    // Esto es lo unico que ve si el SoC encamina los pines al que manda: la
+    // co-simulacion no puede, porque simavr no serializa nada y no hay nadie
+    // escuchando al otro lado del cable.
+    static const uint8_t SPI_ESPERADO[3] = { 0xA5, 0x3C, 0x81 };
+    std::vector<uint8_t> spi_bytes;
+    spi_leidos = &spi_bytes; spi_esperados = SPI_ESPERADO;
+    int  spi_sck_previo = -1;
+    int  spi_bits = 0;
+    uint8_t spi_byte = 0;
+
     // El byte que se le manda al chip para que lo devuelva, y en qué ciclo.
     // Se espera a que haya salido el saludo para no mezclar las dos cosas.
     const uint8_t ECO = 'Z';
@@ -143,8 +180,28 @@ int main(int argc, char **argv) {
             }
         }
 
+        // --- la transaccion SPI del arranque ---
+        // Se deja de mirar en cuanto estan los tres bytes: despues, PB5 vuelve
+        // a ser el LED y sus conmutaciones no son bits.
+        if (spi_bytes.size() < 3 && (dut->portb_oe & 0x20)) {
+            int sck = (dut->portb >> 5) & 1;
+            if (spi_sck_previo == 0 && sck == 1) {
+                spi_byte = (uint8_t)((spi_byte << 1) | ((dut->portb >> 3) & 1));
+                if (++spi_bits == 8) {
+                    spi_bytes.push_back(spi_byte);
+                    spi_bits = 0; spi_byte = 0;
+                }
+            }
+            spi_sck_previo = sck;
+        }
+
+        // Mientras dura la transaccion SPI del arranque, PB5 es SCK y PB3 es
+        // MOSI: sus flancos son bits, no parpadeos ni PWM. Se empieza a medir
+        // cuando el SPI suelta los pines.
+        const bool spi_hecho = spi_bytes.size() >= 3;
+
         // --- el LED ---
-        if (dut->portb_oe & 0x20) {
+        if (spi_hecho && (dut->portb_oe & 0x20)) {
             int pb5 = (dut->portb >> 5) & 1;
             if (pb5_previo >= 0 && pb5 != pb5_previo) conmutaciones++;
             pb5_previo = pb5;
@@ -155,6 +212,7 @@ int main(int argc, char **argv) {
         // que el programa ponga DDRx no hay forma de onda que medir, y ese es
         // el comportamiento del chip, no un atajo del banco.
         for (auto &ch : canales) {
+            if (!spi_hecho) break;
             uint8_t val = ch.puerto ? dut->portd    : dut->portb;
             uint8_t oe  = ch.puerto ? dut->portd_oe : dut->portb_oe;
             if (!((oe >> ch.bit) & 1)) continue;
@@ -241,6 +299,10 @@ int main(int argc, char **argv) {
         fails++;
     }
 
+    // --- lo que salio por MOSI ---
+    printf("  SPI: %zu bytes leidos del pin MOSI con el reloj de SCK\n",
+           spi_bytes.size());
+    checks_spi();
     printf("  el LED conmuto %ld veces\n", conmutaciones);
     if (conmutaciones == 0) {
         printf("  FALLA: PB5 no parpadeo\n");
@@ -267,7 +329,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    fails += fails_spi;
     if (fails) return 1;
-    printf("  Blink y Serial, leidos del pin: criterio de la fase 2 cumplido\n");
+    printf("  Blink, Serial y SPI, leidos del pin: criterio de la fase 2 cumplido\n");
     return 0;
 }

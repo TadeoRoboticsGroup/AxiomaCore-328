@@ -136,8 +136,38 @@ module axioma328_soc #(
 
     wire oc2a, oc2a_en, oc2b, oc2b_en;
 
-    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1b_en, oc1a_en, 1'b0};
-    wire [7:0] ovr_b_val = {4'b0, oc2a,    oc1b,    oc1a,    1'b0};
+    // EL SPI COMPARTE PINES CON LOS TEMPORIZADORES, y la hoja de datos dice
+    // quién gana: con `SPE` puesto, el SPI se adueña de los suyos. PB3 es a la
+    // vez MOSI y OC2A, y PB2 es a la vez SS y OC1B.
+    //
+    //   PB2  SS    / OC1B      PB4  MISO
+    //   PB3  MOSI  / OC2A      PB5  SCK
+    //
+    // De la DIRECCIÓN se ocupa la otra anulación, la de la tabla 18-1: como
+    // maestro se fuerza MISO a entrada, y como esclavo se fuerzan SS, MOSI y
+    // SCK. Lo demás lo sigue poniendo el programa con DDRB.
+    wire spi_sck, spi_sck_oe, spi_mosi, spi_mosi_oe, spi_miso, spi_miso_oe;
+    wire spi_ss_force;
+    wire spi_maestro = spi_sck_oe;          // sólo el maestro conduce SCK
+    wire spi_esclavo = spi_ss_force;        // sólo el esclavo fuerza SS a entrada
+
+    wire [7:0] ovr_b_en  = {2'b0, spi_sck_oe,
+                            spi_miso_oe,
+                            spi_mosi_oe | oc2a_en,
+                            oc1b_en, oc1a_en, 1'b0};
+    wire [7:0] ovr_b_val = {2'b0, spi_sck,
+                            spi_miso,
+                            spi_mosi_oe ? spi_mosi : oc2a,
+                            oc1b, oc1a, 1'b0};
+
+    // Anulación de DIRECCIÓN. Sólo el SPI la usa, y sólo para forzar a ENTRADA
+    // -salvo nada: el 328P no fuerza ningún pin del SPI a salida-.
+    wire [7:0] dir_b_en  = {2'b0, spi_esclavo,          // PB5 SCK
+                            spi_maestro,                 // PB4 MISO
+                            spi_esclavo,                 // PB3 MOSI
+                            spi_esclavo,                 // PB2 SS
+                            2'b0};
+    // Todas fuerzan ENTRADA: el 328P no fuerza a salida ningún pin del SPI.
     wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en, 3'b0};
     wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    1'b0, oc2b,    3'b0};
 
@@ -150,6 +180,7 @@ module axioma328_soc #(
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gb_rd), .io_sel(gb_sel),
         .ovr_en(ovr_b_en), .ovr_val(ovr_b_val),
+        .dir_ovr_en(dir_b_en), .dir_ovr_val(8'h00),
         .pad_in(pb_in), .pad_out(pb_out), .pad_oe(pb_oe), .pad_pullup(pb_pu)
     );
     // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
@@ -158,6 +189,7 @@ module axioma328_soc #(
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gc_rd), .io_sel(gc_sel),
         .ovr_en(8'h00), .ovr_val(8'h00),       // el puerto C no tiene canales
+        .dir_ovr_en(8'h00), .dir_ovr_val(8'h00),
         .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
     );
     axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
@@ -165,6 +197,7 @@ module axioma328_soc #(
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gd_rd), .io_sel(gd_sel),
         .ovr_en(ovr_d_en), .ovr_val(ovr_d_val),
+        .dir_ovr_en(8'h00), .dir_ovr_val(8'h00),
         .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
     );
 
@@ -267,6 +300,28 @@ module axioma328_soc #(
         .ack_compb(irq_ack_v[8])
     );
 
+    // ---------------------------------------------------------------- SPI
+    wire [7:0] sp_rd;
+    wire       sp_sel, sp_irq;
+
+    axioma_spi spi (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(sp_rd), .io_sel(sp_sel),
+        // `pb_oe[2]` es DDB2 ya resuelto: PB2 sólo lleva anulación de
+        // dirección cuando el SPI es esclavo, y ahí SS es entrada de todos
+        // modos, así que fuera de ese caso vale exactamente lo que el programa
+        // escribió en DDRB.
+        .ss_es_salida(pb_oe[2]),
+        .ss_pin(pb_in[2]), .sck_pin(pb_in[5]),
+        .mosi_pin(pb_in[3]), .miso_pin(pb_in[4]),
+        .sck_out(spi_sck),   .sck_oe(spi_sck_oe),
+        .mosi_out(spi_mosi), .mosi_oe(spi_mosi_oe),
+        .miso_out(spi_miso), .miso_oe(spi_miso_oe),
+        .ss_oe_force(spi_ss_force),
+        .irq_spi(sp_irq), .ack_spi(irq_ack_v[17])
+    );
+
     // ---------------------------------------------- interrupciones externas
     // Los pines llegan tal como los ve el pad. INT0 e INT1 viven DENTRO del
     // puerto D —PD2 y PD3—, así que no se pasan aparte: un solo camino hasta
@@ -297,9 +352,9 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd | t2_rd;
+                    | us_rd | ei_rd | t2_rd | sp_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
-                    | t1_sel | us_sel | ei_sel | t2_sel;
+                    | t1_sel | us_sel | ei_sel | t2_sel | sp_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -314,7 +369,7 @@ module axioma328_soc #(
                        us_txc,        // 20      USART_TX
                        us_udre,       // 19      USART_UDRE
                        us_rxc,        // 18      USART_RX
-                       1'b0,          // 17      SPI_STC
+                       sp_irq,        // 17      SPI_STC
                        tm_ovf,        // 16      TIMER0_OVF
                        tm_compb,      // 15      TIMER0_COMPB
                        tm_compa,      // 14      TIMER0_COMPA
@@ -336,12 +391,12 @@ module axioma328_soc #(
     // Los reconocimientos de los vectores que aún no tienen periférico no van a
     // ninguna parte, igual que sus peticiones.
     // Los reconocimientos que no van a ninguna parte, y por qué:
-    //   25..21, 17, 6, 0  vectores sin periférico todavía.
+    //   25..21, 6, 0  vectores sin periférico todavía.
     //   19 (USART_UDRE)   su bandera no la limpia el vector: la limpia
     //                     ESCRIBIR UDR0, que es lo que hace la ISR.
     //   18 (USART_RX)     ídem, la limpia LEER UDR0.
     // Sólo TXC se limpia al atender su vector, y ése sí está conectado.
-    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17],
+    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:18],
                         irq_ack_v[6], irq_ack_v[0]};
 
     axioma_irq irqc (

@@ -125,6 +125,34 @@ int main(void)
     OCR2B  = 159;                            /* 160 de 256: un 62,5 % */
     TCCR2B = (1 << CS21);                    /* clk/8 */
 
+    /* SPI: una transacción de arranque, como la que configura una pantalla o
+     * una tarjeta SD antes de que empiece el programa de verdad.
+     *
+     * PB5 ES A LA VEZ SCK Y EL LED —en un Arduino Uno también, y por eso el LED
+     * parpadea cuando se usa el SPI—. Mientras `SPE` esté puesto, el pin lo
+     * conduce el SPI; al soltarlo vuelve a `PORTB5` y el parpadeo sigue como si
+     * nada. Que el banco vea las dos cosas es lo que verifica que el SoC
+     * encamina el pin al que manda en cada momento.
+     *
+     * `SS` (PB2) va como SALIDA y se conduce a cero para seleccionar, que es lo
+     * que hace cualquier sketch. Con SS como salida, tirarlo abajo NO borra
+     * MSTR: la hoja de datos dice que ahí el pin es de propósito general. */
+    {
+        static const uint8_t trama[3] = { 0xA5, 0x3C, 0x81 };
+        uint8_t i;
+
+        PORTB |= (1 << PB2);                  /* SS en alto: nadie seleccionado */
+        SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0);   /* maestro, fosc/16 */
+        PORTB &= (uint8_t)~(1 << PB2);        /* seleccionar */
+        for (i = 0; i < sizeof(trama); i++) {
+            SPDR = trama[i];
+            while (!(SPSR & (1 << SPIF)))
+                ;
+        }
+        PORTB |= (1 << PB2);                  /* soltar la seleccion */
+        SPCR = 0;                             /* y los pines: PB5 vuelve al LED */
+    }
+
     usart_init();
     sei();
 

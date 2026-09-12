@@ -12,7 +12,7 @@ validado en FPGA y preparado para tape-out en un PDK abierto.
 [![HDL](https://img.shields.io/badge/HDL-Verilog--2001-ff6600)](rtl/)
 [![FPGA](https://img.shields.io/badge/FPGA-Lattice%20ECP5-6a1b9a)](rtl/fpga/ecp5/)
 [![PDK](https://img.shields.io/badge/PDK-Sky130-7b1fa2)](docs/00-PLAN.md)
-[![Fase](https://img.shields.io/badge/Fase%201-n%C3%BAcleo%20ISA-9a6700)](docs/00-PLAN.md)
+[![Fase](https://img.shields.io/badge/Fase%203-perif%C3%A9ricos-9a6700)](docs/00-PLAN.md)
 
 </div>
 
@@ -59,10 +59,11 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/periph/axioma_usart.v` | **Verificado** | 44 082 comprobaciones contra un **receptor escrito desde la hoja de datos**, que decodifica el pin: las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores |
 | `rtl/periph/axioma_timer2.v` | **Verificado** | **4 666 627 comprobaciones** contra un modelo de la hoja de datos: las ocho tomas de su **prescaler propio** —incluidas `/32` y `/128`, que los otros dos no tienen—, que `PSRASY` lo ponga a cero y `PSRSYNC` no lo toque, y el **modo asíncrono**, que cuenta `TOSC1` y sin cristal no cuenta |
 | `rtl/periph/axioma_timer8.v` | **Verificado** | La máquina de forma de onda de 8 bits, **una sola vez para el Timer0 y el Timer2**: la hoja de datos los describe con las mismas palabras. La ejercitan los dos bancos, y un mutante inyectado en ella muere en los dos |
+| `rtl/periph/axioma_spi.v` | **Verificado** | **Maestro y esclavo**, contra el otro extremo del cable escrito desde la hoja de datos: los cuatro modos de `CPOL`/`CPHA` por los dos órdenes de bit, las ocho divisiones de reloj, `WCOL`, la secuencia de dos accesos que limpia `SPIF`, y que la colisión de maestros **no** salte cuando `SS` es salida —que es como selecciona a su esclavo cualquier sketch— |
 | `rtl/periph/axioma_extint.v` | **Verificado** | **2 501 159 comprobaciones** contra un modelo de la hoja de datos, más un programa de co-simulación contra `simavr`: los cuatro modos de `ISCn`, el de **nivel bajo** —que no deja bandera y sostiene la petición—, que la bandera se ponga con el vector deshabilitado, y que `PCMSKn` filtre la bandera mientras `PCICR` sólo filtra el salto |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
-| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 269 KB para la ULX3S 25F. `nextpnr` mide **Fmax 20,32 MHz** bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,63× |
-| `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5 y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
+| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 276 KB para la ULX3S 25F. `nextpnr` mide **Fmax 18,76 MHz** bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,50× |
+| `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
 | `rtl/core/axioma_seq.v` | **Verificado** | 9 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
@@ -70,17 +71,17 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | Tabla de ciclos (nivel L3) | **Verificada** | 160 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
 | Entrada a interrupción | **Verificada** | 294 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
-| SPI, TWI, ADC, EEPROM, watchdog, comparador analógico | Pendientes | Fase 3 |
+| TWI, ADC, EEPROM, watchdog, comparador analógico | Pendientes | Fase 3 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   26/26 objetivos en verde
-mutación   144/144 fallos inyectados, 144 detectados
-cobertura   99,8 % del RTL, fusionando todas las fuentes
-            17 de 20 módulos al 100 %; los 5 puntos restantes, adjudicados
-síntesis    sin latches · el SoC entero: 7 534 LUT4 y 1 038 FF en el ECP5
-bitstream   269 KB · 27 % de las LUT y 58 % de la BRAM de la ULX3S 25F
-            Fmax 20,32 MHz, y se corre a 12,5 MHz
+regresión   27/27 objetivos en verde
+mutación   160/160 fallos inyectados, 160 detectados
+cobertura   99,7 % del RTL, fusionando todas las fuentes
+            19 de 22 módulos al 100 %; los 5 puntos restantes, adjudicados
+síntesis    sin latches · el SoC entero: 6 852 LUT4 y 1 093 FF en el ECP5
+bitstream   276 KB · 29 % de las LUT y 58 % de la BRAM de la ULX3S 25F
+            Fmax 18,76 MHz, y se corre a 12,5 MHz
 ```
 
 **La fase 1 cumple su criterio de aceptación, y su única deuda está saldada.** La entrada a
@@ -92,9 +93,10 @@ cumplirse en cuanto el primer ciclo limpiaba el bit `I`.
 
 **Cuánto queda, y medido contra qué.** El [plan](docs/00-PLAN.md) presupuesta las fases en semanas:
 1 + 4 + 2 + 5 + 3 + 2 = **17 semanas** hasta la v1.0 sobre FPGA, y de 6 a 10 más si hay silicio.
-Con las fases 0 y 1 cerradas y la 2 **cumplida en simulación** —a falta de enchufar la placa—,
-salen **~41 % hasta la v1.0 en FPGA** y **~28 % contando el silicio**. Es el presupuesto del propio
-plan, no una impresión.
+Con las fases 0 y 1 cerradas, la 2 **cumplida en simulación** —a falta de enchufar la placa— y la 3
+con **cuatro de sus diez periféricos** dentro —Timer1, Timer2, las interrupciones externas y el
+SPI—, salen **~47 % hasta la v1.0 en FPGA** y **~33 % contando el silicio**. Es el presupuesto del propio plan,
+no una impresión.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -172,18 +174,19 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 source env.sh
 make check-tools
 make lint synth-check regmap-check lpf check-docs sim-alu sim-sreg sim-regfile sim-mem \
-     sim-dbus sim-gpio sim-timer0 sim-timer1 sim-timer2 sim-usart sim-extint \
-     sim-irq sim-soc \
+     sim-dbus sim-gpio sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi \
+     sim-extint sim-irq sim-soc \
      sim-robust sim-fw sim-hello sim-simavr sim-decode sim-diff sim-random coverage
 ```
 
-Los veintiséis objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los veintisiete objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
-catorce programas: tres de aritmética, control de flujo y memoria; cuatro dirigidos que completan
+quince programas: tres de aritmética, control de flujo y memoria; cuatro dirigidos que completan
 el conjunto de instrucciones —bits y espacio de I/O, las 16 ramas condicionales, `LPM` en sus tres
-formas, y el control del sistema—; uno de puertos de E/S; y seis que entran en la rutina de
-interrupción de verdad, desde los tres temporizadores, la USART y los cinco vectores externos. Entre todos ejercitan **los 97
+formas, y el control del sistema—; uno de puertos de E/S; y siete que entran en la rutina de
+interrupción de verdad, desde los tres temporizadores, la USART, el SPI y los cinco vectores
+externos. Entre todos ejercitan **los 97
 mnemónicos** que el ATmega328P puede ejecutar. Tras cada instrucción se comparan PC, los 32 registros, SREG, SP y los ciclos; al
 terminar, la SRAM entera byte a byte.
 

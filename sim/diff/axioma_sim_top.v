@@ -127,6 +127,16 @@ module axioma_sim_top (
             8'h2A:   dbg_periph = soc.gpior.r1;
             8'h2B:   dbg_periph = soc.gpior.r2;
             8'h4E:   dbg_periph = {5'b0, soc.timer0.motor.timsk_q};
+            // SPI. Sólo SPCR entra en la comparación —ver la tabla COMPARABLE
+            // de diff.cpp—, pero la ventana da los tres: si algún día SPSR o
+            // SPDR se vuelven comparables, ya están.
+            8'h2C:   dbg_periph = {soc.spi.spie_q, soc.spi.spe_q,
+                                   soc.spi.dord_q, soc.spi.mstr_q,
+                                   soc.spi.cpol_q, soc.spi.cpha_q,
+                                   soc.spi.spr_q};
+            8'h2D:   dbg_periph = {soc.spi.spif_q, soc.spi.wcol_q, 5'b0,
+                                   soc.spi.spi2x_q};
+            8'h2E:   dbg_periph = soc.spi.rxbuf_q;
             // Timer2: mismo motor que el Timer0, en sus propias direcciones.
             8'h17:   dbg_periph = {5'b0, soc.timer2.motor.tifr_q};
             8'h50:   dbg_periph = {5'b0, soc.timer2.motor.timsk_q};

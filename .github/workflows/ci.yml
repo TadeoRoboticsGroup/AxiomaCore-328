@@ -219,6 +219,14 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-timer2
 
+      # simavr no serializa el SPI -transporta el byte entero por una IRQ
+      # interna-, asi que el oraculo es el OTRO EXTREMO DEL CABLE: un maestro y
+      # un esclavo escritos desde la hoja de datos, enchufados al DUT.
+      - name: SPI - los cuatro modos, maestro y esclavo
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-spi
+
       - name: Interrupciones externas contra la hoja de datos
         run: |
           source ~/eda/oss-cad-suite/environment

@@ -55,19 +55,37 @@ module axioma_gpio #(
     // un pin para sacar su forma de onda —OC0A en PD6, OC0B en PD5, OC1A en PB1,
     // OC1B en PB2—, el valor del pad lo pone ÉL y no `PORTx`.
     //
-    // LO QUE NO ANULA ES LA DIRECCIÓN. El manual es explícito: «the Data
-    // Direction Register bit for the OC0A pin must be set as output before the
-    // value is visible on the pin». Es decir, el programa SIGUE teniendo que
-    // poner `DDRx`, y por eso un `analogWrite()` que se olvide del `pinMode()`
-    // no saca nada. Modelarlo al revés —que el periférico fuerce también la
-    // dirección— haría funcionar código que en el chip no funciona, que es el
-    // peor tipo de incompatibilidad.
+    // LOS CANALES DE COMPARACIÓN NO ANULAN LA DIRECCIÓN. El manual es
+    // explícito: «the Data Direction Register bit for the OC0A pin must be set
+    // as output before the value is visible on the pin». Es decir, el programa
+    // SIGUE teniendo que poner `DDRx`, y por eso un `analogWrite()` que se
+    // olvide del `pinMode()` no saca nada. Modelarlo al revés haría funcionar
+    // código que en el chip no funciona, que es el peor tipo de
+    // incompatibilidad.
     //
     // `PORTx` se sigue escribiendo y leyendo mientras dura la anulación: al
     // soltarla, el pin vuelve al valor que el programa dejó. También eso es lo
     // que hace el chip.
     input  wire [7:0] ovr_en,
     input  wire [7:0] ovr_val,
+
+    // ---- anulación de la DIRECCIÓN ----
+    // PERO ALGUNOS PERIFÉRICOS SÍ LA ANULAN, y la hoja de datos lo dibuja como
+    // una señal aparte —`DDOE`, Data Direction Override Enable— en el diagrama
+    // del pin. El caso es el SPI, tabla 18-1 «SPI pin overrides»:
+    //
+    //                MOSI      MISO      SCK       SS
+    //     maestro    usuario   ENTRADA   usuario   usuario
+    //     esclavo    ENTRADA   usuario   ENTRADA   ENTRADA
+    //
+    // «This pin is configured as an input regardless of the setting of DDB2»,
+    // dice del `SS` en esclavo. Son dos mecanismos distintos y hay que tenerlos
+    // separados: con uno solo, o los canales PWM forzarían la dirección —y
+    // funcionaría un `analogWrite()` sin `pinMode()`, que en el chip no
+    // funciona— o el SPI no la forzaría y un esclavo con `DDB4` mal puesto
+    // cortocircuitaría el bus contra el maestro.
+    input  wire [7:0] dir_ovr_en,
+    input  wire [7:0] dir_ovr_val,
 
     // ---- pines ----
     // El pull-up NO lo aplica este módulo: lo DECLARA, y lo aplica la celda de
@@ -124,10 +142,13 @@ module axioma_gpio #(
                       hit_port ? port_q : 8'h00;
 
     assign pad_out = (port_q & ~ovr_en) | (ovr_val & ovr_en);
-    assign pad_oe  = ddr_q;
+    assign pad_oe  = (ddr_q & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en);
     // Pin de entrada con su bit de PORTx a 1: pull-up activado. Es lo que hace
-    // que un pin sin nada conectado se lea como 1 y no como ruido.
-    assign pad_pullup = ~ddr_q & port_q;
+    // que un pin sin nada conectado se lea como 1 y no como ruido. Se mira la
+    // dirección EFECTIVA, la de después de la anulación: un `SS` de esclavo
+    // forzado a entrada con su `PORTB2` a uno lleva pull-up, y es lo que evita
+    // que un esclavo sin maestro se quede seleccionado por ruido.
+    assign pad_pullup = ~pad_oe & port_q;
 
 endmodule
 

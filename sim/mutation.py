@@ -52,6 +52,7 @@ IRQ     = "rtl/periph/axioma_irq.v"
 GPIOR   = "rtl/periph/axioma_gpior.v"
 USART   = "rtl/periph/axioma_usart.v"
 EXTINT  = "rtl/periph/axioma_extint.v"
+SPI     = "rtl/periph/axioma_spi.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -188,7 +189,12 @@ CATALOG = [
                       hit_ddr  ? ddr_q  :
                       hit_port ? sync1  : 8'h00;"""),
 ("gpio", GPIO, "sim-gpio", "no se declara el pull-up: un pin de entrada leeria 0",
- "assign pad_pullup = ~ddr_q & port_q;", "assign pad_pullup = 8'h00;"),
+ "assign pad_pullup = ~pad_oe & port_q;", "assign pad_pullup = 8'h00;"),
+# El pull-up mira la direccion EFECTIVA, la de despues de la anulacion: un SS de
+# esclavo forzado a entrada con su PORTB2 a uno lleva pull-up, y es lo que evita
+# que un esclavo sin maestro se quede seleccionado por ruido.
+("gpio", GPIO, "sim-gpio", "el pull-up mira DDRx y no la direccion ya anulada",
+ "assign pad_pullup = ~pad_oe & port_q;", "assign pad_pullup = ~ddr_q & port_q;"),
 
 # ------------------------------------------------------ bus de datos
 ("dbus", DBUS, "sim-dbus", "la SRAM no traduce la dirección: no resta la base",
@@ -510,9 +516,15 @@ CATALOG = [
 ("gpio", GPIO, "sim-hello", "el canal PWM no llega al pad",
  """    assign pad_out = (port_q & ~ovr_en) | (ovr_val & ovr_en);""",
  """    assign pad_out = port_q;"""),
-("gpio", GPIO, "sim-gpio", "la anulacion tambien fuerza la direccion del pin",
- """    assign pad_oe  = ddr_q;""",
- """    assign pad_oe  = ddr_q | ovr_en;"""),
+# LOS DOS MECANISMOS DE ANULACION NO SE PUEDEN MEZCLAR. El de VALOR es el de los
+# canales de comparacion y no toca la direccion: un analogWrite() sin pinMode()
+# no saca nada, ni aqui ni en el chip. El de DIRECCION es el del SPI, y ese si.
+("gpio", GPIO, "sim-gpio", "la anulacion de VALOR tambien fuerza la direccion",
+ """    assign pad_oe  = (ddr_q & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en);""",
+ """    assign pad_oe  = (ddr_q & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en) | ovr_en;"""),
+("gpio", GPIO, "sim-gpio", "la anulacion de DIRECCION no hace nada",
+ """    assign pad_oe  = (ddr_q & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en);""",
+ """    assign pad_oe  = ddr_q;"""),
 # Los tres canales salen con ciclos de trabajo DISTINTOS a proposito: 25 %,
 # 75 % y 12,5 %. Por eso cruzar el mapa de pines se ve, y no hay que creerse
 # que «algo saca forma de onda» en el pin correcto.
@@ -568,6 +580,88 @@ CATALOG = [
  """                       t2_ovf,        // 9       TIMER2_OVF
                        t2_compa,      // 8       TIMER2_COMPB
                        t2_compb,      // 7       TIMER2_COMPA"""),
+# ----------------------------------------------------------------- SPI
+# LOS TRES PRIMEROS SON FALLOS QUE ESTUVIERON DE VERDAD EN EL RTL, y los tres
+# los encontro el banco la primera vez que corrio. Se quedan para que no puedan
+# volver.
+("spi", SPI, "sim-spi", "el maestro mira MISO por el sincronizador de dos etapas",
+ """    wire bit_in  = maestro ? miso_pin : mosi_s[2];""",
+ """    wire bit_in  = maestro ? mosi_s[2] : mosi_s[2];"""),
+("spi", SPI, "sim-spi", "el reloj del maestro no vuelve al reposo: se come medio periodo",
+ """                if (!maestro || sck_q != cpol_q) begin
+                    busy_q <= 1'b0;
+                    spif_q <= 1'b1;
+                end else begin
+                    cerrando_q <= 1'b1;
+                end""",
+ """                begin
+                    busy_q <= 1'b0;
+                    spif_q <= 1'b1;
+                end"""),
+("spi", SPI, "sim-spi", "SPIF se levanta antes de terminar: el modismo de siempre da WCOL",
+ """            if (cerrando_q && medio_periodo) begin
+                busy_q     <= 1'b0;
+                cerrando_q <= 1'b0;
+                spif_q     <= 1'b1;
+            end""",
+ """            if (cerrando_q) begin
+                busy_q     <= 1'b0;
+                cerrando_q <= 1'b0;
+                spif_q     <= 1'b1;
+            end"""),
+("spi", SPI, "sim-spi", "la colision de maestros ignora que SS sea salida (mata a Arduino)",
+ """    wire colision_maestro = maestro && ss_bajo && !ss_es_salida;""",
+ """    wire colision_maestro = maestro && ss_bajo;"""),
+("spi", SPI, "sim-spi", "CPHA=0 no presenta el primer bit al cargar",
+ """                    if (cpha_q) begin
+                        tx_q  <= io_wdata;
+                    end else begin""",
+ """                    if (1'b1) begin
+                        tx_q  <= io_wdata;
+                    end else begin"""),
+("spi", SPI, "sim-spi", "DORD no invierte el orden de los bits",
+ """    wire       tx_msb  = dord_q ? tx_q[0] : tx_q[7];""",
+ """    wire       tx_msb  = tx_q[7];"""),
+("spi", SPI, "sim-spi", "la tabla de divisiones se corre una fila",
+ """            2'd1: div_top = spi2x_q ? 7'd3  : 7'd7;    // /8  o /16""",
+ """            2'd1: div_top = spi2x_q ? 7'd7  : 7'd15;"""),
+("spi", SPI, "sim-spi", "SPI2X deja de doblar la velocidad",
+ """            2'd0: div_top = spi2x_q ? 7'd0  : 7'd1;    // /2  o /4""",
+ """            2'd0: div_top = 7'd1;"""),
+("spi", SPI, "sim-spi", "escribir SPDR en marcha pisa la transferencia en vez de dar WCOL",
+ """                if (busy_q) begin
+                    // COLISION: no se carga nada y la transferencia sigue.
+                    wcol_q <= 1'b1;
+                end else begin""",
+ """                if (1'b0) begin
+                    wcol_q <= 1'b1;
+                end else begin"""),
+("spi", SPI, "sim-spi", "acceder a SPDR limpia SPIF sin haber leido SPSR (trampa 11)",
+ """            if (spsr_leido && acc_spdr) begin""",
+ """            if (acc_spdr) begin"""),
+("spi", SOC, "sim-hello", "el SPI no se adueña de SCK: el reloj no sale al pin",
+ """    wire [7:0] ovr_b_en  = {2'b0, spi_sck_oe,""",
+ """    wire [7:0] ovr_b_en  = {2'b0, 1'b0,"""),
+("spi", SPI, "sim-spi", "el esclavo conduce MISO aunque no este seleccionado",
+ """    assign miso_oe  = esclavo && ss_bajo;   // sólo conduce si está seleccionado""",
+ """    assign miso_oe  = esclavo;"""),
+# Este solo lo caza el diferencial: el banco propio no sabe de vectores.
+("spi", SOC, "sim-diff", "el vector del SPI apunta al de la USART",
+ """                       sp_irq,        // 17      SPI_STC""",
+ """                       1'b0,          // 17      SPI_STC"""),
+# Y estos dos, el mapa de pines del SoC: quien manda en PB3 y quien fuerza la
+# direccion. Los caza el banco del SPI solo si el SoC esta de por medio, asi
+# que van contra el programa de co-simulacion.
+# Lo caza sim-hello, que es el unico que MIRA EL PIN: el firmware manda tres
+# bytes por MOSI en el arranque y el banco los decodifica con el reloj de SCK.
+# El mutante ataca el MULTIPLEXOR DE VALOR y no el de habilitacion, y eso no es
+# un detalle: con el Timer2 sacando PWM por OC2A, quitar `spi_mosi_oe` de la
+# habilitacion no cambia nada -el pin sigue anulado por el temporizador- y el
+# mutante seria EQUIVALENTE. Lo que de verdad decide quien manda en PB3 es esta
+# linea, y la hoja de datos dice que con SPE puesto manda el SPI.
+("spi", SOC, "sim-hello", "en PB3 manda OC2A y no MOSI, con el SPI encendido",
+ """                            spi_mosi_oe ? spi_mosi : oc2a,""",
+ """                            oc2a,"""),
 # ------------------------------------------- interrupciones externas
 ("extint", EXTINT, "sim-extint", "el nivel bajo interrumpe con el pin alto",
  """    wire int0_nivel = (isc0 == 2'b00) & ~int0_now;""",
@@ -618,13 +712,15 @@ CATALOG = [
                        ei_int0,       // 2       INT1
                        ei_int1,       // 1       INT0"""),
 ("soc", SOC, "sim-hello", "OC2A se queda sin pad: el sexto canal PWM no sale",
- """    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1b_en, oc1a_en, 1'b0};""",
- """    wire [7:0] ovr_b_en  = {4'b0, 1'b0,    oc1b_en, oc1a_en, 1'b0};"""),
+ """                            spi_mosi_oe | oc2a_en,""",
+ """                            spi_mosi_oe,"""),
+# Se mutan los VALORES y no las habilitaciones: con los dos canales encendidos,
+# intercambiar las habilitaciones no cambia nada -las dos valen uno- y el
+# mutante seria EQUIVALENTE. Lo que distingue un pin de otro es que cada uno
+# lleve SU ciclo de trabajo.
 ("soc", SOC, "sim-hello", "el canal OC1A se lleva el pin de OC1B",
- """    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1b_en, oc1a_en, 1'b0};
-    wire [7:0] ovr_b_val = {4'b0, oc2a,    oc1b,    oc1a,    1'b0};""",
- """    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1a_en, oc1b_en, 1'b0};
-    wire [7:0] ovr_b_val = {4'b0, oc2a,    oc1a,    oc1b,    1'b0};"""),
+ """                            oc1b, oc1a, 1'b0};""",
+ """                            oc1a, oc1b, 1'b0};"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

@@ -79,7 +79,20 @@ int main(void)
     DDRB = 0xFF;
     PORTB = 0x00;
 
-    TCCR0A = 0x00;
+    /* PWM por hardware TAMBIÉN en los dos canales del Timer0: OC0A es PD6 —el
+     * pin 6 de Arduino— y OC0B es PD5 —el 5—. Los tres canales de un
+     * `analogWrite()` que se usan de verdad salen así por pines distintos y
+     * con ciclos de trabajo distintos, que es lo que permite al banco
+     * distinguir un canal de otro: si el mapa de pines estuviera cruzado, las
+     * cifras se intercambiarían.
+     *
+     * PWM rápido de 8 bits con TOP = MAX, igual que el modo normal de antes:
+     * TOV0 se sigue marcando al desbordar, así que la cuenta de medio segundo
+     * no cambia. */
+    DDRD  |= (1 << DDD6) | (1 << DDD5);       /* el valor se anula; la dirección no */
+    TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM01) | (1 << WGM00);
+    OCR0A  = 191;                             /* 192 de 256: un 75 % */
+    OCR0B  = 31;                              /*  32 de 256: un 12,5 % */
     TCCR0B = (1 << CS01) | (1 << CS00);       /* clk/64 */
     TIMSK0 = (1 << TOIE0);
 

@@ -806,7 +806,8 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       para lo que existe el voto por mayoría.
 - [x] **Top de ECP5 y bitstream.** `rtl/fpga/ecp5/axioma_ulx3s_top.v`: PLL, secuencia de reset,
       celdas de pad con triestado y PORTB espejado en los LED. `make bitstream-ulx3s` produce
-      248 KB para la ULX3S 25F, con el **19 % de las LUT y el 59 % de la BRAM**.
+      269 KB para la ULX3S 25F, con el **27 % de las LUT y el 58 % de la BRAM** — la medida es de
+      después del Timer1 y de la USART, que es lo que ha subido las LUT.
 - [x] **Bootstrap: el programa va dentro del bitstream.** `tools/bin2mem.py` convierte el binario
       de avr-gcc en el fichero que `$readmemh` precarga en la memoria de programa.
 - [x] **Subir el reloj, primera vuelta.** De **15,55 a 20,28 MHz** con la misma restricción

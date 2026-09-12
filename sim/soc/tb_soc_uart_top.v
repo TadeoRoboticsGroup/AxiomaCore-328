@@ -28,6 +28,10 @@ module tb_soc_uart_top (
     output wire        txd_en,
     output wire [7:0]  portb,
     output wire [7:0]  portb_oe,
+    // El puerto D sale entero porque ahí viven los dos canales del Timer0:
+    // OC0A en PD6 y OC0B en PD5.
+    output wire [7:0]  portd,
+    output wire [7:0]  portd_oe,
 
     output wire [11:0] dbg_ubrr,
     output wire        dbg_u2x
@@ -56,6 +60,8 @@ module tb_soc_uart_top (
 
     assign portb    = pb_out;
     assign portb_oe = pb_oe;
+    assign portd    = pd_out;
+    assign portd_oe = pd_oe;
     assign dbg_ubrr = soc.usart.ubrr;
     assign dbg_u2x  = soc.usart.u2x;
 

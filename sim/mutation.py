@@ -498,6 +498,17 @@ CATALOG = [
 ("gpio", GPIO, "sim-gpio", "la anulacion tambien fuerza la direccion del pin",
  """    assign pad_oe  = ddr_q;""",
  """    assign pad_oe  = ddr_q | ovr_en;"""),
+# Los tres canales salen con ciclos de trabajo DISTINTOS a proposito: 25 %,
+# 75 % y 12,5 %. Por eso cruzar el mapa de pines se ve, y no hay que creerse
+# que «algo saca forma de onda» en el pin correcto.
+("soc", SOC, "sim-hello", "los dos canales del Timer0 salen por el pin del otro",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 5'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    5'b0};""",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, 5'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    5'b0};"""),
+("soc", SOC, "sim-hello", "el canal OC1A se lleva el pin de OC1B",
+ """    wire [7:0] ovr_b_en  = {5'b0, oc1b_en, oc1a_en, 1'b0};""",
+ """    wire [7:0] ovr_b_en  = {5'b0, oc1a_en, oc1b_en, 1'b0};"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

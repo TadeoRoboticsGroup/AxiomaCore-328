@@ -58,8 +58,8 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/periph/axioma_timer1.v` | **Verificado** | **4 475 970 comprobaciones** contra un modelo de la hoja de datos: los 16 modos de onda, la captura de entrada con su cancelador de ruido, y **el registro TEMP compartido** —la trampa nº 4—, que simavr no modela |
 | `rtl/periph/axioma_usart.v` | **Verificado** | 44 082 comprobaciones contra un **receptor escrito desde la hoja de datos**, que decodifica el pin: las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
-| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 248 KB para la ULX3S 25F. `nextpnr` mide **Fmax 20,28 MHz** bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,62× |
-| `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5 y **mide el ciclo de trabajo del PWM en el pin**: 25,39 % contra el 25,39 % que da la hoja de datos |
+| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 269 KB para la ULX3S 25F. `nextpnr` mide **Fmax 20,32 MHz** bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,63× |
+| `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5 y **mide el ciclo de trabajo del PWM en tres pines a la vez**: 25,39 % en `OC1A`, 74,86 % en `OC0A` y 12,49 % en `OC0B`, contra el 25,39 / 75,00 / 12,50 % que da la hoja de datos. Tres ciclos distintos a propósito: es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
 | `rtl/core/axioma_seq.v` | **Verificado** | 9 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
@@ -67,17 +67,17 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | Tabla de ciclos (nivel L3) | **Verificada** | 160 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
 | Entrada a interrupción | **Verificada** | 294 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
-| Timer1/2, USART, SPI, TWI, ADC | Pendientes | Fases 2 y 3 |
+| Timer2, SPI, TWI, ADC, EEPROM, `extint`/`pcint` | Pendientes | Fase 3 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   23/23 objetivos en verde
-mutación   111/111 fallos inyectados, 111 detectados
+regresión   24/24 objetivos en verde
+mutación   124/124 fallos inyectados, 124 detectados
 cobertura   99,7 % del RTL, fusionando todas las fuentes
-            13 de 16 módulos al 100 %; los 5 puntos restantes, adjudicados
-síntesis    sin latches · el SoC entero: 4 488 LUT4 y 578 FF en el ECP5
-bitstream   248 KB · 19 % de las LUT y 59 % de la BRAM de la ULX3S 25F
-            Fmax 14,74 MHz, y se corre a 12,5 MHz
+            14 de 17 módulos al 100 %; los 5 puntos restantes, adjudicados
+síntesis    sin latches · el SoC entero: 6 057 LUT4 y 908 FF en el ECP5
+bitstream   269 KB · 27 % de las LUT y 58 % de la BRAM de la ULX3S 25F
+            Fmax 20,32 MHz, y se corre a 12,5 MHz
 ```
 
 **La fase 1 cumple su criterio de aceptación, y su única deuda está saldada.** La entrada a

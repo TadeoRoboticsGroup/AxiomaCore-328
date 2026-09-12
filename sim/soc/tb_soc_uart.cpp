@@ -94,10 +94,25 @@ int main(int argc, char **argv) {
     int  pb5_previo = -1;
     long conmutaciones = 0;
 
-    // PWM por hardware en OC1A (PB1): se cuenta cuánto tiempo pasa el pin alto
-    // frente al total, que es el ciclo de trabajo que pidió el programa.
-    long pb1_alto = 0, pb1_total = 0, pb1_cambios = 0;
-    int  pb1_previo = -1;
+    // PWM por hardware: se cuenta cuánto tiempo pasa cada pin alto frente al
+    // total, que es el ciclo de trabajo que pidió el programa. Son TRES
+    // canales en tres pines distintos y con tres ciclos distintos —OC1A en
+    // PB1 al 25 %, OC0A en PD6 al 75 % y OC0B en PD5 al 12,5 %—, y esa es
+    // justamente la prueba de que cada uno llega al SUYO: si el mapa
+    // estuviera cruzado, las cifras se intercambiarían.
+    struct Canal {
+        const char *nombre;
+        int         puerto;            // 0 = PORTB, 1 = PORTD
+        int         bit;
+        double      ocr;               // el valor que el programa escribió
+        long        alto = 0, total = 0, cambios = 0;
+        int         previo = -1;
+    };
+    Canal canales[] = {
+        {"OC1A (PB1)", 0, 1,  64.0},
+        {"OC0A (PD6)", 1, 6, 191.0},
+        {"OC0B (PD5)", 1, 5,  31.0},
+    };
 
     // El byte que se le manda al chip para que lo devuelva, y en qué ciclo.
     // Se espera a que haya salido el saludo para no mezclar las dos cosas.
@@ -134,12 +149,18 @@ int main(int argc, char **argv) {
         }
 
         // --- el PWM ---
-        if (dut->portb_oe & 0x02) {
-            int pb1 = (dut->portb >> 1) & 1;
-            if (pb1_previo >= 0 && pb1 != pb1_previo) pb1_cambios++;
-            pb1_previo = pb1;
-            pb1_total++;
-            if (pb1) pb1_alto++;
+        // Sólo se mira el pin mientras esté configurado como SALIDA: antes de
+        // que el programa ponga DDRx no hay forma de onda que medir, y ese es
+        // el comportamiento del chip, no un atajo del banco.
+        for (auto &ch : canales) {
+            uint8_t val = ch.puerto ? dut->portd    : dut->portb;
+            uint8_t oe  = ch.puerto ? dut->portd_oe : dut->portb_oe;
+            if (!((oe >> ch.bit) & 1)) continue;
+            int v = (val >> ch.bit) & 1;
+            if (ch.previo >= 0 && v != ch.previo) ch.cambios++;
+            ch.previo = v;
+            ch.total++;
+            if (v) ch.alto++;
         }
 
         // --- el pin serie ---
@@ -228,16 +249,20 @@ int main(int argc, char **argv) {
     // datos lo fija exacto: (OCR + 1) / (TOP + 1). Con OCR1A = 64 y TOP = 255
     // son 65/256 = 25,39 %, y ese +1 es justo lo que distingue una
     // implementación correcta de una que se queda corta un ciclo por periodo.
-    const double CICLO_ESPERADO = 100.0 * (64.0 + 1.0) / 256.0;
-    double ciclo = pb1_total ? (100.0 * pb1_alto / pb1_total) : 0.0;
-    printf("  PWM en OC1A (PB1): %ld flancos, ciclo de trabajo %.2f %% "
-           "(la formula da %.2f %%)\n", pb1_cambios, ciclo, CICLO_ESPERADO);
-    if (pb1_cambios < 100) {
-        printf("  FALLA: OC1A no saca forma de onda; el canal PWM no llega al pin\n");
-        fails++;
-    } else if (ciclo < CICLO_ESPERADO - 0.3 || ciclo > CICLO_ESPERADO + 0.3) {
-        printf("  FALLA: el ciclo de trabajo no es (OCR+1)/(TOP+1)\n");
-        fails++;
+    for (const auto &ch : canales) {
+        const double esperado = 100.0 * (ch.ocr + 1.0) / 256.0;
+        double ciclo = ch.total ? (100.0 * ch.alto / ch.total) : 0.0;
+        printf("  PWM en %s: %ld flancos, ciclo de trabajo %.2f %% "
+               "(la formula da %.2f %%)\n", ch.nombre, ch.cambios, ciclo, esperado);
+        if (ch.cambios < 100) {
+            printf("  FALLA: %s no saca forma de onda; el canal PWM no llega al pin\n",
+                   ch.nombre);
+            fails++;
+        } else if (ciclo < esperado - 0.3 || ciclo > esperado + 0.3) {
+            printf("  FALLA: en %s el ciclo de trabajo no es (OCR+1)/(TOP+1)\n",
+                   ch.nombre);
+            fails++;
+        }
     }
 
     if (fails) return 1;

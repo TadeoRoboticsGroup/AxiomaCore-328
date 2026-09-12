@@ -74,7 +74,7 @@ directamente con su atribución.
 ## 4. Procedimiento clean-room
 
 1. **Especificar antes de implementar.** El comportamiento se documenta en
-   [`01-arquitectura.md`](01-arquitectura.md) y en `docs/02-isa.md` con nuestras propias palabras,
+   [`01-arquitectura.md`](01-arquitectura.md) con nuestras propias palabras,
    antes de escribir el RTL.
 2. **Implementar contra la especificación**, no contra ninguna implementación existente.
 3. **Verificar contra un oráculo de comportamiento.** `simavr` se usa como caja negra: se comparan

@@ -229,7 +229,7 @@ Implicaciones que hay que implementar explícitamente:
 El mapa se **genera automáticamente** desde `iom328p.h` de avr-libc (BSD-3-Clause) hacia:
 - `rtl/soc/axioma_regmap.vh` (constantes Verilog)
 - `docs/05-register-map.md` (documentación)
-- `sim/isa/regmap_check.py` (test de CI que falla si divergen)
+- `tools/gen_regmap.py --check` (test de CI que falla si divergen)
 
 Esto convierte L2 de "esperemos que esté bien" en una propiedad verificada mecánicamente.
 
@@ -692,7 +692,7 @@ Estimaciones asumiendo ~15 h/semana. El camino crítico es la fase 1.
 
 - [ ] Instalar OSS CAD Suite, toolchain AVR, simavr, cocotb.
 - [ ] `git mv` de todo lo actual a `legacy/`. Purgar los `.tar.gz` del historial.
-- [ ] Crear la estructura de §6, `LICENSE` (Apache-2.0), `LICENSE-EXCEPTIONS.md`, `docs/05-legal.md`.
+- [ ] Crear la estructura de §6, `LICENSE` (Apache-2.0), `LICENSE-EXCEPTIONS.md`, `docs/02-legal.md`.
 - [ ] Borrar `bootloader/optiboot/`, `layout/*.gds`, `openlane/src/`.
 - [ ] Generador `tools/gen_regmap.py`: `iom328p.h` → `axioma_regmap.vh` + `docs/05-register-map.md`.
 - [ ] CI mínima en GitHub Actions (lint + build).

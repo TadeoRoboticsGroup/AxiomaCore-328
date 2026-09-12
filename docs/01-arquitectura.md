@@ -315,7 +315,7 @@ Se **genera** desde `iom328p.h` de avr-libc (BSD-3-Clause) con `tools/gen_regmap
 
 - `rtl/soc/axioma_regmap.vh` — constantes Verilog
 - `docs/05-register-map.md` — documentación
-- `sim/isa/regmap_check.py` — test de CI que falla ante cualquier divergencia
+- la comprobación de CI `tools/gen_regmap.py --check`, que falla ante cualquier divergencia
 
 Esto convierte el nivel L2 de compatibilidad en una propiedad verificada mecánicamente, no en una
 tabla escrita a mano que se desincroniza en el tercer commit.

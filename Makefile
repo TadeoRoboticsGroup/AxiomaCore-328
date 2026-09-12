@@ -60,6 +60,7 @@ help:
 	@echo "  make diagrams         regenera las figuras del README"
 	@echo "  make lint             lint del RTL con verilator"
 	@echo "  make synth-check      sintesis con yosys: sin latches, y area medida"
+	@echo "  make check-docs       comprueba que las rutas citadas en los .md existan"
 	@echo "  make clean            limpia los artefactos de construcción"
 	@echo ""
 	@echo -e "$(BOLD)Fase 1$(NC)  $(DIM)núcleo ISA$(NC)"
@@ -85,7 +86,6 @@ help:
 	@echo "  make sim-core         todas las anteriores"
 	@echo "  make sim-random       10^6 instrucciones aleatorias vs simavr"
 	@echo "  make mutation         prueba de mutación de TODO el RTL (~5 min)"
-	@echo "  make sim-isa          suite dirigida de las 131 instrucciones"
 
 	@echo ""
 	@echo -e "$(BOLD)Fase 2$(NC)  $(DIM)FPGA$(NC)"
@@ -162,6 +162,14 @@ lint:
 .PHONY: synth-check
 synth-check:
 	@$(DIAG_PYTHON) tools/synth_check.py
+
+# --- documentación: que las rutas que cita existan ---
+# El paso de enlaces de la CI valida los [enlaces](de/markdown). Esto valida la
+# otra mitad: los `path/como/este` que aparecen en el texto. Una ruta muerta ahí
+# manda al lector a buscar un fichero que no está.
+.PHONY: check-docs
+check-docs:
+	@$(DIAG_PYTHON) tools/check_docs.py
 
 # ------------------------------------------------------------- fase 1: sim
 VEC_DIR := $(BUILD)/alu_vec
@@ -468,10 +476,6 @@ sim-random: $(BUILD)/vdiff/Vaxioma_sim_top $(PERF_DIR)/cycles.bin
 .PHONY: mutation
 mutation:
 	@$(PYTHON) sim/mutation.py
-
-.PHONY: sim-isa
-sim-isa:
-	@echo -e "$(DIM)Pendiente. Ver docs/00-PLAN.md y docs/03-verificacion.md.$(NC)"; exit 1
 
 # ------------------------------------------------------------ fase 2: FPGA
 $(BUILD):

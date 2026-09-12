@@ -85,6 +85,9 @@ jobs:
           print("todos los enlaces resuelven")
           PY
 
+      - name: Rutas del repositorio citadas en la documentación
+        run: make check-docs
+
   verify:
     name: Verificación del núcleo
     runs-on: ubuntu-latest

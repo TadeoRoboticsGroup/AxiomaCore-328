@@ -168,18 +168,19 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 ```bash
 source env.sh
 make check-tools
-make lint synth-check regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
-     sim-gpio sim-timer0 sim-timer1 sim-usart sim-irq sim-soc sim-robust sim-fw \
+make lint synth-check regmap-check lpf check-docs sim-alu sim-sreg sim-regfile sim-mem \
+     sim-dbus sim-gpio sim-timer0 sim-timer1 sim-usart sim-irq sim-soc sim-robust sim-fw \
      sim-hello sim-simavr sim-decode sim-diff sim-random coverage
 ```
 
-Los veintitrés objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los veinticuatro objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
-siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan
-el conjunto de instrucciones —bits y espacio de I/O, las 16 ramas condicionales, `LPM` en sus tres
-formas, y el control del sistema—. Entre todos ejercitan **los 97 mnemónicos** que el ATmega328P
-puede ejecutar. Tras cada instrucción se comparan PC, los 32 registros, SREG, SP y los ciclos; al
+doce programas: tres de aritmética, control de flujo y memoria; cuatro dirigidos que completan el
+conjunto de instrucciones —bits y espacio de I/O, las 16 ramas condicionales, `LPM` en sus tres
+formas, y el control del sistema—; uno de puertos de E/S; y cuatro que entran en la rutina de
+interrupción de verdad, desde el Timer0, el Timer1 y la USART. Entre todos ejercitan **los 97
+mnemónicos** que el ATmega328P puede ejecutar. Tras cada instrucción se comparan PC, los 32 registros, SREG, SP y los ciclos; al
 terminar, la SRAM entera byte a byte.
 
 > **97 mnemónicos y 131 instrucciones no se contradicen.** La cifra de 131 es la del manual del ISA

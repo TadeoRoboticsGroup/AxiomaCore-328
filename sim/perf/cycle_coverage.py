@@ -50,8 +50,8 @@ def main():
         if var:
             print(f"    sin ejecutar, de ciclos variables ({len(var)}): "
                   + " ".join(var))
-        print("    Los cubre la suite dirigida de las 131 instrucciones "
-              "(docs/00-PLAN.md, fase 1).")
+        print("    Los cubre la suite dirigida: `make sim-diff`, los programas "
+              "de sim/diff/tests/.")
     return 0
 
 

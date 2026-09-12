@@ -32,7 +32,8 @@ axioma328_soc
 ├── axioma_prescaler       contador de 10 bits COMPARTIDO por Timer0 y Timer1, y GTCCR
 ├── axioma_gpior           GPIOR0/1/2 · almacenamiento puro, tres bytes del chip
 ├── axioma_clkctrl         CLKPR, PRR, SMCR, MCUCR, MCUSR
-└── periféricos            gpio · timer0/1/2 · usart · spi · twi · adc · ac · wdt · extint · pcint
+├── axioma_extint          INT0, INT1 y PCINT0/1/2 · un solo módulo, dos mecanismos
+└── periféricos            gpio · timer0/1/2 · usart · spi · twi · adc · ac · wdt
 ```
 
 ---

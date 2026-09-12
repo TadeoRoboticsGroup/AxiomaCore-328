@@ -48,7 +48,8 @@ RTL = ("rtl/soc/axioma328_soc.v rtl/core/axioma_core.v rtl/core/axioma_seq.v "
        "rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v "
        "rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v "
        "rtl/periph/axioma_timer1.v "
-       "rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v")
+       "rtl/periph/axioma_usart.v rtl/periph/axioma_extint.v "
+       "rtl/periph/axioma_irq.v")
 
 # UNOPTFLAT se silencia SÓLO aquí. La instrumentación de cobertura cambia la
 # planificación interna de verilator y le hace ver un ciclo combinacional que no
@@ -107,6 +108,8 @@ def main():
               "rtl/periph/axioma_prescaler.v sim/periph/tb_timer1.cpp")
     construir("build/vcovu", "tb_usartc", "axioma_usart",
               "rtl/periph/axioma_usart.v sim/periph/tb_usart.cpp")
+    construir("build/vcove", "tb_extintc", "axioma_extint",
+              "rtl/periph/axioma_extint.v sim/periph/tb_extint.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
               f"sim/soc/tb_soc_uart_top.v {RTL} sim/soc/tb_soc_uart.cpp")
 
@@ -123,6 +126,7 @@ def main():
     sh("AXIOMA_COV=build/cov/timer0.dat ./build/vcovt/tb_timer0c"); n += 1
     sh("AXIOMA_COV=build/cov/timer1.dat ./build/vcov1/tb_timer1c"); n += 1
     sh("AXIOMA_COV=build/cov/usart.dat ./build/vcovu/tb_usartc"); n += 1
+    sh("AXIOMA_COV=build/cov/extint.dat ./build/vcove/tb_extintc"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")
 

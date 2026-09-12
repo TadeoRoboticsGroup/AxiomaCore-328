@@ -914,7 +914,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **23 de los 26 vectores no tienen fuente.** Faltan timer1/2, SPI, TWI, ADC, comparador, watchdog, EEPROM e interrupciones externas | Fase 3 |
+| 7 | **10 de los 25 vectores de interrupción no tienen fuente.** Faltan timer2, SPI, TWI, ADC, comparador, watchdog y EEPROM | Fase 3 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -936,13 +936,27 @@ enumerado** en vez de implícito.
 - [ ] `timer2.v`; los 6 canales PWM.
 - [ ] `spi.v`, `twi.v` (con modelos de bus en el testbench).
 - [ ] `adc.v` (controlador SAR; comparador externo o modelo), `ac.v`, `wdt.v`.
-- [ ] `extint.v` (INT0/INT1) y `pcint.v` (PCINT0/1/2).
+- [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos
+      —uno por pin y con dirección de flanco, otro por puerto y sólo «algo cambió»— pero comparten
+      el sincronizador y la disciplina de banderas, así que separarlos duplicaría lo único
+      delicado. 2 501 159 comprobaciones contra un modelo de la hoja de datos, y un programa de
+      co-simulación contra simavr que entra 23 veces en ISR por las cinco fuentes.
+
+      Lo que el banco propio verifica y el diferencial no alcanzaría: el **modo de nivel bajo**, que
+      no deja bandera y sostiene la petición mientras el pin esté bajo —de ahí que una ISR que no
+      quite la causa se vuelva a entrar para siempre, en el chip también—; que la bandera se ponga
+      **con el vector deshabilitado**, que es el sondeo sin interrupciones; y que `PCMSKn` filtre
+      también la bandera mientras `PCICR` sólo filtra el salto al vector.
+
+      Para generar los flancos sin cables, el programa de co-simulación usa lo que dice la hoja de
+      datos: la detección mira el PIN y no `PORTx`, así que un pin de salida que el programa
+      conmute se interrumpe a sí mismo.
 - [ ] `eeprom.v` + máquina de estados de `EECR`.
 - [ ] `clkctrl.v`: CLKPR, PRR, modos de sueño, `SMCR`.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
-**Criterio de aceptación:** los 26 vectores de interrupción disparan y se atienden con la prioridad
-correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+**Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
+correcta —hoy lo hacen 15—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

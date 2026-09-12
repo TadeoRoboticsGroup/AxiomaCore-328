@@ -208,6 +208,14 @@ jobs:
       # y comprueba que no hay colisiones y que el mapa es el de la hoja de
       # datos. Ahi habia aparecido ya un fallo: un bit de mas en el mapa de
       # vectores convertia TIMER0_COMPA en TIMER1_OVF.
+      # Los cinco vectores que usa attachInterrupt(). El modo de NIVEL BAJO no
+      # deja bandera y sostiene la peticion mientras el pin este bajo: eso solo
+      # se ve mirando la linea de peticion ciclo a ciclo, no con un programa.
+      - name: Interrupciones externas contra la hoja de datos
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-extint
+
       - name: Mapa de I/O del SoC, barrido entero
         run: |
           source ~/eda/oss-cad-suite/environment

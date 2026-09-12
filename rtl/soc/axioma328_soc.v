@@ -247,6 +247,26 @@ module axioma328_soc #(
         .ack_txc(irq_ack_v[20])
     );
 
+    // ---------------------------------------------- interrupciones externas
+    // Los pines llegan tal como los ve el pad. INT0 e INT1 viven DENTRO del
+    // puerto D —PD2 y PD3—, así que no se pasan aparte: un solo camino hasta
+    // cada pin. PC7 no existe en el encapsulado y entra atado a cero.
+    wire [7:0] ei_rd;
+    wire       ei_sel;
+    wire       ei_int0, ei_int1, ei_pc0, ei_pc1, ei_pc2;
+
+    axioma_extint extint (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ei_rd), .io_sel(ei_sel),
+        .pin_b(pb_in), .pin_c({1'b0, pc_in[6:0]}), .pin_d(pd_in),
+        .irq_int0(ei_int0), .irq_int1(ei_int1),
+        .irq_pcint0(ei_pc0), .irq_pcint1(ei_pc1), .irq_pcint2(ei_pc2),
+        .ack_int0(irq_ack_v[1]),   .ack_int1(irq_ack_v[2]),
+        .ack_pcint0(irq_ack_v[3]), .ack_pcint1(irq_ack_v[4]),
+        .ack_pcint2(irq_ack_v[5])
+    );
+
     // ------------------------------------------ combinación de las lecturas
     // Cada periférico deja su lectura a cero cuando no está seleccionado, así
     // que se combinan con un OR. `io_sel` dice si ALGUNO reclamó la dirección;
@@ -256,9 +276,10 @@ module axioma328_soc #(
     // el OR devolvería los dos valores mezclados. El espacio es enumerable —256
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
-    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd | us_rd;
+    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
+                    | us_rd | ei_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
-                    | t1_sel | us_sel;
+                    | t1_sel | us_sel | ei_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -281,17 +302,24 @@ module axioma328_soc #(
                        t1_compb,      // 12      TIMER1_COMPB
                        t1_compa,      // 11      TIMER1_COMPA
                        t1_capt,       // 10      TIMER1_CAPT
-                       10'b0 };       // 9..0    Timer2, PCINT, INT, WDT, RESET
+                       4'b0,          // 9..6    Timer2 y WDT, sin periférico
+                       ei_pc2,        // 5       PCINT2
+                       ei_pc1,        // 4       PCINT1
+                       ei_pc0,        // 3       PCINT0
+                       ei_int1,       // 2       INT1
+                       ei_int0,       // 1       INT0
+                       1'b0 };        // 0       RESET, que no es interrupción
 
     // Los reconocimientos de los vectores que aún no tienen periférico no van a
     // ninguna parte, igual que sus peticiones.
     // Los reconocimientos que no van a ninguna parte, y por qué:
-    //   25..21, 17, 9..0  vectores sin periférico todavía.
+    //   25..21, 17, 9..6, 0  vectores sin periférico todavía.
     //   19 (USART_UDRE)   su bandera no la limpia el vector: la limpia
     //                     ESCRIBIR UDR0, que es lo que hace la ISR.
     //   18 (USART_RX)     ídem, la limpia LEER UDR0.
     // Sólo TXC se limpia al atender su vector, y ése sí está conectado.
-    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17], irq_ack_v[9:0]};
+    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17],
+                        irq_ack_v[9:6], irq_ack_v[0]};
 
     axioma_irq irqc (
         .src(irq_src),

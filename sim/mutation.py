@@ -49,6 +49,7 @@ TIMER1  = "rtl/periph/axioma_timer1.v"
 IRQ     = "rtl/periph/axioma_irq.v"
 GPIOR   = "rtl/periph/axioma_gpior.v"
 USART   = "rtl/periph/axioma_usart.v"
+EXTINT  = "rtl/periph/axioma_extint.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -506,6 +507,55 @@ CATALOG = [
     wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    5'b0};""",
  """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, 5'b0};
     wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    5'b0};"""),
+# ------------------------------------------- interrupciones externas
+("extint", EXTINT, "sim-extint", "el nivel bajo interrumpe con el pin alto",
+ """    wire int0_nivel = (isc0 == 2'b00) & ~int0_now;""",
+ """    wire int0_nivel = (isc0 == 2'b00) & int0_now;"""),
+("extint", EXTINT, "sim-extint", "el nivel bajo deja bandera, como si fuera flanco",
+ """    wire [1:0] eifr_vis = { eifr_q[1] & (isc1 != 2'b00),
+                            eifr_q[0] & (isc0 != 2'b00) };""",
+ """    wire [1:0] eifr_vis = eifr_q;"""),
+("extint", EXTINT, "sim-extint", "los dos flancos de INT0 intercambiados",
+ """    wire int0_ev = (isc0 == 2'b01) ? (int0_now != int0_ant) :
+                   (isc0 == 2'b10) ? (~int0_now &  int0_ant) :
+                   (isc0 == 2'b11) ? ( int0_now & ~int0_ant) : 1'b0;""",
+ """    wire int0_ev = (isc0 == 2'b01) ? (int0_now != int0_ant) :
+                   (isc0 == 2'b10) ? ( int0_now & ~int0_ant) :
+                   (isc0 == 2'b11) ? (~int0_now &  int0_ant) : 1'b0;"""),
+("extint", EXTINT, "sim-extint", "EIMSK filtra tambien la bandera, no solo el vector",
+ """            if (int0_ev)                                    eifr_q[0] <= 1'b1;""",
+ """            if (int0_ev && eimsk_q[0])                      eifr_q[0] <= 1'b1;"""),
+("extint", EXTINT, "sim-extint", "PCMSK deja de filtrar: cualquier pin marca la bandera",
+ """    wire pc0_ev = |((syn_b ^ prv_b) & pcmsk0_q);""",
+ """    wire pc0_ev = |(syn_b ^ prv_b);"""),
+("extint", EXTINT, "sim-extint", "PCINT compara el pin consigo mismo: nunca hay cambio",
+ """    wire pc2_ev = |((syn_d ^ prv_d) & pcmsk2_q);""",
+ """    wire pc2_ev = 1'b0;"""),
+("extint", EXTINT, "sim-extint", "escribir un cero en EIFR tambien limpia la bandera",
+ """            else if (ack_int0 ||
+                     (io_we && hit_eifr && io_wdata[0]))    eifr_q[0] <= 1'b0;""",
+ """            else if (ack_int0 || (io_we && hit_eifr))      eifr_q[0] <= 1'b0;"""),
+("extint", EXTINT, "sim-extint", "PCMSK1 se queda con el bit de PC7, que no existe",
+ """                if (hit_pcmsk1) pcmsk1_q <= io_wdata & 8'h7F;  // PC7 no existe""",
+ """                if (hit_pcmsk1) pcmsk1_q <= io_wdata;"""),
+("extint", EXTINT, "sim-extint", "el sincronizador desaparece: el flanco se ve un ciclo antes",
+ """            syn_b <= pin_b;  syn_c <= pin_c;  syn_d <= pin_d;
+            prv_b <= syn_b;  prv_c <= syn_c;  prv_d <= syn_d;""",
+ """            syn_b <= pin_b;  syn_c <= pin_c;  syn_d <= pin_d;
+            prv_b <= pin_b;  prv_c <= pin_c;  prv_d <= pin_d;"""),
+# Este NO lo caza el banco propio -su modelo no sabe de vectores-, lo caza el
+# diferencial: simavr salta a otro sitio.
+("extint", SOC, "sim-diff", "INT0 e INT1 intercambiados en el mapa de vectores",
+ """                       ei_pc2,        // 5       PCINT2
+                       ei_pc1,        // 4       PCINT1
+                       ei_pc0,        // 3       PCINT0
+                       ei_int1,       // 2       INT1
+                       ei_int0,       // 1       INT0""",
+ """                       ei_pc2,        // 5       PCINT2
+                       ei_pc1,        // 4       PCINT1
+                       ei_pc0,        // 3       PCINT0
+                       ei_int0,       // 2       INT1
+                       ei_int1,       // 1       INT0"""),
 ("soc", SOC, "sim-hello", "el canal OC1A se lleva el pin de OC1B",
  """    wire [7:0] ovr_b_en  = {5'b0, oc1b_en, oc1a_en, 1'b0};""",
  """    wire [7:0] ovr_b_en  = {5'b0, oc1a_en, oc1b_en, 1'b0};"""),

@@ -73,6 +73,7 @@ help:
 	@echo "  make sim-timer0       Timer0 y prescaler compartido vs hoja de datos"
 	@echo "  make sim-timer1       Timer1 de 16 bits: los 16 modos y el TEMP"
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
+	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
 	@echo "  make sim-robust       SPM y opcode ilegal: que nada se cuelgue"
@@ -259,6 +260,15 @@ sim-gpio:
 # --- Timer0 y su prescaler compartido ---
 # Van juntos porque la trampa nº 12 —el prescaler es libre y no se reinicia al
 # arrancar el temporizador— sólo se puede comprobar con los dos a la vez.
+.PHONY: sim-extint
+sim-extint:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vextint -o tb_extint \
+	  --top-module axioma_extint \
+	  rtl/periph/axioma_extint.v sim/periph/tb_extint.cpp >/dev/null
+	@echo -e "$(BOLD)Interrupciones externas: INT0, INT1 y los tres PCINT$(NC)"
+	@./$(BUILD)/vextint/tb_extint
+
 .PHONY: sim-timer0
 sim-timer0:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
@@ -335,7 +345,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v \
             rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
             rtl/periph/axioma_timer1.v rtl/periph/axioma_usart.v \
-            rtl/periph/axioma_irq.v
+            rtl/periph/axioma_extint.v rtl/periph/axioma_irq.v
 
 .PHONY: sim-soc
 sim-soc:
@@ -371,6 +381,7 @@ DIFF_SRCS := rtl/soc/axioma328_soc.v \
              rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v \
              rtl/periph/axioma_gpior.v rtl/periph/axioma_prescaler.v \
              rtl/periph/axioma_timer0.v rtl/periph/axioma_timer1.v \
+             rtl/periph/axioma_extint.v \
              rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 

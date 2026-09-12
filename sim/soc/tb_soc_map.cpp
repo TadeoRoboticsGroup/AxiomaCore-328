@@ -63,7 +63,14 @@ static const Esperado MAPA[] = {
     {0x24, "timer0", "TCCR0A"}, {0x25, "timer0", "TCCR0B"}, {0x26, "timer0", "TCNT0"},
     {0x27, "timer0", "OCR0A"},  {0x28, "timer0", "OCR0B"},
     {0x2A, "gpior",  "GPIOR1"}, {0x2B, "gpior",  "GPIOR2"},
+    {0x16, "timer1", "TIFR1"},
     {0x4E, "timer0", "TIMSK0"},
+    {0x4F, "timer1", "TIMSK1"},
+    {0x60, "timer1", "TCCR1A"}, {0x61, "timer1", "TCCR1B"}, {0x62, "timer1", "TCCR1C"},
+    {0x64, "timer1", "TCNT1L"}, {0x65, "timer1", "TCNT1H"},
+    {0x66, "timer1", "ICR1L"},  {0x67, "timer1", "ICR1H"},
+    {0x68, "timer1", "OCR1AL"}, {0x69, "timer1", "OCR1AH"},
+    {0x6A, "timer1", "OCR1BL"}, {0x6B, "timer1", "OCR1BH"},
     {0xA0, "usart",  "UCSR0A"}, {0xA1, "usart",  "UCSR0B"}, {0xA2, "usart", "UCSR0C"},
     {0xA4, "usart",  "UBRR0L"}, {0xA5, "usart",  "UBRR0H"}, {0xA6, "usart", "UDR0"},
 };
@@ -115,7 +122,7 @@ int main(int argc, char **argv) {
                 {"gpio_b", dut->sel_gpio_b}, {"gpio_c", dut->sel_gpio_c},
                 {"gpio_d", dut->sel_gpio_d}, {"gpior",  dut->sel_gpior},
                 {"presc",  dut->sel_presc},  {"timer0", dut->sel_timer0},
-                {"usart",  dut->sel_usart},
+                {"usart",  dut->sel_usart}, {"timer1", dut->sel_timer1},
             };
             int n = 0;
             for (auto &q : quien)

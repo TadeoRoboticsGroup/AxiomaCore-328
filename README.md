@@ -55,6 +55,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/periph/axioma_timer0.v` | **Verificado** | 4 480 668 comprobaciones en 224 032 ciclos contra un modelo de la hoja de datos: los ocho modos de onda, el doble búfer de `OCR0x`, las banderas y los pines de comparación |
 | `rtl/periph/axioma_prescaler.v` | **Verificado** | Ídem: es el contador **compartido** con el Timer1, y la trampa nº 12 —que arrancar un temporizador no lo pone a cero— sólo se puede comprobar con los dos juntos |
 | `rtl/periph/axioma_irq.v` | **Verificado** | **Exhaustivo**: las 67 108 864 combinaciones de las 26 peticiones, 201 326 592 comprobaciones de prioridad y reconocimiento |
+| `rtl/periph/axioma_timer1.v` | **Verificado** | **4 475 970 comprobaciones** contra un modelo de la hoja de datos: los 16 modos de onda, la captura de entrada con su cancelador de ruido, y **el registro TEMP compartido** —la trampa nº 4—, que simavr no modela |
 | `rtl/periph/axioma_usart.v` | **Verificado** | 44 082 comprobaciones contra un **receptor escrito desde la hoja de datos**, que decodifica el pin: las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
 | `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 248 KB para la ULX3S 25F. `nextpnr` mide **Fmax 20,28 MHz** bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,62× |
@@ -70,7 +71,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   22/22 objetivos en verde
+regresión   23/23 objetivos en verde
 mutación   111/111 fallos inyectados, 111 detectados
 cobertura   99,7 % del RTL, fusionando todas las fuentes
             13 de 16 módulos al 100 %; los 5 puntos restantes, adjudicados
@@ -168,11 +169,11 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 source env.sh
 make check-tools
 make lint synth-check regmap-check lpf sim-alu sim-sreg sim-regfile sim-mem sim-dbus \
-     sim-gpio sim-timer0 sim-usart sim-irq sim-soc sim-robust sim-fw sim-hello \
-     sim-simavr sim-decode sim-diff sim-random coverage
+     sim-gpio sim-timer0 sim-timer1 sim-usart sim-irq sim-soc sim-robust sim-fw \
+     sim-hello sim-simavr sim-decode sim-diff sim-random coverage
 ```
 
-Los veintidós objetivos deben pasar. Tarda menos de un minuto en un portátil.
+Los veintitrés objetivos deben pasar. Tarda menos de un minuto en un portátil.
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 siete programas: tres de aritmética, control de flujo y memoria, y cuatro dirigidos que completan

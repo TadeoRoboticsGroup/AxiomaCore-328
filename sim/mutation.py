@@ -45,6 +45,7 @@ DBUS    = "rtl/bus/axioma_dbus.v"
 GPIO    = "rtl/periph/axioma_gpio.v"
 PRESC   = "rtl/periph/axioma_prescaler.v"
 TIMER0  = "rtl/periph/axioma_timer0.v"
+TIMER1  = "rtl/periph/axioma_timer1.v"
 IRQ     = "rtl/periph/axioma_irq.v"
 GPIOR   = "rtl/periph/axioma_gpior.v"
 USART   = "rtl/periph/axioma_usart.v"
@@ -446,6 +447,50 @@ CATALOG = [
             next_fpc = fpc + 14'd1;  next_pc = pc + 14'd1;  retire = 1'b1;""",
  """        default: begin       // OPC_ILLEGAL: se trata como NOP y se señala fuera
             next_fpc = fpc;  next_pc = pc;  retire = 1'b0;"""),
+# ------------------------------------------------------- Timer1 de 16 bits
+# La trampa numero 4 entera: el registro TEMP. simavr no lo modela, asi que
+# estos SOLO los puede cazar el banco propio.
+("timer1", TIMER1, "sim-timer1", "escribir el byte bajo ignora el TEMP",
+ """                if (hit_cntl)  begin tcnt <= {temp, io_wdata}; tcnt_block <= 1'b1; end""",
+ """                if (hit_cntl)  begin tcnt <= {8'h00, io_wdata}; tcnt_block <= 1'b1; end"""),
+("timer1", TIMER1, "sim-timer1", "leer el byte bajo no captura el alto en TEMP",
+ """                if (hit_cntl)  temp <= tcnt[15:8];""",
+ """                if (hit_cntl)  temp <= temp;"""),
+("timer1", TIMER1, "sim-timer1", "cada registro de 16 bits tiene su propio TEMP",
+ """                if (hit_icrl)  temp <= icr[15:8];""",
+ """                if (hit_icrl)  temp <= temp;"""),
+("timer1", TIMER1, "sim-timer1", "el cancelador de ruido mira dos muestras, no cuatro",
+ """    wire cuatro_altas = (icp_sync[3:0] == 4'b1111);""",
+ """    wire cuatro_altas = (icp_sync[1:0] == 2'b11);"""),
+("timer1", TIMER1, "sim-timer1", "la captura se dispara en el flanco contrario",
+ """            if (icp_filtrado != icp_prev && (icp_filtrado == ices)) begin""",
+ """            if (icp_filtrado != icp_prev && (icp_filtrado != ices)) begin"""),
+("timer1", TIMER1, "sim-timer1", "fase y frecuencia correctas refresca OCR en TOP",
+ """    wire ev_update = ck && (mode_pc   ? at_top :
+                            mode_pfc  ? (dir_down && at_bottom) :
+                            mode_fast ? at_top : 1'b0);""",
+ """    wire ev_update = ck && (mode_pc   ? at_top :
+                            mode_pfc  ? at_top :
+                            mode_fast ? at_top : 1'b0);"""),
+("timer1", TIMER1, "sim-timer1", "en CTC el desbordamiento se marca en TOP y no en MAX",
+ """    wire ev_tov = ck && (cuenta_ad ? (dir_down && at_bottom) :
+                         mode_fast ? at_top :
+                                     at_max);""",
+ """    wire ev_tov = ck && (cuenta_ad ? (dir_down && at_bottom) :
+                         mode_fast ? at_top :
+                                     at_top);"""),
+("timer1", TIMER1, "sim-timer1", "la captura se lleva la cuenta ya incrementada",
+ """                icr <= tcnt;""",
+ """                icr <= tcnt_next;"""),
+# DUDA LEGITIMA, resuelta como mutante en vez de por intuicion: si dos vectores
+# del mismo periferico se intercambian y los dos estan habilitados, ¿lo ve
+# alguien? El arnes le DICE a simavr que vector tomo el RTL, asi que simavr no
+# puede desmentirlo mientras la habilitacion este puesta.
+("soc", SOC, "sim-diff", "dos vectores del Timer1 intercambiados",
+ """                       t1_ovf,        // 13      TIMER1_OVF
+                       t1_compb,      // 12      TIMER1_COMPB""",
+ """                       t1_compb,      // 13      TIMER1_OVF
+                       t1_ovf,        // 12      TIMER1_COMPB"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

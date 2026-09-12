@@ -36,6 +36,7 @@ module tb_soc_top (
     output wire        sel_presc,
     output wire        sel_timer0,
     output wire        sel_usart,
+    output wire        sel_timer1,
 
     output wire [7:0]  io_rdata
 );
@@ -78,6 +79,7 @@ module tb_soc_top (
     assign sel_presc  = soc.ps_sel;
     assign sel_timer0 = soc.tm_sel;
     assign sel_usart  = soc.us_sel;
+    assign sel_timer1 = soc.t1_sel;
 
 endmodule
 

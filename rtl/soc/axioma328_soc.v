@@ -30,6 +30,8 @@
 //   0x15       TIFR0                  0x23  GTCCR
 //   0x24-0x28  TCCR0A/B TCNT0 OCR0A/B 0x4E  TIMSK0  (sólo LD/ST)
 //   0xA0-0xA6  UCSR0A/B/C UBRR0L/H UDR0      (sólo LD/ST)
+//   0x16       TIFR1                  0x4F  TIMSK1  (sólo LD/ST)
+//   0x60-0x62  TCCR1A/B/C             0x64-0x6B  TCNT1 ICR1 OCR1A/B
 //
 // Todo lo demás está sin implementar y se lee como cero. Un programa que use la
 // USART, el SPI o el ADC no funcionará todavía, y es lo correcto: que lo diga
@@ -191,6 +193,32 @@ module axioma328_soc #(
         .ack_ovf(irq_ack_v[16]), .ack_compa(irq_ack_v[14]), .ack_compb(irq_ack_v[15])
     );
 
+    // ------------------------------------------------------- Timer/Counter1
+    // EL MISMO PRESCALER QUE EL TIMER0. Esto es la trampa nº 12 dejando de ser
+    // teoría: los dos temporizadores cuelgan del mismo contador libre, así que
+    // `GTCCR.PSRSYNC` los afecta a los dos a la vez y arrancar uno no reinicia
+    // la fase del otro.
+    wire [7:0] t1_rd;
+    wire       t1_sel;
+    wire       t1_capt, t1_compa, t1_compb, t1_ovf;
+
+    axioma_timer1 timer1 (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(t1_rd), .io_sel(t1_sel),
+        .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
+        .tick_256(tick_256), .tick_1024(tick_1024),
+        .t1_pin(pd_in[5]),                       // T1 es PD5
+        .icp1_pin(pb_in[0]),                     // ICP1 es PB0
+        /* verilator lint_off PINCONNECTEMPTY */
+        .oc1a(), .oc1a_en(), .oc1b(), .oc1b_en(),
+        /* verilator lint_on PINCONNECTEMPTY */
+        .irq_capt(t1_capt), .irq_compa(t1_compa),
+        .irq_compb(t1_compb), .irq_ovf(t1_ovf),
+        .ack_capt(irq_ack_v[10]), .ack_compa(irq_ack_v[11]),
+        .ack_compb(irq_ack_v[12]), .ack_ovf(irq_ack_v[13])
+    );
+
     // ------------------------------------------------------------ USART0
     wire [7:0] us_rd;
     wire       us_sel;
@@ -214,8 +242,9 @@ module axioma328_soc #(
     // el OR devolvería los dos valores mezclados. El espacio es enumerable —256
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
-    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | us_rd;
-    assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel | us_sel;
+    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd | us_rd;
+    assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
+                    | t1_sel | us_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -234,11 +263,21 @@ module axioma328_soc #(
                        tm_ovf,        // 16      TIMER0_OVF
                        tm_compb,      // 15      TIMER0_COMPB
                        tm_compa,      // 14      TIMER0_COMPA
-                       14'b0 };       // 13..0   Timer1, Timer2, PCINT, INT, RESET
+                       t1_ovf,        // 13      TIMER1_OVF
+                       t1_compb,      // 12      TIMER1_COMPB
+                       t1_compa,      // 11      TIMER1_COMPA
+                       t1_capt,       // 10      TIMER1_CAPT
+                       10'b0 };       // 9..0    Timer2, PCINT, INT, WDT, RESET
 
     // Los reconocimientos de los vectores que aún no tienen periférico no van a
     // ninguna parte, igual que sus peticiones.
-    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17], irq_ack_v[13:0]};
+    // Los reconocimientos que no van a ninguna parte, y por qué:
+    //   25..21, 17, 9..0  vectores sin periférico todavía.
+    //   19 (USART_UDRE)   su bandera no la limpia el vector: la limpia
+    //                     ESCRIBIR UDR0, que es lo que hace la ISR.
+    //   18 (USART_RX)     ídem, la limpia LEER UDR0.
+    // Sólo TXC se limpia al atender su vector, y ése sí está conectado.
+    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17], irq_ack_v[9:0]};
 
     axioma_irq irqc (
         .src(irq_src),

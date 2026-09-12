@@ -921,7 +921,18 @@ enumerado** en vez de implícito.
 
 ### Fase 3 — Periféricos completos (5 semanas)
 
-- [ ] `timer1.v` con el **registro TEMP** de 16 bits; `timer2.v`; los 6 canales PWM.
+- [x] **`timer1.v` con el registro TEMP de 16 bits.** Los 16 modos de onda, la captura de entrada
+      con su cancelador de ruido de cuatro muestras, y el **TEMP compartido** entre `TCNT1`, `ICR1`,
+      `OCR1A` y `OCR1B` —la trampa nº 4—, que es lo que hace que una interrupción a mitad de un
+      acceso de 16 bits corrompa el otro registro. simavr **no lo modela**: escribe los dos bytes
+      por su cuenta, así que esto sólo lo certifica el banco propio. 4 475 970 comprobaciones, y
+      **usa el mismo prescaler que el Timer0**, con lo que la trampa nº 12 deja de ser teoría.
+
+      De paso cerró un agujero de verificación que valía para todos los periféricos: con las cuatro
+      interrupciones habilitadas a la vez, **intercambiar dos vectores es invisible** —el arnés le
+      dice a simavr cuál tomó el RTL, así que no puede desmentirlo—. Se comprobó inyectando ese
+      fallo exacto y sobrevivía. El programa de prueba habilita ahora **una sola cada vez**.
+- [ ] `timer2.v`; los 6 canales PWM.
 - [ ] `spi.v`, `twi.v` (con modelos de bus en el testbench).
 - [ ] `adc.v` (controlador SAR; comparador externo o modelo), `ac.v`, `wdt.v`.
 - [ ] `extint.v` (INT0/INT1) y `pcint.v` (PCINT0/1/2).

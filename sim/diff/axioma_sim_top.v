@@ -125,6 +125,25 @@ module axioma_sim_top (
             8'h2A:   dbg_periph = soc.gpior.r1;
             8'h2B:   dbg_periph = soc.gpior.r2;
             8'h4E:   dbg_periph = {5'b0, soc.timer0.timsk_q};
+            // Del Timer1, la ventana devuelve el valor REAL de cada registro,
+            // no lo que devolvería el bus: leer un byte alto por el bus da el
+            // TEMP, y aquí lo que se quiere comparar contra simavr es lo que el
+            // registro guarda.
+            8'h16:   dbg_periph = {2'b0, soc.timer1.icf, 2'b0, soc.timer1.tifr};
+            8'h4F:   dbg_periph = {2'b0, soc.timer1.icie, 2'b0, soc.timer1.timsk};
+            8'h60:   dbg_periph = {soc.timer1.com, 2'b00, soc.timer1.wgm[1:0]};
+            8'h61:   dbg_periph = {soc.timer1.icnc, soc.timer1.ices, 1'b0,
+                                   soc.timer1.wgm[3], soc.timer1.wgm[2],
+                                   soc.timer1.cs};
+            8'h62:   dbg_periph = 8'h00;
+            8'h64:   dbg_periph = soc.timer1.tcnt[7:0];
+            8'h65:   dbg_periph = soc.timer1.tcnt[15:8];
+            8'h66:   dbg_periph = soc.timer1.icr[7:0];
+            8'h67:   dbg_periph = soc.timer1.icr[15:8];
+            8'h68:   dbg_periph = soc.timer1.ocra_buf[7:0];
+            8'h69:   dbg_periph = soc.timer1.ocra_buf[15:8];
+            8'h6A:   dbg_periph = soc.timer1.ocrb_buf[7:0];
+            8'h6B:   dbg_periph = soc.timer1.ocrb_buf[15:8];
             8'hA1:   dbg_periph = {soc.usart.rxcie, soc.usart.txcie,
                                    soc.usart.udrie, soc.usart.rxen,
                                    soc.usart.txen,  soc.usart.ucsz2,

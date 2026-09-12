@@ -47,6 +47,7 @@ RTL = ("rtl/soc/axioma328_soc.v rtl/core/axioma_core.v rtl/core/axioma_seq.v "
        "rtl/core/axioma_regfile.v rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v "
        "rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v "
        "rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v "
+       "rtl/periph/axioma_timer1.v "
        "rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v")
 
 # UNOPTFLAT se silencia SÓLO aquí. La instrumentación de cobertura cambia la
@@ -101,6 +102,9 @@ def main():
     construir("build/vcovt", "tb_timer0c", "tb_timer0_top",
               "sim/periph/tb_timer0_top.v rtl/periph/axioma_timer0.v "
               "rtl/periph/axioma_prescaler.v sim/periph/tb_timer0.cpp")
+    construir("build/vcov1", "tb_timer1c", "tb_timer1_top",
+              "sim/periph/tb_timer1_top.v rtl/periph/axioma_timer1.v "
+              "rtl/periph/axioma_prescaler.v sim/periph/tb_timer1.cpp")
     construir("build/vcovu", "tb_usartc", "axioma_usart",
               "rtl/periph/axioma_usart.v sim/periph/tb_usart.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
@@ -117,6 +121,7 @@ def main():
         n += 1
     sh("AXIOMA_COV=build/cov/robust.dat ./build/vcovr/robustc"); n += 1
     sh("AXIOMA_COV=build/cov/timer0.dat ./build/vcovt/tb_timer0c"); n += 1
+    sh("AXIOMA_COV=build/cov/timer1.dat ./build/vcov1/tb_timer1c"); n += 1
     sh("AXIOMA_COV=build/cov/usart.dat ./build/vcovu/tb_usartc"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")

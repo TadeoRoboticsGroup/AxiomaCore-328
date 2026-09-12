@@ -529,9 +529,22 @@ int main(int argc, char **argv) {
             {0x0047, 0x0048, "OCR0A y OCR0B"},
             {0x004A, 0x004B, "GPIOR1 y GPIOR2"},
             {0x006E, 0x006E, "TIMSK0"},
+            {0x0080, 0x0081, "TCCR1A y TCCR1B"},
+            {0x0088, 0x008B, "OCR1A y OCR1B"},
+            {0x006F, 0x006F, "TIMSK1"},
             {0x00C2, 0x00C2, "UCSR0C"},
             {0x00C4, 0x00C5, "UBRR0L y UBRR0H"},
         };
+        //   ICR1   (0x86)  es el valor CAPTURADO del contador, así que hereda
+        //                   el problema de TCNT1: cada lado captura su propia
+        //                   cuenta. Es temporización, no almacenamiento.
+        //
+        // DEL TIMER1 pasa lo mismo, y con un motivo más: simavr NO MODELA EL
+        // REGISTRO TEMP —escribe los dos bytes por su cuenta—, así que TCNT1H,
+        // ICR1H y los bytes altos de OCR1x devolverían cosas distintas. Se
+        // comparan las direcciones, que en los dos lados guardan el valor, y no
+        // se leen desde el programa por la mitad alta.
+        //
         // DEL TIMER0 SE COMPARA LO QUE ES ALMACENAMIENTO EN LOS DOS LADOS, y
         // nada más. Quedan fuera, con motivo:
         //   TCNT0 (0x46)  simavr lo interpola desde `avr->cycle` con su propia

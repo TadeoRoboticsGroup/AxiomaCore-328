@@ -175,6 +175,14 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-timer0
 
+      # El de 16 bits, con la trampa numero 4: el registro TEMP, que es UNO
+      # SOLO y COMPARTIDO entre TCNT1, ICR1, OCR1A y OCR1B. simavr no lo modela,
+      # asi que esto solo lo puede certificar el banco propio.
+      - name: Timer1 de 16 bits contra la hoja de datos
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-timer1
+
       # El unico periferico con efecto lateral de LECTURA, y aquel para el que
       # simavr sirve de menos: su modelo NO SERIALIZA nada, asi que la forma de
       # onda la certifica un receptor escrito desde la hoja de datos que

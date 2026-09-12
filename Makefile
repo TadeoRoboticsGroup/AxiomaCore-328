@@ -70,6 +70,7 @@ help:
 	@echo "  make sim-dbus         fabric del espacio de datos, 65 536 direcciones"
 	@echo "  make sim-gpio         puertos de E/S: sincronizador y toggle por PINx"
 	@echo "  make sim-timer0       Timer0 y prescaler compartido vs hoja de datos"
+	@echo "  make sim-timer1       Timer1 de 16 bits: los 16 modos y el TEMP"
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -260,6 +261,19 @@ sim-timer0:
 	@echo -e "$(BOLD)Timer0 contra la hoja de datos$(NC)"
 	@./$(BUILD)/vtimer0/tb_timer0
 
+# --- Timer1, de 16 bits ---
+# El que trae la trampa numero 4: el registro TEMP, que es UNO SOLO y
+# COMPARTIDO entre TCNT1, ICR1, OCR1A y OCR1B. simavr no lo modela.
+.PHONY: sim-timer1
+sim-timer1:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vtimer1 -o tb_timer1 \
+	  --top-module tb_timer1_top sim/periph/tb_timer1_top.v \
+	  rtl/periph/axioma_timer1.v rtl/periph/axioma_prescaler.v \
+	  sim/periph/tb_timer1.cpp >/dev/null
+	@echo -e "$(BOLD)Timer1 de 16 bits contra la hoja de datos$(NC)"
+	@./$(BUILD)/vtimer1/tb_timer1
+
 # --- USART0 ---
 # El unico periferico con efecto lateral de LECTURA, y aquel para el que simavr
 # sirve de menos: su modelo no serializa nada, asi que la forma de onda la
@@ -312,7 +326,8 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v rtl/bus/axioma_dbus.v \
             rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v \
             rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
-            rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v
+            rtl/periph/axioma_timer1.v rtl/periph/axioma_usart.v \
+            rtl/periph/axioma_irq.v
 
 .PHONY: sim-soc
 sim-soc:
@@ -347,8 +362,8 @@ DIFF_SRCS := rtl/soc/axioma328_soc.v \
              rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v \
              rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v \
              rtl/periph/axioma_gpior.v rtl/periph/axioma_prescaler.v \
-             rtl/periph/axioma_timer0.v rtl/periph/axioma_usart.v \
-             rtl/periph/axioma_irq.v
+             rtl/periph/axioma_timer0.v rtl/periph/axioma_timer1.v \
+             rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 
 $(DIFF_DIR)/%.bin: sim/diff/tests/%.S
@@ -396,7 +411,7 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 
 .PHONY: sim-core
 sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 \
-          sim-usart sim-irq sim-soc sim-fw sim-hello sim-simavr sim-decode sim-diff
+          sim-timer1 sim-usart sim-irq sim-soc sim-fw sim-hello sim-simavr sim-decode sim-diff
 
 # --- firmware: C de verdad, compilado con avr-gcc y avr-libc ---
 # Que un programa en C sin modificar compile y corra es medio criterio de

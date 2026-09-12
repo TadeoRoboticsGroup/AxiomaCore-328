@@ -294,3 +294,85 @@ jobs:
         run: |
           source ~/eda/oss-cad-suite/environment
           make synth-check
+
+  # LA MUTACIÓN ES LA VERIFICACIÓN DE LA VERIFICACIÓN, y hasta hoy sólo corría
+  # en el portátil de quien se acordaba. La regla del proyecto dice que es
+  # obligatoria; una regla que el servidor no comprueba no es una regla.
+  #
+  # No es un capricho: el catálogo se ha quedado obsoleto CUATRO veces al tocar
+  # el RTL —tras el registro del camino de memoria, tras arreglar el bus, y al
+  # añadir la USART y el Timer1—, y cada vez fue un mutante que dejó de
+  # aplicarse en silencio. Peor: un mutante SOBREVIVIÓ (intercambiar dos
+  # vectores de interrupción), y eso destapó que el arnés le decía a simavr qué
+  # vector había tomado el RTL.
+  #
+  # Va en un job aparte y no como paso de `verify` a propósito: tarda unos 7
+  # minutos, y así no retrasa la señal del resto de la regresión ni se confunde
+  # un catálogo obsoleto con un fallo del RTL.
+  mutation:
+    name: Mutación - la verificación de la verificación
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cachear OSS CAD Suite
+        id: cache-oss
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/oss-cad-suite
+          key: oss-cad-${{ env.OSS_CAD_VERSION }}
+
+      - name: Instalar OSS CAD Suite
+        if: steps.cache-oss.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/eda && cd ~/eda
+          curl -sL -o oss.tgz \
+            "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_VERSION}/oss-cad-suite-linux-x64-${OSS_CAD_STAMP}.tgz"
+          tar xzf oss.tgz && rm oss.tgz
+
+      - name: Cachear toolchain AVR
+        id: cache-avr
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/avr
+          key: avr-gcc-7.3.0-atmel3.6.1-arduino7
+
+      - name: Instalar toolchain AVR (misma versión que en local)
+        if: steps.cache-avr.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/eda/avr && cd ~/eda/avr
+          curl -sL -o avr-gcc.tar.bz2 "$AVR_GCC_URL"
+          tar xjf avr-gcc.tar.bz2 && rm avr-gcc.tar.bz2
+          mv avr avr-gcc-7.3.0
+
+      - name: Añadir avr-gcc al PATH
+        run: echo "$HOME/eda/avr/avr-gcc-7.3.0/bin" >> $GITHUB_PATH
+
+      - name: Entorno Python
+        run: |
+          python3 -m venv ~/eda/venv
+          ~/eda/venv/bin/pip install -q numpy pytest pyelftools intelhex
+
+      - name: Cachear simavr
+        id: cache-simavr
+        uses: actions/cache@v4
+        with:
+          path: ~/eda/simavr-src
+          key: simavr-${{ hashFiles('.github/workflows/ci.yml') }}
+
+      - name: Compilar simavr
+        if: steps.cache-simavr.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libelf-dev
+          git clone -q --depth 1 https://github.com/buserror/simavr.git ~/eda/simavr-src
+          make -C ~/eda/simavr-src -j$(nproc) build-simavr
+
+      # El catálogo inyecta un fallo cada vez, reconstruye y exige que la
+      # regresión lo cace. Si un mutante SOBREVIVE, el que está mal es el banco
+      # de pruebas, no el RTL. Si un mutante NO SE APLICA, el catálogo se quedó
+      # atrás respecto al RTL y hay que ponerlo al día en el mismo commit.
+      - name: Catálogo de mutantes - todos tienen que morir
+        run: |
+          sudo apt-get install -y -qq libelf-dev
+          source ~/eda/oss-cad-suite/environment
+          make mutation

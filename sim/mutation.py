@@ -491,6 +491,13 @@ CATALOG = [
                        t1_compb,      // 12      TIMER1_COMPB""",
  """                       t1_compb,      // 13      TIMER1_OVF
                        t1_ovf,        // 12      TIMER1_COMPB"""),
+# ------------------------------- la anulacion de pin por un periferico (D1)
+("gpio", GPIO, "sim-hello", "el canal PWM no llega al pad",
+ """    assign pad_out = (port_q & ~ovr_en) | (ovr_val & ovr_en);""",
+ """    assign pad_out = port_q;"""),
+("gpio", GPIO, "sim-gpio", "la anulacion tambien fuerza la direccion del pin",
+ """    assign pad_oe  = ddr_q;""",
+ """    assign pad_oe  = ddr_q | ovr_en;"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

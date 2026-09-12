@@ -124,6 +124,21 @@ module axioma328_soc #(
         .wdata(sram_wdata), .rdata(sram_rdata)
     );
 
+    // -------------------------------------- salidas de comparación a los pads
+    // LOS CUATRO CANALES PWM, en los pines que les asigna el encapsulado:
+    //
+    //   OC0A -> PD6      OC0B -> PD5      OC1A -> PB1      OC1B -> PB2
+    //
+    // Se anula el VALOR del pin, nunca su dirección: el programa sigue
+    // teniendo que poner DDRx, igual que en el chip.
+    wire oc0a, oc0a_en, oc0b, oc0b_en;
+    wire oc1a, oc1a_en, oc1b, oc1b_en;
+
+    wire [7:0] ovr_b_en  = {5'b0, oc1b_en, oc1a_en, 1'b0};
+    wire [7:0] ovr_b_val = {5'b0, oc1b,    oc1a,    1'b0};
+    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 5'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    5'b0};
+
     // ---------------------------------------------------- puertos de E/S
     wire [7:0] gb_rd, gc_rd, gd_rd;
     wire       gb_sel, gc_sel, gd_sel;
@@ -132,6 +147,7 @@ module axioma328_soc #(
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gb_rd), .io_sel(gb_sel),
+        .ovr_en(ovr_b_en), .ovr_val(ovr_b_val),
         .pad_in(pb_in), .pad_out(pb_out), .pad_oe(pb_oe), .pad_pullup(pb_pu)
     );
     // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
@@ -139,12 +155,14 @@ module axioma328_soc #(
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gc_rd), .io_sel(gc_sel),
+        .ovr_en(8'h00), .ovr_val(8'h00),       // el puerto C no tiene canales
         .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
     );
     axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gd_rd), .io_sel(gd_sel),
+        .ovr_en(ovr_d_en), .ovr_val(ovr_d_val),
         .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
     );
 
@@ -186,9 +204,7 @@ module axioma328_soc #(
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
         .tick_256(tick_256), .tick_1024(tick_1024),
         .t0_pin(pd_in[4]),                       // T0 es PD4
-        /* verilator lint_off PINCONNECTEMPTY */
-        .oc0a(), .oc0a_en(), .oc0b(), .oc0b_en(),
-        /* verilator lint_on PINCONNECTEMPTY */
+        .oc0a(oc0a), .oc0a_en(oc0a_en), .oc0b(oc0b), .oc0b_en(oc0b_en),
         .irq_ovf(tm_ovf), .irq_compa(tm_compa), .irq_compb(tm_compb),
         .ack_ovf(irq_ack_v[16]), .ack_compa(irq_ack_v[14]), .ack_compb(irq_ack_v[15])
     );
@@ -210,9 +226,7 @@ module axioma328_soc #(
         .tick_256(tick_256), .tick_1024(tick_1024),
         .t1_pin(pd_in[5]),                       // T1 es PD5
         .icp1_pin(pb_in[0]),                     // ICP1 es PB0
-        /* verilator lint_off PINCONNECTEMPTY */
-        .oc1a(), .oc1a_en(), .oc1b(), .oc1b_en(),
-        /* verilator lint_on PINCONNECTEMPTY */
+        .oc1a(oc1a), .oc1a_en(oc1a_en), .oc1b(oc1b), .oc1b_en(oc1b_en),
         .irq_capt(t1_capt), .irq_compa(t1_compa),
         .irq_compb(t1_compb), .irq_ovf(t1_ovf),
         .ack_capt(irq_ack_v[10]), .ack_compa(irq_ack_v[11]),

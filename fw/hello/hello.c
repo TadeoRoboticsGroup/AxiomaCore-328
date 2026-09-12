@@ -83,6 +83,17 @@ int main(void)
     TCCR0B = (1 << CS01) | (1 << CS00);       /* clk/64 */
     TIMSK0 = (1 << TOIE0);
 
+    /* PWM por hardware en OC1A, que es PB1 — el pin 9 de Arduino. Esto es lo
+     * que hace `analogWrite(9, 64)` por dentro: PWM rápido de 8 bits con el pin
+     * en modo no invertido, y el ciclo de trabajo en OCR1A.
+     *
+     * DDRB YA ESTÁ A SALIDA arriba, y hace falta: el temporizador anula el
+     * VALOR del pin, nunca su dirección. Un analogWrite() sin pinMode() no saca
+     * nada, ni aquí ni en el chip. */
+    TCCR1A = (1 << COM1A1) | (1 << WGM10);   /* PWM rápido 8 bits, no invertido */
+    TCCR1B = (1 << WGM12) | (1 << CS11);     /* clk/8 */
+    OCR1A  = 64;                             /* 64 de 256: un 25 % */
+
     usart_init();
     sei();
 

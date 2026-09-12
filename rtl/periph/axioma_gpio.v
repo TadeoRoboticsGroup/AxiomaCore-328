@@ -50,6 +50,25 @@ module axioma_gpio #(
     output wire [7:0] io_rdata,
     output wire       io_sel,
 
+    // ---- anulación por un periférico ----
+    // LA HOJA DE DATOS LO LLAMA «override». Cuando un temporizador se adueña de
+    // un pin para sacar su forma de onda —OC0A en PD6, OC0B en PD5, OC1A en PB1,
+    // OC1B en PB2—, el valor del pad lo pone ÉL y no `PORTx`.
+    //
+    // LO QUE NO ANULA ES LA DIRECCIÓN. El manual es explícito: «the Data
+    // Direction Register bit for the OC0A pin must be set as output before the
+    // value is visible on the pin». Es decir, el programa SIGUE teniendo que
+    // poner `DDRx`, y por eso un `analogWrite()` que se olvide del `pinMode()`
+    // no saca nada. Modelarlo al revés —que el periférico fuerce también la
+    // dirección— haría funcionar código que en el chip no funciona, que es el
+    // peor tipo de incompatibilidad.
+    //
+    // `PORTx` se sigue escribiendo y leyendo mientras dura la anulación: al
+    // soltarla, el pin vuelve al valor que el programa dejó. También eso es lo
+    // que hace el chip.
+    input  wire [7:0] ovr_en,
+    input  wire [7:0] ovr_val,
+
     // ---- pines ----
     // El pull-up NO lo aplica este módulo: lo DECLARA, y lo aplica la celda de
     // pad —o el modelo de pad del banco—. Es lo que corresponde: en la FPGA lo
@@ -104,7 +123,7 @@ module axioma_gpio #(
                       hit_ddr  ? ddr_q  :
                       hit_port ? port_q : 8'h00;
 
-    assign pad_out = port_q;
+    assign pad_out = (port_q & ~ovr_en) | (ovr_val & ovr_en);
     assign pad_oe  = ddr_q;
     // Pin de entrada con su bit de PORTx a 1: pull-up activado. Es lo que hace
     // que un pin sin nada conectado se lea como 1 y no como ruido.

@@ -28,6 +28,8 @@ static Vaxioma_gpio *dut;
 static int fails = 0;
 static long checks = 0;
 
+static void chk(const char *what, uint32_t got, uint32_t exp, long t);
+
 static void chk(const char *what, uint32_t got, uint32_t exp, long t) {
     checks++;
     if (got != exp && ++fails <= 8)
@@ -49,7 +51,13 @@ struct Model {
     // El pad, sin nada conectado por fuera: salida se conduce a sí misma,
     // entrada con pull-up lee 1, entrada sin pull-up queda flotando y se
     // modela como 0.
-    uint8_t pad() const { return (port & ddr) | ((~ddr & port) & ~ddr); }
+    // La anulación por un periférico: cuando un temporizador se adueña del
+    // pin, el VALOR lo pone él. La DIRECCIÓN sigue siendo de DDRx — el manual
+    // es explícito, y modelarlo al revés haría funcionar un `analogWrite()` sin
+    // `pinMode()`, que en el chip no saca nada.
+    uint8_t ovr_en = 0, ovr_val = 0;
+    uint8_t salida() const { return (uint8_t)((port & ~ovr_en) | (ovr_val & ovr_en)); }
+    uint8_t pad() const { return (uint8_t)((salida() & ddr) | ((~ddr & port) & ~ddr)); }
 
     // Un ciclo de reloj. El sincronizador captura el pad ANTES de que la
     // escritura de este ciclo tenga efecto: por eso se calcula primero.
@@ -78,10 +86,11 @@ int main(int argc, char **argv) {
     printf("  Puerto con BITS=0x%02X\n", BITS);
     dut = new Vaxioma_gpio;
     Model m;
+    const uint8_t mascara_original = BITS;
 
     dut->rst_n = 0; dut->clk = 0;
     dut->io_addr = 0; dut->io_re = 0; dut->io_we = 0; dut->io_wdata = 0;
-    dut->pad_in = 0; dut->eval();
+    dut->pad_in = 0; dut->ovr_en = 0; dut->ovr_val = 0; dut->eval();
     tick();
     dut->rst_n = 1; dut->eval();
 
@@ -157,6 +166,43 @@ int main(int argc, char **argv) {
     }
     uint8_t despues = leer(A_PIN);
     chk("PINx tras dejar pasar un ciclo", despues, patron, -2);
+    // ------------------------------------------------- anulación por periférico
+    // D1 de la deuda técnica: los cuatro canales PWM se generaban y no llegaban
+    // al pad. Aquí se comprueba lo que el manual exige de la anulación.
+    {
+        BITS = mascara_original;
+        escribir(A_DDR, 0xFF);              // todo a salida
+        escribir(A_PORT, 0x00);
+
+        // Con la anulación puesta, manda el periférico.
+        dut->ovr_en = 0x40; dut->ovr_val = 0x40;   // el bit 6, como OC0A en PD6
+        m.ovr_en = 0x40;    m.ovr_val = 0x40;
+        dut->pad_in = m.pad(); dut->eval();
+        chk("el periferico manda en el pin", dut->pad_out & 0x40, 0x40, 0);
+        chk("y no toca a los demas", dut->pad_out & ~0x40, m.salida() & ~0x40, 0);
+
+        // PORTx se sigue escribiendo por debajo...
+        escribir(A_PORT, 0xFF);
+        dut->pad_in = m.pad(); dut->eval();
+        chk("el periferico sigue mandando", dut->pad_out & 0x40, 0x40, 0);
+
+        // ...y al soltar la anulación, el pin vuelve a lo que dejó el programa.
+        dut->ovr_en = 0x00; m.ovr_en = 0x00;
+        dut->pad_in = m.pad(); dut->eval();
+        chk("al soltar vuelve a PORTx", dut->pad_out, m.salida(), 0);
+
+        // LA DIRECCION NO SE ANULA: con DDRx a entrada, el pin no conduce
+        // aunque el periferico quiera. Es lo que hace que un analogWrite() sin
+        // pinMode() no saque nada, igual que en el chip.
+        escribir(A_DDR, 0x00);
+        dut->ovr_en = 0x40; dut->ovr_val = 0x40;
+        m.ovr_en = 0x40;    m.ovr_val = 0x40;
+        dut->pad_in = m.pad(); dut->eval();
+        chk("la direccion la sigue mandando DDRx", dut->pad_oe, 0x00, 0);
+        dut->ovr_en = 0; m.ovr_en = 0;
+        escribir(A_DDR, 0xFF);
+    }
+
 
     delete dut;
     printf("  Puerto de E/S contra modelo de referencia\n");

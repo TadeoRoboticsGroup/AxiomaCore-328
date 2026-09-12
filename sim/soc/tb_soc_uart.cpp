@@ -94,6 +94,11 @@ int main(int argc, char **argv) {
     int  pb5_previo = -1;
     long conmutaciones = 0;
 
+    // PWM por hardware en OC1A (PB1): se cuenta cuánto tiempo pasa el pin alto
+    // frente al total, que es el ciclo de trabajo que pidió el programa.
+    long pb1_alto = 0, pb1_total = 0, pb1_cambios = 0;
+    int  pb1_previo = -1;
+
     // El byte que se le manda al chip para que lo devuelva, y en qué ciclo.
     // Se espera a que haya salido el saludo para no mezclar las dos cosas.
     const uint8_t ECO = 'Z';
@@ -126,6 +131,15 @@ int main(int argc, char **argv) {
             int pb5 = (dut->portb >> 5) & 1;
             if (pb5_previo >= 0 && pb5 != pb5_previo) conmutaciones++;
             pb5_previo = pb5;
+        }
+
+        // --- el PWM ---
+        if (dut->portb_oe & 0x02) {
+            int pb1 = (dut->portb >> 1) & 1;
+            if (pb1_previo >= 0 && pb1 != pb1_previo) pb1_cambios++;
+            pb1_previo = pb1;
+            pb1_total++;
+            if (pb1) pb1_alto++;
         }
 
         // --- el pin serie ---
@@ -207,6 +221,22 @@ int main(int argc, char **argv) {
     printf("  el LED conmuto %ld veces\n", conmutaciones);
     if (conmutaciones == 0) {
         printf("  FALLA: PB5 no parpadeo\n");
+        fails++;
+    }
+
+    // EL CICLO DE TRABAJO NO ES «UN 25 % APROXIMADO». En PWM rápido la hoja de
+    // datos lo fija exacto: (OCR + 1) / (TOP + 1). Con OCR1A = 64 y TOP = 255
+    // son 65/256 = 25,39 %, y ese +1 es justo lo que distingue una
+    // implementación correcta de una que se queda corta un ciclo por periodo.
+    const double CICLO_ESPERADO = 100.0 * (64.0 + 1.0) / 256.0;
+    double ciclo = pb1_total ? (100.0 * pb1_alto / pb1_total) : 0.0;
+    printf("  PWM en OC1A (PB1): %ld flancos, ciclo de trabajo %.2f %% "
+           "(la formula da %.2f %%)\n", pb1_cambios, ciclo, CICLO_ESPERADO);
+    if (pb1_cambios < 100) {
+        printf("  FALLA: OC1A no saca forma de onda; el canal PWM no llega al pin\n");
+        fails++;
+    } else if (ciclo < CICLO_ESPERADO - 0.3 || ciclo > CICLO_ESPERADO + 0.3) {
+        printf("  FALLA: el ciclo de trabajo no es (OCR+1)/(TOP+1)\n");
         fails++;
     }
 

@@ -95,10 +95,9 @@ int main(int argc, char **argv) {
     long conmutaciones = 0;
 
     // PWM por hardware: se cuenta cuánto tiempo pasa cada pin alto frente al
-    // total, que es el ciclo de trabajo que pidió el programa. Son TRES
-    // canales en tres pines distintos y con tres ciclos distintos —OC1A en
-    // PB1 al 25 %, OC0A en PD6 al 75 % y OC0B en PD5 al 12,5 %—, y esa es
-    // justamente la prueba de que cada uno llega al SUYO: si el mapa
+    // total, que es el ciclo de trabajo que pidió el programa. Son LOS SEIS
+    // canales del 328P, en seis pines distintos y con seis ciclos distintos, y
+    // esa es justamente la prueba de que cada uno llega al SUYO: si el mapa
     // estuviera cruzado, las cifras se intercambiarían.
     struct Canal {
         const char *nombre;
@@ -110,8 +109,11 @@ int main(int argc, char **argv) {
     };
     Canal canales[] = {
         {"OC1A (PB1)", 0, 1,  64.0},
+        {"OC1B (PB2)", 0, 2, 200.0},
+        {"OC2A (PB3)", 0, 3,  95.0},
         {"OC0A (PD6)", 1, 6, 191.0},
         {"OC0B (PD5)", 1, 5,  31.0},
+        {"OC2B (PD3)", 1, 3, 159.0},
     };
 
     // El byte que se le manda al chip para que lo devuelva, y en qué ciclo.

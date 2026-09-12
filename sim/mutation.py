@@ -46,6 +46,8 @@ GPIO    = "rtl/periph/axioma_gpio.v"
 PRESC   = "rtl/periph/axioma_prescaler.v"
 TIMER0  = "rtl/periph/axioma_timer0.v"
 TIMER1  = "rtl/periph/axioma_timer1.v"
+TIMER2  = "rtl/periph/axioma_timer2.v"
+TIMER8  = "rtl/periph/axioma_timer8.v"
 IRQ     = "rtl/periph/axioma_irq.v"
 GPIOR   = "rtl/periph/axioma_gpior.v"
 USART   = "rtl/periph/axioma_usart.v"
@@ -302,42 +304,54 @@ CATALOG = [
 # ---------------------------------------------------------------- Timer0
 # Ninguno de estos lo puede cazar el contraste contra simavr: su temporizador
 # interpola TCNT0 desde su propio contador de ciclos y ni siquiera modela GTCCR.
-("timer0", TIMER0, "sim-timer0", "en CTC el desbordamiento se marca en TOP y no en MAX",
+("timer0", TIMER8, "sim-timer0", "en CTC el desbordamiento se marca en TOP y no en MAX",
  """    wire ev_tov = ck && (mode_pc   ? (dir_down && at_bottom) :
                          mode_fast ? at_top :
                                      at_max);""",
  """    wire ev_tov = ck && (mode_pc   ? (dir_down && at_bottom) :
                          mode_fast ? at_top :
                                      at_top);"""),
-("timer0", TIMER0, "sim-timer0", "OCR0x pierde el doble búfer y cambia a mitad de periodo",
- """                if (hit_ocra) begin
-                    ocra_buf <= io_wdata;
-                    if (!mode_pwm) ocra_act <= io_wdata;
-                end""",
- """                if (hit_ocra) begin
-                    ocra_buf <= io_wdata;
-                    ocra_act <= io_wdata;
-                end"""),
-("timer0", TIMER0, "sim-timer0", "escribir TCNT0 ya no tapa la comparación siguiente",
+("timer0", TIMER8, "sim-timer0", "OCR0x pierde el doble búfer y cambia a mitad de periodo",
+ """            if (we_ocra) begin
+                ocra_buf <= wdata;
+                if (!mode_pwm) ocra_act <= wdata;
+            end""",
+ """            if (we_ocra) begin
+                ocra_buf <= wdata;
+                ocra_act <= wdata;
+            end"""),
+("timer0", TIMER8, "sim-timer0", "escribir TCNT0 ya no tapa la comparación siguiente",
  "wire ev_compa = ck && !tcnt_block && (tcnt_q == ocra_act);",
  "wire ev_compa = ck && (tcnt_q == ocra_act);"),
-("timer0", TIMER0, "sim-timer0", "atender el vector no limpia la bandera en su origen",
+("timer0", TIMER8, "sim-timer0", "atender el vector no limpia la bandera en su origen",
  """            if (ev_tov)                                  tifr_q[0] <= 1'b1;
-            else if (ack_ovf ||""",
+            else if (ack_ovf   || (we_tifr && wdata[0])) tifr_q[0] <= 1'b0;""",
  """            if (ev_tov)                                  tifr_q[0] <= 1'b1;
-            else if (1'b0 ||"""),
-("timer0", TIMER0, "sim-timer0", "TIFR0 se limpia escribiendo cualquier cosa, no un uno",
- "                     (io_we && hit_tifr && io_wdata[1])) tifr_q[1] <= 1'b0;",
- "                     (io_we && hit_tifr)) tifr_q[1] <= 1'b0;"),
-("timer0", TIMER0, "sim-timer0", "la petición ignora la habilitación de TIMSK0",
+            else if (we_tifr && wdata[0])                tifr_q[0] <= 1'b0;"""),
+("timer0", TIMER8, "sim-timer0", "TIFR0 se limpia escribiendo cualquier cosa, no un uno",
+ "            else if (ack_compa || (we_tifr && wdata[1])) tifr_q[1] <= 1'b0;",
+ "            else if (ack_compa || we_tifr)               tifr_q[1] <= 1'b0;"),
+("timer0", TIMER8, "sim-timer0", "la petición ignora la habilitación de TIMSK0",
  "assign irq_ovf   = tifr_q[0] & timsk_q[0];", "assign irq_ovf   = tifr_q[0];"),
 # Este es el fallo que se cometió al escribir el MODELO de este mismo banco: en
 # PWM de fase correcta el pin se decide con el sentido de la cuenta ANTERIOR al
 # flanco, no con el que queda. Sólo se nota en el modo 5, donde TOP es OCR0A y
 # la comparación cae justo en el ciclo en que la cuenta da la vuelta.
-("timer0", TIMER0, "sim-timer0", "el pin de PWM de fase correcta usa el sentido nuevo",
- "                    else if (com_a == 2'd2) oc0a_q <= dir_down;",
- "                    else if (com_a == 2'd2) oc0a_q <= dir_next;"),
+("timer0", TIMER8, "sim-timer0", "el pin de PWM de fase correcta usa el sentido nuevo",
+ "                    else if (com_a == 2'd2) oca_q <= dir_down;",
+ "                    else if (com_a == 2'd2) oca_q <= dir_next;"),
+# EL MOTOR ES COMPARTIDO, y estos mutantes lo demuestran: los de arriba se
+# inyectan en axioma_timer8.v y los caza el banco del Timer0; el del doble
+# bufer del grupo «timer2» se inyecta en el MISMO fichero y lo caza el banco
+# del Timer2. Si el dia de manana alguien vuelve a copiar el motor en dos
+# ficheros, la mitad de estos mutantes dejara de aplicarse y la mutacion lo
+# dira en el mismo commit.
+("timer0", TIMER0, "sim-timer0", "el selector de reloj del Timer0 pierde la toma de /1024",
+ """            3'd5:    ck = tick_1024;""",
+ """            3'd5:    ck = tick_256;"""),
+("timer0", TIMER0, "sim-timer0", "el reloj externo T0 cuenta los dos flancos",
+ """            3'd6:    ck = t0_fall;""",
+ """            3'd6:    ck = t0_fall | t0_rise;"""),
 
 # ------------------------------------------ controlador de interrupciones
 ("irq", IRQ, "sim-irq", "gana el vector de número más ALTO en vez del más bajo",
@@ -503,10 +517,57 @@ CATALOG = [
 # 75 % y 12,5 %. Por eso cruzar el mapa de pines se ve, y no hay que creerse
 # que «algo saca forma de onda» en el pin correcto.
 ("soc", SOC, "sim-hello", "los dos canales del Timer0 salen por el pin del otro",
- """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 5'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    5'b0};""",
- """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, 5'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    5'b0};"""),
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en, 3'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    1'b0, oc2b,    3'b0};""",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, 1'b0, oc2b_en, 3'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    1'b0, oc2b,    3'b0};"""),
+# ----------------------------------------------------------- Timer2
+# EL FALLO QUE HABRIA COMETIDO CUALQUIERA: copiar la tabla de CS del Timer0.
+# El Timer2 tiene dos tomas mas y el orden esta corrido —CS=4 es clk/64, no
+# clk/256—, asi que un temporizador copiado cuenta cuatro veces mas lento y
+# ninguna otra cosa falla.
+("timer2", TIMER2, "sim-timer2", "la tabla de CS es la del Timer0, sin /32 ni /128",
+ """            3'd3:    ck = tk_32;
+            3'd4:    ck = tk_64;
+            3'd5:    ck = tk_128;
+            3'd6:    ck = tk_256;
+            default: ck = tk_1024;""",
+ """            3'd3:    ck = tk_64;
+            3'd4:    ck = tk_256;
+            3'd5:    ck = tk_1024;
+            3'd6:    ck = tk_256;
+            default: ck = tk_1024;"""),
+("timer2", TIMER2, "sim-timer2", "PSRASY no pone a cero el prescaler del Timer2",
+ """        else if (presc_reset) pcnt <= 10'd0;""",
+ """        else if (1'b0)        pcnt <= 10'd0;"""),
+("timer2", TIMER2, "sim-timer2", "el modo asincrono sigue contando el reloj del sistema",
+ """    wire src = as2_q ? tosc_rise : 1'b1;""",
+ """    wire src = 1'b1;"""),
+("timer2", TIMER2, "sim-timer2", "TOSC1 cuenta por nivel y no por flanco",
+ """    wire tosc_rise = (tosc_sync[2:1] == 2'b01);""",
+ """    wire tosc_rise = tosc_sync[2];"""),
+("timer2", TIMER2, "sim-timer2", "ASSR se lee con los bits de ocupado a uno",
+ """                      hit_assr  ? {1'b0, exclk_q, as2_q, 5'b00000} : 8'h00;""",
+ """                      hit_assr  ? {1'b0, exclk_q, as2_q, 5'b11111} : 8'h00;"""),
+# El motor es COMPARTIDO: este mutante tiene que morir en los DOS bancos. Se
+# apunta al del Timer2 a proposito, para demostrar que ese banco ejercita el
+# motor de verdad y no solo la carcasa.
+("timer2", TIMER8, "sim-timer2", "el motor compartido pierde el doble bufer de OCRx",
+ """            if (ev_update) begin
+                ocra_act <= ocra_buf;
+                ocrb_act <= ocrb_buf;
+            end""",
+ """            if (1'b0) begin
+                ocra_act <= ocra_buf;
+                ocrb_act <= ocrb_buf;
+            end"""),
+("timer2", SOC, "sim-diff", "dos vectores del Timer2 intercambiados",
+ """                       t2_ovf,        // 9       TIMER2_OVF
+                       t2_compb,      // 8       TIMER2_COMPB
+                       t2_compa,      // 7       TIMER2_COMPA""",
+ """                       t2_ovf,        // 9       TIMER2_OVF
+                       t2_compa,      // 8       TIMER2_COMPB
+                       t2_compb,      // 7       TIMER2_COMPA"""),
 # ------------------------------------------- interrupciones externas
 ("extint", EXTINT, "sim-extint", "el nivel bajo interrumpe con el pin alto",
  """    wire int0_nivel = (isc0 == 2'b00) & ~int0_now;""",
@@ -556,9 +617,14 @@ CATALOG = [
                        ei_pc0,        // 3       PCINT0
                        ei_int0,       // 2       INT1
                        ei_int1,       // 1       INT0"""),
+("soc", SOC, "sim-hello", "OC2A se queda sin pad: el sexto canal PWM no sale",
+ """    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1b_en, oc1a_en, 1'b0};""",
+ """    wire [7:0] ovr_b_en  = {4'b0, 1'b0,    oc1b_en, oc1a_en, 1'b0};"""),
 ("soc", SOC, "sim-hello", "el canal OC1A se lleva el pin de OC1B",
- """    wire [7:0] ovr_b_en  = {5'b0, oc1b_en, oc1a_en, 1'b0};""",
- """    wire [7:0] ovr_b_en  = {5'b0, oc1a_en, oc1b_en, 1'b0};"""),
+ """    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1b_en, oc1a_en, 1'b0};
+    wire [7:0] ovr_b_val = {4'b0, oc2a,    oc1b,    oc1a,    1'b0};""",
+ """    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1a_en, oc1b_en, 1'b0};
+    wire [7:0] ovr_b_val = {4'b0, oc2a,    oc1a,    oc1b,    1'b0};"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

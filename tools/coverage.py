@@ -47,7 +47,8 @@ RTL = ("rtl/soc/axioma328_soc.v rtl/core/axioma_core.v rtl/core/axioma_seq.v "
        "rtl/core/axioma_regfile.v rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v "
        "rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v "
        "rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v "
-       "rtl/periph/axioma_timer1.v "
+       "rtl/periph/axioma_timer1.v rtl/periph/axioma_timer2.v "
+       "rtl/periph/axioma_timer8.v "
        "rtl/periph/axioma_usart.v rtl/periph/axioma_extint.v "
        "rtl/periph/axioma_irq.v")
 
@@ -102,10 +103,15 @@ def main():
               f"sim/diff/axioma_sim_top.v {RTL} sim/soc/tb_soc_robust.cpp")
     construir("build/vcovt", "tb_timer0c", "tb_timer0_top",
               "sim/periph/tb_timer0_top.v rtl/periph/axioma_timer0.v "
-              "rtl/periph/axioma_prescaler.v sim/periph/tb_timer0.cpp")
+              "rtl/periph/axioma_timer8.v rtl/periph/axioma_prescaler.v "
+              "sim/periph/tb_timer0.cpp")
     construir("build/vcov1", "tb_timer1c", "tb_timer1_top",
               "sim/periph/tb_timer1_top.v rtl/periph/axioma_timer1.v "
               "rtl/periph/axioma_prescaler.v sim/periph/tb_timer1.cpp")
+    construir("build/vcov2", "tb_timer2c", "tb_timer2_top",
+              "sim/periph/tb_timer2_top.v rtl/periph/axioma_timer2.v "
+              "rtl/periph/axioma_timer8.v rtl/periph/axioma_prescaler.v "
+              "sim/periph/tb_timer2.cpp")
     construir("build/vcovu", "tb_usartc", "axioma_usart",
               "rtl/periph/axioma_usart.v sim/periph/tb_usart.cpp")
     construir("build/vcove", "tb_extintc", "axioma_extint",
@@ -125,6 +131,7 @@ def main():
     sh("AXIOMA_COV=build/cov/robust.dat ./build/vcovr/robustc"); n += 1
     sh("AXIOMA_COV=build/cov/timer0.dat ./build/vcovt/tb_timer0c"); n += 1
     sh("AXIOMA_COV=build/cov/timer1.dat ./build/vcov1/tb_timer1c"); n += 1
+    sh("AXIOMA_COV=build/cov/timer2.dat ./build/vcov2/tb_timer2c"); n += 1
     sh("AXIOMA_COV=build/cov/usart.dat ./build/vcovu/tb_usartc"); n += 1
     sh("AXIOMA_COV=build/cov/extint.dat ./build/vcove/tb_extintc"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1

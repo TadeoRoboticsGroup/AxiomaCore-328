@@ -103,9 +103,27 @@ int main(void)
      * DDRB YA ESTÁ A SALIDA arriba, y hace falta: el temporizador anula el
      * VALOR del pin, nunca su dirección. Un analogWrite() sin pinMode() no saca
      * nada, ni aquí ni en el chip. */
-    TCCR1A = (1 << COM1A1) | (1 << WGM10);   /* PWM rápido 8 bits, no invertido */
+    TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM10);
     TCCR1B = (1 << WGM12) | (1 << CS11);     /* clk/8 */
     OCR1A  = 64;                             /* 64 de 256: un 25 % */
+    OCR1B  = 200;                            /* 200 de 256: un 78,5 % */
+
+    /* Y los dos del Timer2, que completan los SEIS canales del 328P: OC2A es
+     * PB3 —el pin 11 de Arduino— y OC2B es PD3 —el 3—.
+     *
+     * El Timer2 tiene prescaler PROPIO y sus bits CS no significan lo mismo:
+     * aquí CS=2 es clk/8, igual que en el Timer0, pero CS=4 es clk/64 y no
+     * clk/256. Por eso el banco mide el periodo además del ciclo de trabajo.
+     *
+     * GTCCR.PSRASY pone a cero ESE prescaler y no el de los otros dos. Es lo
+     * que se hace antes de arrancar una base de tiempos que tiene que salir en
+     * fase. */
+    DDRD  |= (1 << DDD3);
+    GTCCR  = (1 << PSRASY);
+    TCCR2A = (1 << COM2A1) | (1 << COM2B1) | (1 << WGM21) | (1 << WGM20);
+    OCR2A  = 95;                             /*  96 de 256: un 37,5 % */
+    OCR2B  = 159;                            /* 160 de 256: un 62,5 % */
+    TCCR2B = (1 << CS21);                    /* clk/8 */
 
     usart_init();
     sei();

@@ -211,6 +211,14 @@ jobs:
       # Los cinco vectores que usa attachInterrupt(). El modo de NIVEL BAJO no
       # deja bandera y sostiene la peticion mientras el pin este bajo: eso solo
       # se ve mirando la linea de peticion ciclo a ciclo, no con un programa.
+      # El Timer2 no es el Timer0 con otro nombre: prescaler propio con dos
+      # tomas mas, los CS corridos y el modo asincrono. La maquina de forma de
+      # onda si es la misma y por eso es un solo modulo, axioma_timer8.
+      - name: Timer2 - prescaler propio y modo asincrono
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-timer2
+
       - name: Interrupciones externas contra la hoja de datos
         run: |
           source ~/eda/oss-cad-suite/environment
@@ -320,6 +328,10 @@ jobs:
   mutation:
     name: Mutación - la verificación de la verificación
     runs-on: ubuntu-latest
+    # Cada mutante reconstruye el modelo de verilator, asi que en el servidor
+    # tarda bastante mas que en local. El limite esta para que un catalogo que
+    # se cuelgue no se coma la cuota, no porque se espere llegar a el.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 

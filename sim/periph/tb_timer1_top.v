@@ -56,6 +56,7 @@ module tb_timer1_top (
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
         .tick_256(tick_256), .tick_1024(tick_1024),
         /* verilator lint_off PINCONNECTEMPTY */
+        .reset_asy(),                    // es del Timer2, que no esta aqui
         .count()
         /* verilator lint_on PINCONNECTEMPTY */
     );

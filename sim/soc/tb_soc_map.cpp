@@ -71,6 +71,10 @@ static const Esperado MAPA[] = {
     {0x66, "timer1", "ICR1L"},  {0x67, "timer1", "ICR1H"},
     {0x68, "timer1", "OCR1AL"}, {0x69, "timer1", "OCR1AH"},
     {0x6A, "timer1", "OCR1BL"}, {0x6B, "timer1", "OCR1BH"},
+    {0x17, "timer2", "TIFR2"},
+    {0x50, "timer2", "TIMSK2"},
+    {0x90, "timer2", "TCCR2A"}, {0x91, "timer2", "TCCR2B"}, {0x92, "timer2", "TCNT2"},
+    {0x93, "timer2", "OCR2A"},  {0x94, "timer2", "OCR2B"},  {0x96, "timer2", "ASSR"},
     {0x1B, "extint", "PCIFR"},  {0x1C, "extint", "EIFR"},  {0x1D, "extint", "EIMSK"},
     {0x48, "extint", "PCICR"},  {0x49, "extint", "EICRA"},
     {0x4B, "extint", "PCMSK0"}, {0x4C, "extint", "PCMSK1"}, {0x4D, "extint", "PCMSK2"},
@@ -126,7 +130,7 @@ int main(int argc, char **argv) {
                 {"gpio_d", dut->sel_gpio_d}, {"gpior",  dut->sel_gpior},
                 {"presc",  dut->sel_presc},  {"timer0", dut->sel_timer0},
                 {"usart",  dut->sel_usart}, {"timer1", dut->sel_timer1},
-                {"extint", dut->sel_extint},
+                {"extint", dut->sel_extint}, {"timer2", dut->sel_timer2},
             };
             int n = 0;
             for (auto &q : quien)

@@ -28,6 +28,7 @@
 
 #include "Vtb_timer0_top.h"
 #include "verilated.h"
+#include "timer8_ref.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -57,47 +58,26 @@ enum {
 };
 
 // ------------------------------------------------------------------ modelo
-struct Model {
+// El motor de forma de onda lo modela `timer8_ref.h`, que es el mismo para el
+// Timer0 y el Timer2 porque la hoja de datos los describe igual. Aquí queda lo
+// que SÍ es del Timer0: el prescaler compartido con GTCCR y el pin externo T0.
+struct Model : Timer8Ref {
     // Prescaler compartido: 10 bits, libre desde el reset.
     uint16_t presc = 0;
     bool tsm = false, psrasy = false, psrsync = false;
-
-    uint8_t com = 0;        // COM0A1 COM0A0 COM0B1 COM0B0
-    uint8_t wgm = 0;        // WGM02 WGM01 WGM00
     uint8_t cs  = 0;
-    uint8_t tcnt = 0;
-    uint8_t ocra_act = 0, ocra_buf = 0;
-    uint8_t ocrb_act = 0, ocrb_buf = 0;
-    uint8_t timsk = 0, tifr = 0;
-    bool dir_down = false;      // sólo en PWM de fase correcta
-    bool tcnt_block = false;    // escribir TCNT0 tapa la comparación siguiente
-    bool oc0a = false, oc0b = false;
     uint8_t t0s = 0;            // sincronizador de tres etapas del pin T0
-
-    bool pc()   const { return wgm == 1 || wgm == 5; }
-    bool fast() const { return wgm == 3 || wgm == 7; }
-    bool pwm()  const { return pc() || fast(); }
-    uint8_t top() const { return (wgm == 2 || wgm == 5 || wgm == 7) ? ocra_act : 0xFF; }
-
-    uint8_t com_a() const { return (com >> 2) & 3; }
-    uint8_t com_b() const { return com & 3; }
-
-    // Tabla de COM de la hoja de datos: con qué combinaciones se adueña el
-    // temporizador del pin. COM=1 en PWM sólo vale para OC0A y sólo con
-    // WGM02=1; para OC0B está reservado.
-    bool oc0a_en() const { return com_a() != 0 && !(pwm() && com_a() == 1 && !(wgm & 4)); }
-    bool oc0b_en() const { return com_b() != 0 && !(pwm() && com_b() == 1); }
 
     uint8_t read(uint8_t a) const {
         switch (a) {
-        case A_TIFR0:  return tifr & 7;
+        case A_TIFR0:  return rd_tifr();
         case A_GTCCR:  return (uint8_t)((tsm << 7) | (psrasy << 1) | psrsync);
-        case A_TCCR0A: return (uint8_t)((com << 4) | (wgm & 3));
+        case A_TCCR0A: return rd_tccra();
         case A_TCCR0B: return (uint8_t)(((wgm & 4) ? 0x08 : 0) | cs);
-        case A_TCNT0:  return tcnt;
-        case A_OCR0A:  return ocra_buf;
-        case A_OCR0B:  return ocrb_buf;
-        case A_TIMSK0: return timsk & 7;
+        case A_TCNT0:  return rd_tcnt();
+        case A_OCR0A:  return rd_ocra();
+        case A_OCR0B:  return rd_ocrb();
+        case A_TIMSK0: return rd_timsk();
         default:       return 0;
         }
     }
@@ -116,106 +96,20 @@ struct Model {
         bool fall = ((t0s >> 1) & 3) == 2;
         bool ck = (cs == 0) ? false : (cs <= 5) ? tk[cs] : (cs == 6 ? fall : rise);
 
-        // ---- eventos, sobre el valor que TCNT0 tiene AHORA ----
-        bool at_top    = (tcnt == top());
-        bool at_max    = (tcnt == 0xFF);
-        bool at_bottom = (tcnt == 0x00);
+        // ---- el motor ----
+        Escritura w;
+        w.d     = d;
+        w.tccra = we && a == A_TCCR0A;
+        w.tccrb = we && a == A_TCCR0B;
+        w.tcnt  = we && a == A_TCNT0;
+        w.ocra  = we && a == A_OCR0A;
+        w.ocrb  = we && a == A_OCR0B;
+        w.timsk = we && a == A_TIMSK0;
+        w.tifr  = we && a == A_TIFR0;
+        Timer8Ref::cycle(ck, w, ack_ovf, ack_a, ack_b);
 
-        bool ev_tov   = ck && (pc() ? (dir_down && at_bottom) : fast() ? at_top : at_max);
-        bool ev_compa = ck && !tcnt_block && (tcnt == ocra_act);
-        bool ev_compb = ck && !tcnt_block && (tcnt == ocrb_act);
-        bool ev_upd   = ck && pwm() && at_top;
-
-        // El pin de comparación se decide con el sentido que la cuenta traía
-        // AL ENTRAR en este ciclo, no con el que deja al salir. Sólo se nota
-        // en el modo 5, donde TOP es OCR0A y la comparación cae exactamente en
-        // el ciclo en que la cuenta da la vuelta.
-        bool dir_prev = dir_down;
-
-        // ---- cuenta ----
-        if (ck) {
-            if (pc()) {
-                if (dir_down) {
-                    if (at_bottom) { dir_down = false; tcnt = (top() == 0) ? 0 : 1; }
-                    else             tcnt--;
-                } else {
-                    if (at_top)    { dir_down = true;  tcnt = (top() == 0) ? 0 : (uint8_t)(tcnt - 1); }
-                    else             tcnt++;
-                }
-            } else {
-                tcnt = at_top ? 0 : (uint8_t)(tcnt + 1);
-            }
-            tcnt_block = false;
-        }
-
-        if (ev_upd) { ocra_act = ocra_buf; ocrb_act = ocrb_buf; }
-
-        // ---- pines de comparación ----
-        // FOC0A/FOC0B: pulsos de escritura, sólo fuera de los modos PWM.
-        bool foc_a = we && a == A_TCCR0B && (d & 0x80) && !pwm();
-        bool foc_b = we && a == A_TCCR0B && (d & 0x40) && !pwm();
-
-        if (!pwm()) {
-            if (ev_compa || foc_a) {
-                if      (com_a() == 1) oc0a = !oc0a;
-                else if (com_a() == 2) oc0a = false;
-                else if (com_a() == 3) oc0a = true;
-            }
-            if (ev_compb || foc_b) {
-                if      (com_b() == 1) oc0b = !oc0b;
-                else if (com_b() == 2) oc0b = false;
-                else if (com_b() == 3) oc0b = true;
-            }
-        } else if (fast()) {
-            if (ck && at_top) {          // el flanco de BOTTOM manda
-                if (com_a() == 2) oc0a = true;
-                if (com_a() == 3) oc0a = false;
-                if (com_b() == 2) oc0b = true;
-                if (com_b() == 3) oc0b = false;
-            } else {
-                if (ev_compa) {
-                    if      (com_a() == 1) oc0a = !oc0a;
-                    else if (com_a() == 2) oc0a = false;
-                    else if (com_a() == 3) oc0a = true;
-                }
-                if (ev_compb) {
-                    if      (com_b() == 2) oc0b = false;
-                    else if (com_b() == 3) oc0b = true;
-                }
-            }
-        } else {                          // fase correcta
-            if (ev_compa) {
-                if      (com_a() == 1) oc0a = !oc0a;
-                else if (com_a() == 2) oc0a = dir_prev;
-                else if (com_a() == 3) oc0a = !dir_prev;
-            }
-            if (ev_compb) {
-                if      (com_b() == 2) oc0b = dir_prev;
-                else if (com_b() == 3) oc0b = !dir_prev;
-            }
-        }
-
-        // ---- banderas: el hardware gana a la limpieza ----
-        bool w_tifr = we && a == A_TIFR0;
-        if (ev_tov)                                    tifr |= 1;
-        else if (ack_ovf || (w_tifr && (d & 1)))       tifr &= ~1;
-        if (ev_compa)                                  tifr |= 2;
-        else if (ack_a   || (w_tifr && (d & 2)))       tifr &= ~2;
-        if (ev_compb)                                  tifr |= 4;
-        else if (ack_b   || (w_tifr && (d & 4)))       tifr &= ~4;
-
-        // ---- escrituras: mandan sobre la cuenta del mismo ciclo ----
-        if (we) {
-            switch (a) {
-            case A_TCCR0A: com = (d >> 4) & 0xF; wgm = (wgm & 4) | (d & 3); break;
-            case A_TCCR0B: wgm = (uint8_t)((wgm & 3) | ((d & 8) ? 4 : 0)); cs = d & 7; break;
-            case A_TCNT0:  tcnt = d; tcnt_block = true; break;
-            case A_OCR0A:  ocra_buf = d; if (!pwm()) ocra_act = d; break;
-            case A_OCR0B:  ocrb_buf = d; if (!pwm()) ocrb_act = d; break;
-            case A_TIMSK0: timsk = d & 7; break;
-            default: break;
-            }
-        }
+        // ---- los bits CS son del Timer0, no del motor ----
+        if (we && a == A_TCCR0B) cs = d & 7;
 
         // ---- prescaler y GTCCR ----
         if (we && a == A_GTCCR) {
@@ -230,10 +124,6 @@ struct Model {
         // ---- sincronizador del pin T0 ----
         t0s = (uint8_t)(((t0s << 1) | (t0 ? 1 : 0)) & 7);
     }
-
-    bool irq_ovf()   const { return (tifr & timsk & 1) != 0; }
-    bool irq_compa() const { return (tifr & timsk & 2) != 0; }
-    bool irq_compb() const { return (tifr & timsk & 4) != 0; }
 };
 
 static Model m;
@@ -243,7 +133,7 @@ static void dump(const char *what) {
     printf("        %s: wgm=%d cs=%d com=%X tcnt=%02X top=%02X ocra_act=%02X "
            "ocra_buf=%02X dir=%d block=%d oc0a=%d presc=%03X\n",
            what, m.wgm, m.cs, m.com, m.tcnt, m.top(), m.ocra_act, m.ocra_buf,
-           m.dir_down, m.tcnt_block, m.oc0a, m.presc);
+           m.dir_down, m.tcnt_block, m.oca, m.presc);
 }
 
 static void tick() { dut->clk = 1; dut->eval(); dut->clk = 0; dut->eval(); }
@@ -266,10 +156,10 @@ static void compare() {
     chk("OCR0B activo", dut->dbg_ocrb_act,   m.ocrb_act, tcyc);
     chk("sentido de la cuenta", dut->dbg_dir_down, m.dir_down, tcyc);
     chk("comparacion tapada",   dut->dbg_tcnt_block, m.tcnt_block, tcyc);
-    chk("OC0A",    dut->oc0a,    m.oc0a,    tcyc);
-    chk("OC0A_EN", dut->oc0a_en, m.oc0a_en(), tcyc);
-    chk("OC0B",    dut->oc0b,    m.oc0b,    tcyc);
-    chk("OC0B_EN", dut->oc0b_en, m.oc0b_en(), tcyc);
+    chk("OC0A",    dut->oc0a,    m.oca,    tcyc);
+    chk("OC0A_EN", dut->oc0a_en, m.oca_en(), tcyc);
+    chk("OC0B",    dut->oc0b,    m.ocb,    tcyc);
+    chk("OC0B_EN", dut->oc0b_en, m.ocb_en(), tcyc);
     chk("IRQ TOV0",  dut->irq_ovf,   m.irq_ovf(),   tcyc);
     chk("IRQ OCF0A", dut->irq_compa, m.irq_compa(), tcyc);
     chk("IRQ OCF0B", dut->irq_compb, m.irq_compb(), tcyc);

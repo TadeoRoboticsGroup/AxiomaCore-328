@@ -933,7 +933,25 @@ enumerado** en vez de implícito.
       interrupciones habilitadas a la vez, **intercambiar dos vectores es invisible** —el arnés le
       dice a simavr cuál tomó el RTL, así que no puede desmentirlo—. Se comprobó inyectando ese
       fallo exacto y sobrevivía. El programa de prueba habilita ahora **una sola cada vez**.
-- [ ] `timer2.v`; los 6 canales PWM.
+- [x] **`timer2.v`, y con él los SEIS canales PWM.** No es el Timer0 con otro nombre: tiene
+      **prescaler propio** con dos tomas que los otros no tienen —`/32` y `/128`, que existen para
+      dividir 32 768 Hz y dar un segundo exacto—, sus bits `CS` están corridos —`CS=4` es `clk/64`
+      y no `clk/256`—, no tiene entrada de reloj externo, y lleva el **modo asíncrono** con `ASSR`.
+
+      La máquina de forma de onda SÍ es la misma, palabra por palabra en la hoja de datos, así que
+      vive una sola vez: `axioma_timer8.v`, con `axioma_timer0.v` y `axioma_timer2.v` aportando su
+      decodificación de direcciones y su selector de reloj. Copiarla habría garantizado que dentro
+      de un año uno tuviera un arreglo que el otro no. El refactor se hizo con el banco del Timer0
+      SIN TOCAR: sus 4 480 668 comprobaciones son la red que dice que el motor extraído se comporta
+      igual que el que estaba dentro.
+
+      4 666 627 comprobaciones contra un modelo de la hoja de datos —el mismo `timer8_ref.h` que
+      usa el banco del Timer0, por lo mismo— y un programa de co-simulación contra simavr con 30
+      entradas a ISR. El modo asíncrono cuenta los flancos de `TOSC1` sincronizados; **sin cristal
+      no cuenta**, que es lo que hace el chip en una placa que no lo lleva.
+
+      Los seis canales llegan al pad y `make sim-hello` **los mide todos en el pin a la vez**, con
+      seis ciclos de trabajo distintos a propósito: un mapa de pines cruzado cambia las cifras.
 - [ ] `spi.v`, `twi.v` (con modelos de bus en el testbench).
 - [ ] `adc.v` (controlador SAR; comparador externo o modelo), `ac.v`, `wdt.v`.
 - [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos

@@ -72,6 +72,7 @@ help:
 	@echo "  make sim-gpio         puertos de E/S: sincronizador y toggle por PINx"
 	@echo "  make sim-timer0       Timer0 y prescaler compartido vs hoja de datos"
 	@echo "  make sim-timer1       Timer1 de 16 bits: los 16 modos y el TEMP"
+	@echo "  make sim-timer2       Timer2: prescaler propio y modo asincrono"
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
@@ -260,6 +261,15 @@ sim-gpio:
 # --- Timer0 y su prescaler compartido ---
 # Van juntos porque la trampa nº 12 —el prescaler es libre y no se reinicia al
 # arrancar el temporizador— sólo se puede comprobar con los dos a la vez.
+.PHONY: sim-timer2
+sim-timer2:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vtimer2 -o tb_timer2 \
+	  --top-module tb_timer2_top sim/periph/tb_timer2_top.v \
+	  rtl/periph/axioma_timer2.v rtl/periph/axioma_timer8.v \
+	  rtl/periph/axioma_prescaler.v sim/periph/tb_timer2.cpp >/dev/null
+	@./$(BUILD)/vtimer2/tb_timer2
+
 .PHONY: sim-extint
 sim-extint:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
@@ -275,6 +285,7 @@ sim-timer0:
 	  $(INCDIRS) -Mdir $(BUILD)/vtimer0 -o tb_timer0 \
 	  --top-module tb_timer0_top \
 	  sim/periph/tb_timer0_top.v rtl/periph/axioma_timer0.v \
+	  rtl/periph/axioma_timer8.v \
 	  rtl/periph/axioma_prescaler.v sim/periph/tb_timer0.cpp >/dev/null
 	@echo -e "$(BOLD)Timer0 contra la hoja de datos$(NC)"
 	@./$(BUILD)/vtimer0/tb_timer0
@@ -344,7 +355,8 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v rtl/bus/axioma_dbus.v \
             rtl/periph/axioma_gpio.v rtl/periph/axioma_gpior.v \
             rtl/periph/axioma_prescaler.v rtl/periph/axioma_timer0.v \
-            rtl/periph/axioma_timer1.v rtl/periph/axioma_usart.v \
+            rtl/periph/axioma_timer1.v rtl/periph/axioma_timer2.v \
+            rtl/periph/axioma_timer8.v rtl/periph/axioma_usart.v \
             rtl/periph/axioma_extint.v rtl/periph/axioma_irq.v
 
 .PHONY: sim-soc
@@ -381,6 +393,7 @@ DIFF_SRCS := rtl/soc/axioma328_soc.v \
              rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v \
              rtl/periph/axioma_gpior.v rtl/periph/axioma_prescaler.v \
              rtl/periph/axioma_timer0.v rtl/periph/axioma_timer1.v \
+             rtl/periph/axioma_timer2.v rtl/periph/axioma_timer8.v \
              rtl/periph/axioma_extint.v \
              rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0

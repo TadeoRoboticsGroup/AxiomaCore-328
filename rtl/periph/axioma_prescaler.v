@@ -28,9 +28,10 @@
 //            el hardware los limpie, con lo que el prescaler se queda EN RESET
 //            y los temporizadores se pueden configurar sin que avancen. Al
 //            escribir TSM a 0 el hardware limpia los dos y arrancan a la vez.
-//   PSRASY   es del Timer2 asíncrono, que es de la fase 3. Aquí se almacena y
-//            se lee de vuelta, que es todo lo que puede observar un programa
-//            mientras el Timer2 no exista.
+//   PSRASY   pone a cero el prescaler del Timer2, que es OTRO contador y vive
+//            dentro de `axioma_timer2` porque en modo asíncrono lo cuenta un
+//            reloj distinto. Aquí está el bit, porque está en GTCCR; la señal
+//            sale por `reset_asy` y TSM la retiene igual que a la síncrona.
 //
 // CUESTIÓN ABIERTA - la toma de clk/1. La figura «Prescaler for Timer/Counter0
 // and Timer/Counter1» de la hoja de datos saca clk_I/O directamente, sin pasar
@@ -59,7 +60,12 @@ module axioma_prescaler (
     output wire       tick_256,
     output wire       tick_1024,
 
-    // Estado del contador, para el banco y para el Timer2 de la fase 3.
+    // Puesta a cero del prescaler del Timer2 (GTCCR.PSRASY). El contador no
+    // está aquí —lo cuenta otro reloj cuando el Timer2 va en asíncrono— pero el
+    // bit sí, así que la orden sale de este módulo.
+    output wire       reset_asy,
+
+    // Estado del contador, para el banco.
     output wire [9:0] count
 );
 
@@ -81,6 +87,9 @@ module axioma_prescaler (
     // una escritura de PSRSYNC=1 pone el contador a cero en el mismo flanco,
     // sin el ciclo de retraso que tendría mirando sólo al registro.
     wire psr_now = (io_we && hit) ? io_wdata[0] : psrsync_q;
+    // Lo mismo para la asíncrona: vale en el mismo flanco de la escritura.
+    wire psa_now = (io_we && hit) ? io_wdata[1] : psrasy_q;
+    assign reset_asy = psa_now;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

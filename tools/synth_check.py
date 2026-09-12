@@ -34,6 +34,7 @@ CORE = ["rtl/core/axioma_core.v", "rtl/core/axioma_seq.v", "rtl/core/axioma_deco
 PERIF = ["rtl/bus/axioma_dbus.v", "rtl/periph/axioma_gpio.v",
          "rtl/periph/axioma_gpior.v", "rtl/periph/axioma_prescaler.v",
          "rtl/periph/axioma_timer0.v", "rtl/periph/axioma_timer1.v",
+         "rtl/periph/axioma_timer2.v", "rtl/periph/axioma_timer8.v",
          "rtl/periph/axioma_usart.v", "rtl/periph/axioma_extint.v",
          "rtl/periph/axioma_irq.v"]
 
@@ -49,7 +50,10 @@ MODULOS = [
     ("axioma_dbus",      ["rtl/bus/axioma_dbus.v"]),
     ("axioma_gpio",      ["rtl/periph/axioma_gpio.v"]),
     ("axioma_prescaler", ["rtl/periph/axioma_prescaler.v"]),
-    ("axioma_timer0",    ["rtl/periph/axioma_timer0.v"]),
+    ("axioma_timer0",    ["rtl/periph/axioma_timer0.v",
+                          "rtl/periph/axioma_timer8.v"]),
+    ("axioma_timer2",    ["rtl/periph/axioma_timer2.v",
+                          "rtl/periph/axioma_timer8.v"]),
     ("axioma_irq",       ["rtl/periph/axioma_irq.v"]),
     ("axioma_gpior",     ["rtl/periph/axioma_gpior.v"]),
     ("axioma_timer1",    ["rtl/periph/axioma_timer1.v"]),

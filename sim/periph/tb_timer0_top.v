@@ -56,6 +56,9 @@ module tb_timer0_top (
         .io_rdata(ps_rdata), .io_sel(ps_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
         .tick_256(tick_256), .tick_1024(tick_1024),
+        /* verilator lint_off PINCONNECTEMPTY */
+        .reset_asy(),                    // es del Timer2, que no esta aqui
+        /* verilator lint_on PINCONNECTEMPTY */
         .count(presc_count)
     );
 
@@ -71,10 +74,10 @@ module tb_timer0_top (
         .ack_ovf(ack_ovf), .ack_compa(ack_compa), .ack_compb(ack_compb)
     );
 
-    assign dbg_ocra_act   = t0.ocra_act;
-    assign dbg_ocrb_act   = t0.ocrb_act;
-    assign dbg_dir_down   = t0.dir_down;
-    assign dbg_tcnt_block = t0.tcnt_block;
+    assign dbg_ocra_act   = t0.motor.ocra_act;
+    assign dbg_ocrb_act   = t0.motor.ocrb_act;
+    assign dbg_dir_down   = t0.motor.dir_down;
+    assign dbg_tcnt_block = t0.motor.tcnt_block;
 
     assign io_rdata = ps_rdata | t0_rdata;
     assign io_sel   = ps_sel | t0_sel;

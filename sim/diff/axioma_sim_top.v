@@ -113,18 +113,32 @@ module axioma_sim_top (
             8'h09:   dbg_periph = soc.gpio_d.sync1;
             8'h0A:   dbg_periph = soc.gpio_d.ddr_q;
             8'h0B:   dbg_periph = soc.gpio_d.port_q;
-            8'h15:   dbg_periph = {5'b0, soc.timer0.tifr_q};
+            8'h15:   dbg_periph = {5'b0, soc.timer0.motor.tifr_q};
             8'h1E:   dbg_periph = soc.gpior.r0;
             8'h23:   dbg_periph = {soc.presc.tsm_q, 5'b0,
                                    soc.presc.psrasy_q, soc.presc.psrsync_q};
-            8'h24:   dbg_periph = {soc.timer0.com_q, 2'b00, soc.timer0.wgm_q[1:0]};
-            8'h25:   dbg_periph = {4'b0000, soc.timer0.wgm_q[2], soc.timer0.cs_q};
-            8'h26:   dbg_periph = soc.timer0.tcnt_q;
-            8'h27:   dbg_periph = soc.timer0.ocra_buf;
-            8'h28:   dbg_periph = soc.timer0.ocrb_buf;
+            8'h24:   dbg_periph = {soc.timer0.motor.com_q, 2'b00,
+                                   soc.timer0.motor.wgm_q[1:0]};
+            8'h25:   dbg_periph = {4'b0000, soc.timer0.motor.wgm_q[2],
+                                   soc.timer0.cs_q};
+            8'h26:   dbg_periph = soc.timer0.motor.tcnt_q;
+            8'h27:   dbg_periph = soc.timer0.motor.ocra_buf;
+            8'h28:   dbg_periph = soc.timer0.motor.ocrb_buf;
             8'h2A:   dbg_periph = soc.gpior.r1;
             8'h2B:   dbg_periph = soc.gpior.r2;
-            8'h4E:   dbg_periph = {5'b0, soc.timer0.timsk_q};
+            8'h4E:   dbg_periph = {5'b0, soc.timer0.motor.timsk_q};
+            // Timer2: mismo motor que el Timer0, en sus propias direcciones.
+            8'h17:   dbg_periph = {5'b0, soc.timer2.motor.tifr_q};
+            8'h50:   dbg_periph = {5'b0, soc.timer2.motor.timsk_q};
+            8'h90:   dbg_periph = {soc.timer2.motor.com_q, 2'b00,
+                                   soc.timer2.motor.wgm_q[1:0]};
+            8'h91:   dbg_periph = {4'b0000, soc.timer2.motor.wgm_q[2],
+                                   soc.timer2.cs_q};
+            8'h92:   dbg_periph = soc.timer2.motor.tcnt_q;
+            8'h93:   dbg_periph = soc.timer2.motor.ocra_buf;
+            8'h94:   dbg_periph = soc.timer2.motor.ocrb_buf;
+            8'h96:   dbg_periph = {1'b0, soc.timer2.exclk_q, soc.timer2.as2_q,
+                                   5'b0};
             // Del Timer1, la ventana devuelve el valor REAL de cada registro,
             // no lo que devolvería el bus: leer un byte alto por el bus da el
             // TEMP, y aquí lo que se quiere comparar contra simavr es lo que el

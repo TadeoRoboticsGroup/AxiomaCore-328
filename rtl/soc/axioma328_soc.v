@@ -134,10 +134,12 @@ module axioma328_soc #(
     wire oc0a, oc0a_en, oc0b, oc0b_en;
     wire oc1a, oc1a_en, oc1b, oc1b_en;
 
-    wire [7:0] ovr_b_en  = {5'b0, oc1b_en, oc1a_en, 1'b0};
-    wire [7:0] ovr_b_val = {5'b0, oc1b,    oc1a,    1'b0};
-    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 5'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    5'b0};
+    wire oc2a, oc2a_en, oc2b, oc2b_en;
+
+    wire [7:0] ovr_b_en  = {4'b0, oc2a_en, oc1b_en, oc1a_en, 1'b0};
+    wire [7:0] ovr_b_val = {4'b0, oc2a,    oc1b,    oc1a,    1'b0};
+    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en, 3'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    1'b0, oc2b,    3'b0};
 
     // ---------------------------------------------------- puertos de E/S
     wire [7:0] gb_rd, gc_rd, gd_rd;
@@ -189,14 +191,11 @@ module axioma328_soc #(
         .io_rdata(ps_rd), .io_sel(ps_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
         .tick_256(tick_256), .tick_1024(tick_1024),
+        .reset_asy(presc_reset_asy),
         /* verilator lint_off PINCONNECTEMPTY */
         .count()
         /* verilator lint_on PINCONNECTEMPTY */
     );
-
-    // OC0A (PD6) y OC0B (PD5) no se encaminan al pad hasta la fase 3, con el
-    // resto de los canales PWM: hace falta darle a axioma_gpio una entrada de
-    // anulación. La lógica que los genera sí está verificada.
     axioma_timer0 timer0 (
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
@@ -247,6 +246,27 @@ module axioma328_soc #(
         .ack_txc(irq_ack_v[20])
     );
 
+    // ------------------------------------------------------------- Timer2
+    // Prescaler PROPIO —no comparte el del Timer0 y el Timer1— y sin entrada de
+    // reloj externo: donde el Timer0 tiene T0, éste tiene el oscilador de
+    // TOSC1, que en el encapsulado es PB6.
+    wire [7:0] t2_rd;
+    wire       t2_sel;
+    wire       t2_ovf, t2_compa, t2_compb;
+    wire       presc_reset_asy;
+
+    axioma_timer2 timer2 (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(t2_rd), .io_sel(t2_sel),
+        .presc_reset(presc_reset_asy),
+        .tosc(pb_in[6]),                         // TOSC1 es PB6
+        .oc2a(oc2a), .oc2a_en(oc2a_en), .oc2b(oc2b), .oc2b_en(oc2b_en),
+        .irq_ovf(t2_ovf), .irq_compa(t2_compa), .irq_compb(t2_compb),
+        .ack_ovf(irq_ack_v[9]), .ack_compa(irq_ack_v[7]),
+        .ack_compb(irq_ack_v[8])
+    );
+
     // ---------------------------------------------- interrupciones externas
     // Los pines llegan tal como los ve el pad. INT0 e INT1 viven DENTRO del
     // puerto D —PD2 y PD3—, así que no se pasan aparte: un solo camino hasta
@@ -277,9 +297,9 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd;
+                    | us_rd | ei_rd | t2_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
-                    | t1_sel | us_sel | ei_sel;
+                    | t1_sel | us_sel | ei_sel | t2_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -302,7 +322,10 @@ module axioma328_soc #(
                        t1_compb,      // 12      TIMER1_COMPB
                        t1_compa,      // 11      TIMER1_COMPA
                        t1_capt,       // 10      TIMER1_CAPT
-                       4'b0,          // 9..6    Timer2 y WDT, sin periférico
+                       t2_ovf,        // 9       TIMER2_OVF
+                       t2_compb,      // 8       TIMER2_COMPB
+                       t2_compa,      // 7       TIMER2_COMPA
+                       1'b0,          // 6       WDT, sin periférico
                        ei_pc2,        // 5       PCINT2
                        ei_pc1,        // 4       PCINT1
                        ei_pc0,        // 3       PCINT0
@@ -313,13 +336,13 @@ module axioma328_soc #(
     // Los reconocimientos de los vectores que aún no tienen periférico no van a
     // ninguna parte, igual que sus peticiones.
     // Los reconocimientos que no van a ninguna parte, y por qué:
-    //   25..21, 17, 9..6, 0  vectores sin periférico todavía.
+    //   25..21, 17, 6, 0  vectores sin periférico todavía.
     //   19 (USART_UDRE)   su bandera no la limpia el vector: la limpia
     //                     ESCRIBIR UDR0, que es lo que hace la ISR.
     //   18 (USART_RX)     ídem, la limpia LEER UDR0.
     // Sólo TXC se limpia al atender su vector, y ése sí está conectado.
     wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:17],
-                        irq_ack_v[9:6], irq_ack_v[0]};
+                        irq_ack_v[6], irq_ack_v[0]};
 
     axioma_irq irqc (
         .src(irq_src),

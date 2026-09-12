@@ -142,7 +142,7 @@ escribió:
 | `docs/02-legal.md` | `docs/02-isa.md` | no existe; la descripción del ISA está en `01-arquitectura.md` |
 
 Arreglar las tres era el trabajo de un minuto; lo que faltaba era la puerta. La CI ya validaba los
-`[enlaces](de/markdown)`, que son la mitad de las referencias; la otra mitad son los
+los enlaces de Markdown, que son la mitad de las referencias; la otra mitad son los
 `path/como/este` del texto corrido, y nadie los miraba. `make check-docs` los comprueba y la CI lo
 ejecuta. Mira sólo lo que **parece** una ruta del repositorio —lleva barra y empieza por un
 directorio de primer nivel conocido—, de modo que quedan fuera los nombres sueltos en prosa

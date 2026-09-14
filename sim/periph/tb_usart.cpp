@@ -232,6 +232,140 @@ static void emitir_con_ruido(const Cfg &c, uint16_t dato, int bit_ruidoso,
     dut->rxd = 1;
 }
 
+// ======================================================= el modo SINCRONO
+// EL ORACULO ES EL OTRO EXTREMO DEL CABLE, igual que con el SPI y el TWI: un
+// extremo sincrono escrito desde la hoja de datos que cuelga de XCK, decodifica
+// TXD en el flanco de MUESTREO y presenta RXD en el de CAMBIO. Si los dos
+// extremos no coinciden bit a bit, uno de los dos esta mal, y el de aqui no
+// comparte una linea con el RTL.
+//
+// LOS DOS FLANCOS HACEN COSAS DISTINTAS, y tienen que ser distintos. Si el dato
+// de salida cambiara en el mismo flanco en el que el otro extremo muestrea, el
+// otro extremo lo leeria a mitad de cambio. UCPOL dice cual es cual:
+//
+//   UCPOL=0   se muestrea en la SUBIDA del pin y se cambia en la bajada
+//   UCPOL=1   al reves
+//
+// simavr no modela nada de esto -ni siquiera serializa el modo asincrono-, asi
+// que aqui no hay otro oraculo posible.
+
+struct CfgSinc {
+    int  ubrr;
+    int  databits;     // 5..9
+    int  parity;       // 0 ninguna, 2 par, 3 impar
+    int  stop;         // 1 o 2
+    bool ucpol;
+    // f_XCK = f_CPU / (2*(UBRR+1)), que es la formula de la hoja de datos.
+    int  periodo() const { return 2 * (ubrr + 1); }
+    int  bits_trama() const { return 1 + databits + (parity ? 1 : 0) + stop; }
+};
+
+static bool dut_es_maestro   = true;
+static bool xck_ant          = false;   // ultimo nivel visto del pin
+static bool xck_banco_nivel  = false;   // el que conduce el banco de esclavo
+static int  medio_banco      = 10;      // semiperiodo del banco cuando manda el
+
+// Avanza hasta el siguiente flanco del tipo pedido. `muestreo` es el flanco en
+// el que el dato VALE; el otro es el de cambio.
+static bool xck_paso(bool ucpol, bool muestreo, long limite) {
+    if (dut_es_maestro) {
+        for (long i = 0; i < limite; i++) {
+            tick();
+            bool p = dut->xck_out;
+            bool sube = p && !xck_ant, baja = !p && xck_ant;
+            xck_ant = p;
+            // El flanco de muestreo es la subida del reloj INTERNO, que en el
+            // pin es subida con UCPOL=0 y bajada con UCPOL=1.
+            bool interno_sube = ucpol ? baja : sube;
+            bool interno_baja = ucpol ? sube : baja;
+            if (muestreo ? interno_sube : interno_baja) return true;
+        }
+        return false;
+    }
+    // El DUT es esclavo: el reloj lo pone el banco.
+    for (int k = 0; k < 4; k++) {
+        for (int i = 0; i < medio_banco; i++) tick();
+        xck_banco_nivel = !xck_banco_nivel;
+        dut->xck_pin = xck_banco_nivel;
+        dut->eval();
+        for (int i = 0; i < 4; i++) tick();     // que el sincronizador lo vea
+        bool interno = xck_banco_nivel ^ ucpol;
+        if (muestreo == interno) return true;
+    }
+    return false;
+}
+
+static void configurar_sinc(const CfgSinc &c, bool rx, bool tx, bool maestro) {
+    for (int i = 0; i < 400; i++) tick();
+    dut_es_maestro = maestro;
+    dut->xck_es_salida = maestro ? 1 : 0;
+    if (!maestro) { xck_banco_nivel = false; dut->xck_pin = 0; }
+    uint8_t ucsz = (c.databits == 9) ? 3 : (c.databits - 5);
+    // UMSEL = 01: sincrono.
+    wr(A_UCSR0C, (uint8_t)(0x40 | (c.parity << 4) | ((c.stop == 2) << 3) |
+                           ((ucsz & 3) << 1) | (c.ucpol ? 1 : 0)));
+    wr(A_UBRR0H, (uint8_t)(c.ubrr >> 8));
+    wr(A_UBRR0L, (uint8_t)(c.ubrr & 0xFF));
+    wr(A_UCSR0A, 0);
+    wr(A_UCSR0B, (uint8_t)((rx ? RXEN : 0) | (tx ? TXEN : 0) |
+                           ((c.databits == 9) ? UCSZ2 : 0)));
+    for (int i = 0; i < 40; i++) tick();
+    xck_ant = dut->xck_out;
+}
+
+// El banco recibe lo que el DUT transmite.
+static bool recibir_sinc(const CfgSinc &c, uint16_t &dato, bool &par_ok,
+                         bool &parada_ok) {
+    const long tope = 40L * c.periodo() + 400;
+    // Buscar el bit de arranque: el primer flanco de muestreo con TXD a cero.
+    bool visto = false;
+    for (int i = 0; i < 6 * c.bits_trama() + 12 && !visto; i++) {
+        if (!xck_paso(c.ucpol, true, tope)) return false;
+        if (!dut->txd) visto = true;
+    }
+    if (!visto) return false;
+
+    dato = 0;
+    bool par = (c.parity == 3);
+    for (int b = 0; b < c.databits; b++) {
+        if (!xck_paso(c.ucpol, true, tope)) return false;
+        if (dut->txd) { dato = (uint16_t)(dato | (1u << b)); par = !par; }
+    }
+    par_ok = true;
+    if (c.parity) {
+        if (!xck_paso(c.ucpol, true, tope)) return false;
+        par_ok = ((bool)dut->txd == par);
+    }
+    if (!xck_paso(c.ucpol, true, tope)) return false;
+    parada_ok = dut->txd;
+    return true;
+}
+
+// El banco emite hacia el DUT. Cada bit se presenta en el flanco de CAMBIO.
+// `tipo` es el bit que MPCM mira: el noveno de datos con tramas de nueve, y el
+// primero de parada con tramas de cinco a ocho.
+static void emitir_sinc(const CfgSinc &c, uint16_t dato, bool tipo = true) {
+    const long tope = 40L * c.periodo() + 400;
+    xck_paso(c.ucpol, false, tope);
+    dut->rxd = 0;                                   // arranque
+    bool par = (c.parity == 3);
+    for (int b = 0; b < c.databits; b++) {
+        xck_paso(c.ucpol, false, tope);
+        bool v = (dato >> b) & 1;
+        dut->rxd = v; if (v) par = !par;
+    }
+    if (c.parity) { xck_paso(c.ucpol, false, tope); dut->rxd = par; }
+    for (int st = 0; st < c.stop; st++) {
+        xck_paso(c.ucpol, false, tope);
+        // El PRIMER bit de parada lleva el tipo de trama cuando MPCM lo usa;
+        // el segundo es siempre uno.
+        dut->rxd = (st == 0) ? tipo : 1;
+    }
+    xck_paso(c.ucpol, false, tope);
+    dut->rxd = 1;
+    for (int i = 0; i < 8; i++) tick();
+}
+
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     dut = new Vaxioma_usart;
@@ -480,6 +614,259 @@ int main(int argc, char **argv) {
             }
         }
     }
+
+
+    // ============================================ 9. modo SINCRONO, maestro
+    // El DUT genera XCK. Lo primero que hay que comprobar es la FRECUENCIA:
+    // f_XCK = f_CPU/(2*(UBRR+1)) es una promesa de la hoja de datos, y un
+    // periodo mal contado funciona contra cualquier banco y luego no engancha
+    // con el dispositivo de la placa.
+    fase = "sincrono: periodo de XCK";
+    for (int ubrr : {3, 7, 15, 40}) {
+        CfgSinc c { ubrr, 8, 0, 1, false };
+        configurar_sinc(c, true, true, true);
+        long t[4] = {0,0,0,0};
+        int n = 0; long ciclo = 0; bool ant = dut->xck_out;
+        for (long i = 0; i < 40L * c.periodo() + 400 && n < 4; i++) {
+            tick(); ciclo++;
+            bool p = dut->xck_out;
+            if (p && !ant) t[n++] = ciclo;
+            ant = p;
+        }
+        if (n >= 4) {
+            chk("periodo de XCK", (uint32_t)(t[3] - t[2]), (uint32_t)c.periodo());
+            chk("periodo estable", (uint32_t)(t[2] - t[1]), (uint32_t)c.periodo());
+        } else {
+            chk("no se vio XCK", 0, 1);
+        }
+    }
+
+    // Y la forma de onda, en los dos sentidos y con las dos polaridades.
+    fase = "sincrono: maestro, los dos sentidos";
+    for (bool pol : {false, true})
+      for (int db : {5, 8, 9})
+        for (int par : {0, 2, 3}) {
+            CfgSinc c { 5, db, par, (db == 9 ? 2 : 1), pol };
+            configurar_sinc(c, true, true, true);
+            uint16_t patron = (uint16_t)(0x155 & ((1u << db) - 1));
+
+            // TXB8 ANTES QUE UDR0: el noveno bit se engancha al escribir el
+            // dato, que es el orden que manda la hoja de datos. Al reves sale
+            // el bit de la trama ANTERIOR, y con el bufer vacio sale un cero.
+            if (db == 9) wr(A_UCSR0B, (uint8_t)(RXEN | TXEN | UCSZ2 |
+                                                ((patron >> 8) & 1)));
+            wr(A_UDR0, (uint8_t)patron);
+            uint16_t got = 0; bool pok = false, sok = false;
+            if (recibir_sinc(c, got, pok, sok)) {
+                chk("el byte transmitido llega entero", got, patron);
+                chk("la paridad es la que toca", pok, 1);
+                chk("y el bit de parada esta", sok, 1);
+            } else {
+                chk("no salio ninguna trama", 0, 1);
+            }
+
+            // Ahora al reves: el banco emite y el DUT recibe.
+            uint16_t envio = (uint16_t)(0x0AA & ((1u << db) - 1));
+            emitir_sinc(c, envio);
+            for (int i = 0; i < 200 && !(peek(A_UCSR0A) & RXC); i++) tick();
+            chk("RXC se levanta", (peek(A_UCSR0A) & RXC) != 0, 1);
+            // RXB8 ANTES QUE UDR0. Leer UDR0 SACA el byte del bufer, y con el
+            // se va su noveno bit: RXB8 es del byte que esta en la cabeza, no
+            // del ultimo recibido. La hoja de datos lo dice con estas palabras
+            // -«the ninth bit must be read from the RXB8n bit before reading
+            // the low bits from the UDRn»- y al reves sale un cero.
+            uint16_t alto = (db == 9) ? (uint16_t)((peek(A_UCSR0B) & 0x02) << 7) : 0;
+            uint16_t leido = (uint16_t)(rd(A_UDR0) | alto);
+            chk("el byte recibido es el que se mando", leido, envio);
+            chk("sin error de trama", (peek(A_UCSR0A) & FE) != 0, 0);
+            chk("sin error de paridad", (peek(A_UCSR0A) & UPE) != 0, 0);
+        }
+
+    // ============================================= 10. modo SINCRONO, esclavo
+    // Ahora el reloj lo pone el banco y el DUT cuelga de el. Es el mismo motor
+    // de trama: si sólo funcionara de maestro, lo que estaría mal es el reloj.
+    fase = "sincrono: esclavo";
+    for (bool pol : {false, true}) {
+        CfgSinc c { 5, 8, 2, 1, pol };
+        configurar_sinc(c, true, true, false);
+        chk("de esclavo NO se adueña del pin de reloj", dut->xck_ovr, 0);
+
+        wr(A_UDR0, 0x3C);
+        uint16_t got = 0; bool pok = false, sok = false;
+        if (recibir_sinc(c, got, pok, sok)) {
+            chk("el esclavo transmite con el reloj ajeno", got, 0x3C);
+            chk("con su paridad", pok, 1);
+        } else {
+            chk("el esclavo no transmitio", 0, 1);
+        }
+
+        emitir_sinc(c, 0xC3);
+        for (int i = 0; i < 400 && !(peek(A_UCSR0A) & RXC); i++) tick();
+        chk("RXC en esclavo", (peek(A_UCSR0A) & RXC) != 0, 1);
+        chk("el byte recibido de esclavo", rd(A_UDR0), 0xC3);
+    }
+
+    // ============================ 10ter. UCPOL, comprobado en el FLANCO
+    // QUE EL DATO LLEGUE NO PRUEBA QUE UCPOL ESTE BIEN. Con los dos extremos
+    // equivocados de la misma manera, la trama sale perfecta: es el fallo de
+    // siempre, el modelo y el diseño dandose la razon mutuamente. Lo que UCPOL
+    // define es CUAL de los dos flancos vale, y eso hay que mirarlo en el
+    // flanco: TXD tiene que estar QUIETO alrededor del de muestreo, porque es
+    // cuando el otro extremo lo lee, y moverse en el otro.
+    //
+    // Un mutante que hacia al esclavo ignorar UCPOL sobrevivia a todo lo
+    // anterior -incluido el trafico aleatorio con las dos polaridades- hasta
+    // que se miro esto.
+    fase = "sincrono: UCPOL manda en el flanco";
+    for (bool pol : {false, true}) {
+        CfgSinc c { 5, 8, 0, 1, pol };
+        configurar_sinc(c, false, true, false);
+        // El nivel de PIN que corresponde a cada nivel del reloj interno.
+        auto pin_de = [&](bool interno) { return (bool)(interno ^ c.ucpol); };
+
+        wr(A_UDR0, 0x6C);
+        for (int b = 0; b < c.bits_trama() + 2; b++) {
+            // Flanco de CAMBIO: el reloj interno baja. Aqui el dato PUEDE moverse.
+            xck_banco_nivel = pin_de(false);
+            dut->xck_pin = xck_banco_nivel; dut->eval();
+            for (int i = 0; i < medio_banco; i++) tick();
+            bool antes = dut->txd;
+
+            // Flanco de MUESTREO: el reloj interno sube. Aqui el dato NO puede
+            // moverse, porque es cuando el otro extremo lo lee.
+            xck_banco_nivel = pin_de(true);
+            dut->xck_pin = xck_banco_nivel; dut->eval();
+            for (int i = 0; i < medio_banco; i++) tick();
+            chk("TXD quieto alrededor del flanco de muestreo", dut->txd, antes);
+        }
+        xck_banco_nivel = false; dut->xck_pin = 0; dut->eval();
+    }
+
+    // ================================ 10bis. sincrono: trafico aleatorio
+    // Los casos dirigidos prueban lo que a alguien se le ocurrio; esto prueba
+    // combinaciones que a nadie se le habrian ocurrido. Semilla fija: un fallo
+    // intermitente que no se puede reproducir no se puede arreglar.
+    fase = "sincrono: trafico aleatorio";
+    {
+        uint32_t sem = 0xC0FFEEu;
+        auto aleat = [&]() {
+            sem ^= sem << 13; sem ^= sem >> 17; sem ^= sem << 5; return sem;
+        };
+        for (int t = 0; t < 150; t++) {
+            CfgSinc c { (int)(aleat() % 8) + 2,
+                        (int)(aleat() % 5) + 5,
+                        (int)((aleat() % 3) ? (2 + (int)(aleat() & 1)) : 0),
+                        (int)(aleat() % 2) + 1,
+                        (aleat() & 1) != 0 };
+            bool maestro = (aleat() & 1) != 0;
+            medio_banco = (int)(aleat() % 10) + 6;
+            configurar_sinc(c, true, true, maestro);
+
+            uint16_t patron = (uint16_t)(aleat() & ((1u << c.databits) - 1));
+            if (c.databits == 9)
+                wr(A_UCSR0B, (uint8_t)(RXEN | TXEN | UCSZ2 | ((patron >> 8) & 1)));
+            wr(A_UDR0, (uint8_t)patron);
+            uint16_t got = 0; bool pok = false, sok = false;
+            if (recibir_sinc(c, got, pok, sok)) {
+                chk("aleatorio: el byte transmitido llega entero", got, patron);
+                chk("aleatorio: paridad", pok, 1);
+                chk("aleatorio: parada", sok, 1);
+            } else {
+                chk("aleatorio: no salio trama", 0, 1);
+            }
+
+            uint16_t envio = (uint16_t)(aleat() & ((1u << c.databits) - 1));
+            emitir_sinc(c, envio);
+            bool llego = false;
+            for (int i = 0; i < 1200 && !llego; i++) {
+                if (peek(A_UCSR0A) & RXC) llego = true; else tick();
+            }
+            chk("aleatorio: RXC", llego, 1);
+            if (llego) {
+                uint16_t alto = (c.databits == 9)
+                              ? (uint16_t)((peek(A_UCSR0B) & 0x02) << 7) : 0;
+                uint16_t leido = (uint16_t)(rd(A_UDR0) | alto);
+                chk("aleatorio: el byte recibido", leido, envio);
+                chk("aleatorio: sin error de trama", (peek(A_UCSR0A) & FE) != 0, 0);
+                chk("aleatorio: sin error de paridad", (peek(A_UCSR0A) & UPE) != 0, 0);
+            }
+        }
+        medio_banco = 10;
+    }
+
+    // ================================================== 11. MPCM
+    // Varios esclavos en el mismo cable: con MPCM puesto sólo pasan las tramas
+    // de DIRECCION, y las de datos se tiran EN SILENCIO —ni RXC, ni búfer, ni
+    // DOR—. Es lo que permite que el que no ha sido llamado no se entere de
+    // nada hasta la siguiente dirección.
+    fase = "MPCM con nueve bits de datos";
+    {
+        CfgSinc c { 5, 9, 0, 1, false };
+        configurar_sinc(c, true, false, true);
+        wr(A_UCSR0A, 0x01);                       // MPCM
+        chk("MPCM se lee de vuelta", peek(A_UCSR0A) & 0x01, 0x01);
+
+        // Trama de DATOS: noveno bit a cero. Tiene que desaparecer.
+        emitir_sinc(c, 0x055);
+        for (int i = 0; i < 200; i++) tick();
+        chk("una trama de datos con MPCM no levanta RXC",
+            (peek(A_UCSR0A) & RXC) != 0, 0);
+
+        // Trama de DIRECCION: noveno bit a uno. Esta si entra.
+        emitir_sinc(c, 0x1AA);
+        for (int i = 0; i < 400 && !(peek(A_UCSR0A) & RXC); i++) tick();
+        chk("una trama de direccion si", (peek(A_UCSR0A) & RXC) != 0, 1);
+        chk("y el noveno bit dice que era direccion",
+            (peek(A_UCSR0B) & 0x02) != 0, 1);
+        chk("y trae el byte correcto", rd(A_UDR0), 0x0AA);
+
+        // Al limpiar MPCM vuelven a entrar las de datos.
+        wr(A_UCSR0A, 0x00);
+        emitir_sinc(c, 0x033);
+        for (int i = 0; i < 400 && !(peek(A_UCSR0A) & RXC); i++) tick();
+        chk("sin MPCM las tramas de datos entran", (peek(A_UCSR0A) & RXC) != 0, 1);
+        chk("con su byte", rd(A_UDR0), 0x033);
+    }
+
+    fase = "MPCM con el primer bit de parada";
+    {
+        // Con tramas de cinco a ocho bits el tipo va en el PRIMER BIT DE
+        // PARADA, y por eso la hoja de datos exige dos: el primero deja de ser
+        // parada y pasa a ser la marca.
+        CfgSinc c { 5, 8, 0, 2, false };
+        configurar_sinc(c, true, false, true);
+        wr(A_UCSR0A, 0x01);                       // MPCM
+
+        emitir_sinc(c, 0x5A, false);              // parada a cero: es dato
+        for (int i = 0; i < 200; i++) tick();
+        chk("el primer bit de parada a cero marca DATO y se tira",
+            (peek(A_UCSR0A) & RXC) != 0, 0);
+
+        emitir_sinc(c, 0xA5, true);               // parada a uno: es direccion
+        for (int i = 0; i < 400 && !(peek(A_UCSR0A) & RXC); i++) tick();
+        chk("a uno marca DIRECCION y entra", (peek(A_UCSR0A) & RXC) != 0, 1);
+        chk("con su byte", rd(A_UDR0), 0xA5);
+        wr(A_UCSR0A, 0x00);
+    }
+
+    // El modo asincrono tambien tiene MPCM, y ahi el tipo va igual.
+    fase = "MPCM en asincrono";
+    {
+        Cfg c { 5, false, 9, 0, 1 };
+        dut_es_maestro = true; dut->xck_es_salida = 0;
+        configurar(c, true, false);
+        wr(A_UCSR0A, 0x01);
+        emitir(c, 0x055);                         // noveno bit a cero: dato
+        for (int i = 0; i < 400; i++) tick();
+        chk("en asincrono la trama de datos tambien se tira",
+            (peek(A_UCSR0A) & RXC) != 0, 0);
+        emitir(c, 0x1AA);
+        for (int i = 0; i < 400 && !(peek(A_UCSR0A) & RXC); i++) tick();
+        chk("y la de direccion entra", (peek(A_UCSR0A) & RXC) != 0, 1);
+        chk("con su byte", rd(A_UDR0), 0x0AA);
+        wr(A_UCSR0A, 0x00);
+    }
+
 
 
 #if VM_COVERAGE

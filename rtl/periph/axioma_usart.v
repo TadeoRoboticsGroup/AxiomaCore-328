@@ -1,4 +1,4 @@
-// AxiomaCore-328 - USART0, modo asíncrono
+// AxiomaCore-328 - USART0: asíncrono, síncrono y multiprocesador
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The AxiomaCore Project
 //
@@ -41,10 +41,34 @@
 // registros que son almacenamiento —UCSR0B, UCSR0C, UBRR0L/H— y la forma de
 // onda la certifica el banco propio con un receptor de verdad.
 //
-// FUERA DE ALCANCE, y declarado: el modo SÍNCRONO (UMSEL distinto de 00) y el
-// modo multiprocesador (MPCM). Sus bits se almacenan y se leen de vuelta, pero
-// no cambian el comportamiento. Van en la fase 3, con el SPI, porque el modo
-// maestro SPI de la USART comparte camino.
+// EL MODO SÍNCRONO SALE CASI GRATIS, y eso no es casualidad: el motor de trama
+// —arranque, datos, paridad, parada— es el mismo, y lo único que cambia es
+// QUIÉN dice «avanza un bit». En asíncrono lo dice el generador de baudios con
+// su sobremuestreo por dieciséis; en síncrono, los flancos de XCK, uno por bit.
+// Con `osr` puesto a uno el contador de sobremuestreo se agota en el mismo
+// pulso y la máquina de estados no se entera de nada.
+//
+//   XCK es PD4, y la DIRECCIÓN LA PONE EL PROGRAMA: `DDR_XCK0` es lo que elige
+//   entre maestro —reloj interno, f_XCK = f_CPU/(2·(UBRR+1))— y esclavo —reloj
+//   externo—. Por eso este módulo anula el VALOR del pin y nunca su dirección.
+//
+//   UCPOL es, visto desde dentro, UNA INVERSIÓN DEL PIN. Dentro se trabaja
+//   siempre con la misma convención —se muestrea en la subida y se cambia el
+//   dato en la bajada— y el pin lleva ese reloj pasado por un XOR. Sale
+//   exactamente lo que dice la hoja de datos en los dos casos, sin duplicar
+//   media máquina de estados.
+//
+// MPCM: VARIOS ESCLAVOS EN EL MISMO CABLE. Con MPCM puesto, las tramas que no
+// son de dirección se tiran EN SILENCIO —ni RXC, ni búfer, ni DOR—, de modo que
+// el que no ha sido llamado no se entera de nada hasta la siguiente dirección.
+// Qué bit dice si la trama es una dirección depende del tamaño: con nueve bits
+// de datos sobra uno para marcarla, y con cinco a ocho se usa el PRIMER BIT DE
+// PARADA. Por eso el manual exige dos bits de parada al usar MPCM con tramas
+// cortas: el primero deja de ser parada.
+//
+// FUERA DE ALCANCE, y declarado: el modo SPI MAESTRO (UMSEL = 11), que es otro
+// periférico con los mismos registros. Sus bits se almacenan y se leen de
+// vuelta. Está en el registro de deuda técnica como D12.
 
 `default_nettype none
 
@@ -64,6 +88,17 @@ module axioma_usart (
     input  wire       rxd,
     output wire       txd,
     output wire       txd_en,      // TXEN: el transmisor se adueña del pin
+
+    // ---- XCK, el reloj del modo sincrono (PD4) ----
+    // LA DIRECCION LA PONE EL PROGRAMA, no este modulo: la hoja de datos dice
+    // que `DDR_XCKn` es lo que decide si el reloj es interno -maestro- o
+    // externo -esclavo-. Por eso entra `xck_es_salida`, que es DDRD4 ya
+    // resuelto, igual que el SPI recibe `ss_es_salida`. Lo que si anula el
+    // periferico es el VALOR del pin cuando es maestro.
+    input  wire       xck_pin,
+    input  wire       xck_es_salida,
+    output wire       xck_out,
+    output wire       xck_ovr,
 
     // ---- interrupciones ----
     output wire       irq_rxc,     // vector 18
@@ -130,7 +165,62 @@ module axioma_usart (
         else                 brg <= brg - 12'd1;
     end
 
-    wire [4:0] osr = u2x ? 5'd8 : 5'd16;   // muestras por bit
+    // ------------------------------------------------- sincrono contra asincrono
+    // EL MOTOR DE TRAMA ES EL MISMO, y eso es lo que hace barato el modo
+    // sincrono: bit de arranque, datos, paridad y parada se cuentan igual. Lo
+    // unico que cambia es QUIEN dice «avanza un bit». En asincrono lo dice el
+    // generador de baudios con su sobremuestreo de 16 —u 8 con U2X—; en
+    // sincrono lo dicen los flancos de XCK, uno por bit.
+    //
+    // Con `osr` a uno, el contador de sobremuestreo del transmisor se agota en
+    // el mismo pulso y cada tick avanza un bit, sin tocar una linea de la
+    // maquina de estados.
+    //
+    // UMSEL: 00 asincrono · 01 SINCRONO · 10 reservado · 11 SPI maestro, que no
+    // esta implementado y tiene su entrada en el registro de deuda.
+    wire       sincrono = (umsel == 2'b01);
+    wire [4:0] osr = sincrono ? 5'd1 : (u2x ? 5'd8 : 5'd16);   // muestras por bit
+
+    // ------------------------------------------------------------ XCK
+    // UCPOL ES UNA INVERSION DEL PIN, y verlo asi ahorra media maquina de
+    // estados. Dentro se trabaja siempre con la misma convencion —se MUESTREA
+    // en el flanco de subida y se CAMBIA el dato en el de bajada— y el pin
+    // lleva ese reloj pasado por un XOR con UCPOL. Sale exactamente lo que dice
+    // la hoja de datos en los dos casos:
+    //
+    //   UCPOL=0  pin = reloj interno    -> muestrea en subida, cambia en bajada
+    //   UCPOL=1  pin = reloj invertido  -> muestrea en bajada, cambia en subida
+    //
+    // El maestro usa SU reloj, sin leerlo de vuelta del pin: en el chip el
+    // registro de desplazamiento cuelga del reloj interno. El esclavo si lee el
+    // pin, y con dos etapas de sincronizacion porque es asincrono de verdad.
+    wire       xck_maestro = sincrono & xck_es_salida;
+
+    reg        xck_gen;
+    reg [1:0]  xck_sync;
+    reg        xck_i_q;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            xck_gen <= 1'b0;  xck_sync <= 2'b00;  xck_i_q <= 1'b0;
+        end else begin
+            xck_sync <= {xck_sync[0], xck_pin};
+            // f_XCK = f_CPU / (2*(UBRR+1)): el generador ya da un pulso cada
+            // UBRR+1 ciclos, asi que basta con conmutar en cada uno.
+            if (xck_maestro && brg_tick) xck_gen <= ~xck_gen;
+            xck_i_q <= xck_i;
+        end
+    end
+
+    wire xck_i    = xck_maestro ? xck_gen : (xck_sync[1] ^ ucpol);
+    wire xck_sube =  xck_i & ~xck_i_q;     // muestrear
+    wire xck_baja = ~xck_i &  xck_i_q;     // cambiar el dato
+
+    assign xck_out = xck_gen ^ ucpol;
+    assign xck_ovr = xck_maestro;
+
+    wire tx_tick = sincrono ? xck_baja : brg_tick;
+    wire rx_tick = sincrono ? xck_sube : brg_tick;
 
     // ------------------------------------------------------- transmisor
     // Un registro de desplazamiento y UN búfer, como el chip: UDRE dice que el
@@ -172,7 +262,7 @@ module axioma_usart (
             if (!txen) begin
                 tx_activo <= 1'b0;
                 txd_q     <= 1'b1;
-            end else if (brg_tick) begin
+            end else if (tx_tick) begin
                 if (!tx_activo) begin
                     if (tx_buf_full) begin
                         tx_sh       <= tx_buf;
@@ -250,9 +340,16 @@ module axioma_usart (
     // flanco en el que se decide: mirar el registro daría una muestra vieja.
     wire       rx_voto_ahora = (rx_vota[0] & rx_vota[1]) | (rx_vota[0] & rxd_s)
                              | (rx_vota[1] & rxd_s);
-    wire [4:0] pos_1a  = u2x ? 5'd3 : 5'd7;    // primera de las tres
-    wire [4:0] pos_3a  = u2x ? 5'd5 : 5'd9;    // última: aquí se decide
+    // EN SINCRONO NO HAY NADA QUE VOTAR: el reloj dice cuando vale el dato y
+    // se toma UNA muestra por flanco, que es lo que hace el chip. La votacion
+    // es de la recuperacion de reloj del modo asincrono, no del receptor.
+    wire [4:0] pos_1a  = sincrono ? 5'd0 : (u2x ? 5'd3 : 5'd7);
+    wire [4:0] pos_3a  = sincrono ? 5'd0 : (u2x ? 5'd5 : 5'd9);
     wire [4:0] pos_fin = osr - 5'd1;
+
+    // La muestra que se usa para decidir. En asincrono es el voto; en sincrono,
+    // el pin. Una sola expresion para que el resto de la maquina no distinga.
+    wire       rx_muestra = sincrono ? rxd_s : rx_voto_ahora;
 
     // Búfer de DOS niveles, con su FE y su UPE pegados a cada trama.
     reg [10:0] rx_fifo0, rx_fifo1;
@@ -270,6 +367,16 @@ module axioma_usart (
     // segundo. Con dos bits de parada, el segundo es tiempo de línea en reposo
     // y el receptor ya está esperando el siguiente arranque.
     wire [3:0] rx_bit_par  = 4'd1 + databits;
+
+    // MPCM: QUE BIT DICE SI LA TRAMA ES UNA DIRECCION. La hoja de datos usa dos
+    // sitios distintos segun el tamaño de trama, y no es un capricho: con nueve
+    // bits de datos sobra uno para marcarla, y con cinco a ocho no, asi que se
+    // usa el PRIMER BIT DE PARADA. Por eso el manual exige dos bits de parada
+    // cuando se usa MPCM con tramas cortas: el primero deja de ser parada.
+    //
+    // `rx_sh[8]` es el noveno bit de datos: el registro desplaza hacia la
+    // derecha, asi que el ultimo que entra se queda arriba.
+    wire       es_direccion = (databits == 4'd9) ? rx_sh[8] : rx_muestra;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -294,13 +401,18 @@ module axioma_usart (
                 rx_activo <= 1'b0;
                 rx_n      <= 2'd0;
                 dor_q     <= 1'b0;
-            end else if (brg_tick) begin
+            end else if (rx_tick) begin
                 if (!rx_activo) begin
                     // Flanco de bajada en reposo: posible bit de arranque. La
                     // cuenta de posición arranca aquí, en la muestra 0.
                     if (!rxd_s) begin
                         rx_activo <= 1'b1;
-                        rx_bit    <= 4'd0;
+                        // EN SINCRONO EL FLANCO QUE LO DETECTA ES SU MUESTRA.
+                        // En asincrono no: ahi la busqueda va a 16 pulsos por
+                        // bit y el arranque se confirma despues, en su centro.
+                        // Sin esta distincion la trama sincrona gastaria un
+                        // periodo de XCK de mas y llegaria desplazada un bit.
+                        rx_bit    <= sincrono ? 4'd1 : 4'd0;
                         rx_pos    <= 5'd0;
                         rx_vota   <= 2'b11;
                         rx_par    <= par_odd;
@@ -321,31 +433,38 @@ module axioma_usart (
                     // voto, así que se mira junto con las dos anteriores.
                     if (rx_bit == 4'd0) begin
                         // Arranque. Si el centro no es cero, era ruido.
-                        if ((rx_vota[0] & rx_vota[1]) | (rx_vota[0] & rxd_s)
-                            | (rx_vota[1] & rxd_s)) rx_activo <= 1'b0;
-                        else                        rx_bit    <= 4'd1;
+                        if (rx_muestra) rx_activo <= 1'b0;
+                        else            rx_bit    <= 4'd1;
                     end else if (rx_bit <= databits) begin
-                        rx_sh  <= {rx_voto_ahora, rx_sh[8:1]};
-                        rx_par <= rx_par ^ rx_voto_ahora;
+                        rx_sh  <= {rx_muestra, rx_sh[8:1]};
+                        rx_par <= rx_par ^ rx_muestra;
                         rx_bit <= rx_bit + 4'd1;
                     end else if (par_en && (rx_bit == rx_bit_par)) begin
-                        rx_upe <= (rx_voto_ahora != rx_par);
+                        rx_upe <= (rx_muestra != rx_par);
                         rx_bit <= rx_bit + 4'd1;
                     end else begin
                         // Bit de parada. Un cero aquí es error de trama, y el
                         // byte se guarda igual: la hoja de datos dice que FE
                         // viaja CON la trama.
                         rx_activo <= 1'b0;
-                        if (rx_lleno) begin
+                        if (mpcm && !es_direccion) begin
+                            // MPCM: LAS TRAMAS DE DATOS SE TIRAN EN SILENCIO.
+                            // Ni RXC, ni bufer, ni DOR. Es lo que permite que
+                            // varios esclavos cuelguen del mismo cable y solo
+                            // el llamado escuche: los demas siguen con MPCM
+                            // puesto y no se enteran de nada hasta la siguiente
+                            // trama de direccion.
+                            rx_activo <= 1'b0;
+                        end else if (rx_lleno) begin
                             dor_q <= 1'b1;           // se pierde la nueva
                         end else begin
                             // El desplazamiento deja el dato alineado arriba
                             // cuando son menos de 9 bits.
                             if (rx_n == 2'd0)
-                                rx_fifo0 <= {!rx_voto_ahora, rx_upe,
+                                rx_fifo0 <= {!rx_muestra, rx_upe,
                                              rx_sh >> (4'd9 - databits)};
                             else
-                                rx_fifo1 <= {!rx_voto_ahora, rx_upe,
+                                rx_fifo1 <= {!rx_muestra, rx_upe,
                                              rx_sh >> (4'd9 - databits)};
                             rx_n <= rx_n + 2'd1;
                         end
@@ -412,9 +531,9 @@ module axioma_usart (
         end
     end
 
-    // Los modos que no se implementan se almacenan y se leen, pero no hacen
-    // nada. Declarados sin usar a propósito para que el lint no los tape.
-    wire unused_modos = &{1'b0, umsel, ucpol, mpcm};
+    // De UMSEL sólo se usa el bit bajo: 01 es el modo síncrono. El 11 -SPI
+    // maestro- no está implementado y tiene su entrada en el registro de deuda.
+    wire unused_modos = &{1'b0, umsel[1]};
 
     assign irq_rxc  = (!rx_vacio)   & rxcie;
     assign irq_udre = (!tx_buf_full) & udrie;

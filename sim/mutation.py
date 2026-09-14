@@ -449,8 +449,12 @@ CATALOG = [
 ("usart", USART, "sim-usart", "el bufer de recepcion se queda en un nivel",
  """    wire       rx_lleno = (rx_n == 2'd2);""",
  """    wire       rx_lleno = (rx_n >= 2'd1);"""),
+# El patron llevaba `rx_voto_ahora` y dejo de encontrarse al cerrar la deuda D3:
+# el voto por mayoria es del modo asincrono, y el motor de trama pasa a usar
+# `rx_muestra`, que en sincrono es el pin. El catalogo se reapunta EN EL MISMO
+# COMMIT que mueve el RTL, que es la regla.
 ("usart", USART, "sim-usart", "el error de trama no se registra",
- """                                rx_fifo0 <= {!rx_voto_ahora, rx_upe,""",
+ """                                rx_fifo0 <= {!rx_muestra, rx_upe,""",
  """                                rx_fifo0 <= {1'b0, rx_upe,"""),
 # Este solo lo caza el banco de extremo a extremo: tb_usart mira el pin TXD
 # directamente, sin pasar por la habilitacion, asi que un transmisor que nunca
@@ -533,11 +537,13 @@ CATALOG = [
 # Los tres canales salen con ciclos de trabajo DISTINTOS a proposito: 25 %,
 # 75 % y 12,5 %. Por eso cruzar el mapa de pines se ve, y no hay que creerse
 # que «algo saca forma de onda» en el pin correcto.
+# El patron cambio al meter XCK en PD4, que ocupa el bit 4 de la anulacion del
+# puerto D. Se reapunta EN EL MISMO COMMIT que mueve el RTL, que es la regla.
 ("soc", SOC, "sim-hello", "los dos canales del Timer0 salen por el pin del otro",
- """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en, 3'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    1'b0, oc2b,    3'b0};""",
- """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, 1'b0, oc2b_en, 3'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    1'b0, oc2b,    3'b0};"""),
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en, 3'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    us_xck,     oc2b,    3'b0};""",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, us_xck_ovr, oc2b_en, 3'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    us_xck,     oc2b,    3'b0};"""),
 # ----------------------------------------------------------- Timer2
 # EL FALLO QUE HABRIA COMETIDO CUALQUIERA: copiar la tabla de CS del Timer0.
 # El Timer2 tiene dos tomas mas y el orden esta corrido —CS=4 es clk/64, no
@@ -810,6 +816,33 @@ CATALOG = [
 ("twi", TWI, "sim-twi", "TWAMR se queda con un bit 0 que no existe",
  "                if (hit_twamr) twamr_q <= io_wdata & 8'hFE; // el bit 0 no existe",
  "                if (hit_twamr) twamr_q <= io_wdata;"),
+# ------------------------------------------- USART: modo sincrono y MPCM
+# Ninguno de estos da error contra un banco asincrono: los ocho pasan la
+# regresion entera de la USART tal como estaba antes de cerrar la deuda D3.
+("usart", USART, "sim-usart", "UCPOL no invierte el pin: los dos flancos cambian de papel",
+ "    assign xck_out = xck_gen ^ ucpol;",
+ "    assign xck_out = xck_gen;"),
+("usart", USART, "sim-usart", "el esclavo ignora UCPOL al leer el reloj",
+ "    wire xck_i    = xck_maestro ? xck_gen : (xck_sync[1] ^ ucpol);",
+ "    wire xck_i    = xck_maestro ? xck_gen : xck_sync[1];"),
+("usart", USART, "sim-usart", "XCK conmuta sin mirar el generador: se va la frecuencia",
+ "            if (xck_maestro && brg_tick) xck_gen <= ~xck_gen;",
+ "            if (xck_maestro) xck_gen <= ~xck_gen;"),
+("usart", USART, "sim-usart", "en sincrono se sigue sobremuestreando por dieciseis",
+ "    wire [4:0] osr = sincrono ? 5'd1 : (u2x ? 5'd8 : 5'd16);   // muestras por bit",
+ "    wire [4:0] osr = u2x ? 5'd8 : 5'd16;"),
+("usart", USART, "sim-usart", "en sincrono se vota con muestras viejas en vez de mirar el pin",
+ "    wire       rx_muestra = sincrono ? rxd_s : rx_voto_ahora;",
+ "    wire       rx_muestra = rx_voto_ahora;"),
+("usart", USART, "sim-usart", "el arranque sincrono gasta un periodo de XCK de mas",
+ "                        rx_bit    <= sincrono ? 4'd1 : 4'd0;",
+ "                        rx_bit    <= 4'd0;"),
+("usart", USART, "sim-usart", "MPCM no descarta las tramas de datos",
+ "                        if (mpcm && !es_direccion) begin",
+ "                        if (1'b0 && !es_direccion) begin"),
+("usart", USART, "sim-usart", "MPCM busca el tipo de trama siempre en el bit de parada",
+ "    wire       es_direccion = (databits == 4'd9) ? rx_sh[8] : rx_muestra;",
+ "    wire       es_direccion = rx_muestra;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

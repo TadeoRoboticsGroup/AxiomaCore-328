@@ -249,10 +249,23 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
         io = f"  // I/O 0x{r['io']:02X}" if r["io"] is not None else ""
         L.append(f"localparam [7:0] ADDR_{r['name']:<10s} = 8'h{r['data']:02X};{io}")
     L += ["", "// ----------------------------------------------------------------- bits"]
+    # UN NOMBRE, UNA CONSTANTE. avr-libc repite algunos nombres de bit en dos
+    # registros —`OCR2_0..OCR2_7` van detrás de OCR2A Y de OCR2B—, y un
+    # `localparam` repetido es un error de declaración duplicada en cuanto
+    # alguien incluya esta cabecera. Se emite una sola vez, y si el mismo
+    # nombre trajera dos valores distintos se para: eso ya no es una
+    # repetición, es una contradicción.
+    emitidos = {}
     for reg in sorted(bits):
         if not any(r["name"] == reg for r in regs):
             continue
         for bname, bnum in sorted(bits[reg], key=lambda t: t[1]):
+            if bname in emitidos:
+                if emitidos[bname] != bnum:
+                    sys.exit(f"gen_regmap: el bit {bname} vale {emitidos[bname]} "
+                             f"en un registro y {bnum} en otro.")
+                continue
+            emitidos[bname] = bnum
             L.append(f"localparam [2:0] BIT_{bname:<12s} = 3'd{bnum};")
     L += ["", "// ------------------------------------------------- vectores de interrupción",
           f"localparam integer NUM_VECTORS = {len(vectors) + 1};  // incluye RESET"]

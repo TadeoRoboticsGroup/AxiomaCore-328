@@ -148,6 +148,7 @@ module axioma328_soc #(
     // SCK. Lo demás lo sigue poniendo el programa con DDRB.
     wire spi_sck, spi_sck_oe, spi_mosi, spi_mosi_oe, spi_miso, spi_miso_oe;
     wire spi_ss_force;
+    wire twi_scl_pull, twi_sda_pull, twi_en;
     wire spi_maestro = spi_sck_oe;          // sólo el maestro conduce SCK
     wire spi_esclavo = spi_ss_force;        // sólo el esclavo fuerza SS a entrada
 
@@ -168,6 +169,24 @@ module axioma328_soc #(
                             spi_esclavo,                 // PB2 SS
                             2'b0};
     // Todas fuerzan ENTRADA: el 328P no fuerza a salida ningún pin del SPI.
+
+    // ---- puerto C: el TWI se lleva PC4 (SDA) y PC5 (SCL) ----
+    // COLECTOR ABIERTO, Y ASÍ ES COMO SE CONSTRUYE CON LAS DOS ANULACIONES QUE
+    // YA TIENE EL PUERTO: el valor se ata a CERO permanentemente y lo que se
+    // modula es la DIRECCIÓN. Salida y cero = tirar de la línea; entrada =
+    // soltarla. No hay ningún camino por el que el TWI pueda conducir un uno,
+    // que es justo lo que un bus de dos hilos no tolera.
+    //
+    // Y EL PULL-UP SIGUE SIENDO DE `PORTC`. `axioma_gpio` lo calcula como
+    // `~pad_oe & port_q`, con el `pad_oe` ya anulado, así que al soltar la
+    // línea el pull-up sale del bit que el programa escribió en PORTC4/PC5.
+    // Es lo que hace el chip, y es lo que hace funcionar el `digitalWrite(SDA,
+    // HIGH)` que `Wire.begin()` lleva dentro.
+    wire [7:0] ovr_c_en  = twi_en ? 8'b0011_0000 : 8'h00;
+    wire [7:0] ovr_c_val = 8'h00;                 // el TWI nunca conduce un uno
+    wire [7:0] dir_c_en  = twi_en ? 8'b0011_0000 : 8'h00;
+    wire [7:0] dir_c_val = {2'b0, twi_scl_pull, twi_sda_pull, 4'b0};
+
     wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en, 3'b0};
     wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    1'b0, oc2b,    3'b0};
 
@@ -188,8 +207,8 @@ module axioma328_soc #(
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gc_rd), .io_sel(gc_sel),
-        .ovr_en(8'h00), .ovr_val(8'h00),       // el puerto C no tiene canales
-        .dir_ovr_en(8'h00), .dir_ovr_val(8'h00),
+        .ovr_en(ovr_c_en), .ovr_val(ovr_c_val),
+        .dir_ovr_en(dir_c_en), .dir_ovr_val(dir_c_val),
         .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
     );
     axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
@@ -322,6 +341,23 @@ module axioma328_soc #(
         .irq_spi(sp_irq), .ack_spi(irq_ack_v[17])
     );
 
+    // ---------------------------------------------------------------- TWI
+    // Los seis registros viven en la I/O EXTENDIDA, 0xB8..0xBD, fuera del
+    // alcance de IN/OUT. Se llega con LDS/STS y con LD/LDD, y por eso el dato
+    // de lectura tiene que sobrevivir un ciclo: lo registra `axioma_dbus`.
+    wire [7:0] tw_rd;
+    wire       tw_sel, tw_irq;
+
+    axioma_twi twi (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(tw_rd), .io_sel(tw_sel),
+        .scl_pin(pc_in[5]), .sda_pin(pc_in[4]),
+        .scl_pull(twi_scl_pull), .sda_pull(twi_sda_pull),
+        .twen(twi_en),
+        .irq(tw_irq)
+    );
+
     // ---------------------------------------------- interrupciones externas
     // Los pines llegan tal como los ve el pad. INT0 e INT1 viven DENTRO del
     // puerto D —PD2 y PD3—, así que no se pasan aparte: un solo camino hasta
@@ -352,9 +388,9 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd | t2_rd | sp_rd;
+                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
-                    | t1_sel | us_sel | ei_sel | t2_sel | sp_sel;
+                    | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -365,7 +401,9 @@ module axioma328_soc #(
     wire        core_irq_req, core_irq_ack;
     wire [4:0]  core_irq_vector;
 
-    assign irq_src = { 5'b0,          // 25..21  ADC en adelante, sin periférico
+    assign irq_src = { 1'b0,          // 25      SPM_READY, sin periférico
+                       tw_irq,        // 24      TWI
+                       3'b0,          // 23..21  comparador, EEPROM, ADC
                        us_txc,        // 20      USART_TX
                        us_udre,       // 19      USART_UDRE
                        us_rxc,        // 18      USART_RX
@@ -391,7 +429,11 @@ module axioma328_soc #(
     // Los reconocimientos de los vectores que aún no tienen periférico no van a
     // ninguna parte, igual que sus peticiones.
     // Los reconocimientos que no van a ninguna parte, y por qué:
-    //   25..21, 6, 0  vectores sin periférico todavía.
+    //   25, 23..21, 6, 0  vectores sin periférico todavía.
+    //   24 (TWI)          TWINT no la limpia el vector: la limpia ESCRIBIR UN
+    //                     UNO en ella, que es lo que arranca la operación
+    //                     siguiente. Una ISR que se limitara a retornar
+    //                     dejaría el bus estirado para siempre.
     //   19 (USART_UDRE)   su bandera no la limpia el vector: la limpia
     //                     ESCRIBIR UDR0, que es lo que hace la ISR.
     //   18 (USART_RX)     ídem, la limpia LEER UDR0.

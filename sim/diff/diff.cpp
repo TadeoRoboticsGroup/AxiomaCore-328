@@ -535,6 +535,8 @@ int main(int argc, char **argv) {
             {0x004C, 0x004C, "SPCR"},
             {0x00C2, 0x00C2, "UCSR0C"},
             {0x00C4, 0x00C5, "UBRR0L y UBRR0H"},
+            {0x00B8, 0x00B8, "TWBR"},
+            {0x00BD, 0x00BD, "TWAMR"},
         };
         //   ICR1   (0x86)  es el valor CAPTURADO del contador, así que hereda
         //                   el problema de TCNT1: cada lado captura su propia
@@ -557,6 +559,18 @@ int main(int argc, char **argv) {
         // Y de TCCR0B sólo coincide lo que se lee: FOC0A y FOC0B son pulsos de
         // escritura y valen cero al leerse, mientras que simavr guarda el byte
         // entero. Ningún programa de prueba los escribe.
+        //
+        // DEL TWI SÓLO SE COMPARAN TWBR Y TWAMR, y no por lo de siempre sino
+        // por el VALOR DE RESET. El 328P arranca con TWAR = 0xFE -dirección
+        // 0x7F, TWGCE a cero- y con TWDR = 0xFF; simavr no implementa ninguno
+        // de los dos: su `avr_twi_reset` sólo toca TWSR, y el espacio de datos
+        // arranca a cero. Compararlos haría divergir TODOS los programas, los
+        // que no tocan el TWI incluidos, y la divergencia no diría nada del
+        // RTL. Los dos valores de reset los comprueba `make sim-twi` contra la
+        // hoja de datos, que es el oráculo que corresponde.
+        // TWCR queda fuera porque TWINT y TWWC las mueve el hardware en
+        // momentos distintos a cada lado, y TWSR porque es el código de estado
+        // y depende de la temporización del bus.
         //
         // DEL SPI SÓLO SE COMPARA SPCR, y por el mismo motivo que con la
         // USART: simavr no modela el cable. Su `avr_spi_write` guarda el byte

@@ -137,6 +137,18 @@ module axioma_sim_top (
             8'h2D:   dbg_periph = {soc.spi.spif_q, soc.spi.wcol_q, 5'b0,
                                    soc.spi.spi2x_q};
             8'h2E:   dbg_periph = soc.spi.rxbuf_q;
+            // TWI. Comparables sólo TWBR, TWAR y TWAMR —ver COMPARABLE en
+            // diff.cpp—, pero la ventana da los seis. TWSR se compone igual
+            // que en el bus: el estado arriba, un cero, y TWPS abajo.
+            8'h98:   dbg_periph = soc.twi.twbr_q;
+            8'h99:   dbg_periph = {soc.twi.status_q, 1'b0, soc.twi.twps_q};
+            8'h9A:   dbg_periph = soc.twi.twar_q;
+            8'h9B:   dbg_periph = soc.twi.twdr_q;
+            8'h9C:   dbg_periph = {soc.twi.twint_q, soc.twi.twea_q,
+                                   soc.twi.twsta_q, soc.twi.twsto_q,
+                                   soc.twi.twwc_q,  soc.twi.twen_q,
+                                   1'b0, soc.twi.twie_q};
+            8'h9D:   dbg_periph = soc.twi.twamr_q;
             // Timer2: mismo motor que el Timer0, en sus propias direcciones.
             8'h17:   dbg_periph = {5'b0, soc.timer2.motor.tifr_q};
             8'h50:   dbg_periph = {5'b0, soc.timer2.motor.timsk_q};

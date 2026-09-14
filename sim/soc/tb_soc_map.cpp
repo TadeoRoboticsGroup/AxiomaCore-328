@@ -76,6 +76,10 @@ static const Esperado MAPA[] = {
     {0x90, "timer2", "TCCR2A"}, {0x91, "timer2", "TCCR2B"}, {0x92, "timer2", "TCNT2"},
     {0x93, "timer2", "OCR2A"},  {0x94, "timer2", "OCR2B"},  {0x96, "timer2", "ASSR"},
     {0x2C, "spi",    "SPCR"},   {0x2D, "spi",    "SPSR"},   {0x2E, "spi", "SPDR"},
+    // TWI: los seis registros de la I/O extendida, 0xB8..0xBD en el espacio
+    // de datos. Fuera del alcance de IN/OUT.
+    {0x98, "twi",    "TWBR"},   {0x99, "twi",    "TWSR"},   {0x9A, "twi", "TWAR"},
+    {0x9B, "twi",    "TWDR"},   {0x9C, "twi",    "TWCR"},   {0x9D, "twi", "TWAMR"},
     {0x1B, "extint", "PCIFR"},  {0x1C, "extint", "EIFR"},  {0x1D, "extint", "EIMSK"},
     {0x48, "extint", "PCICR"},  {0x49, "extint", "EICRA"},
     {0x4B, "extint", "PCMSK0"}, {0x4C, "extint", "PCMSK1"}, {0x4D, "extint", "PCMSK2"},
@@ -132,7 +136,7 @@ int main(int argc, char **argv) {
                 {"presc",  dut->sel_presc},  {"timer0", dut->sel_timer0},
                 {"usart",  dut->sel_usart}, {"timer1", dut->sel_timer1},
                 {"extint", dut->sel_extint}, {"timer2", dut->sel_timer2},
-                {"spi",    dut->sel_spi},
+                {"spi",    dut->sel_spi},   {"twi",    dut->sel_twi},
             };
             int n = 0;
             for (auto &q : quien)

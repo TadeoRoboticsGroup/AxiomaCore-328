@@ -100,7 +100,30 @@ def rule(c, x1, y, x2):
 #  Figura 1 — arquitectura del SoC
 # ==========================================================================
 def fig_soc(t):
-    H = 976
+    # LOS BLOQUES PRIMERO, Y LAS ALTURAS SALEN DE ELLOS. Estaban escritas a
+    # mano, y el bloque numero trece -el TWI- empujo la rejilla fuera del panel
+    # y encima de la tira de pines. Una figura que se rompe al añadir una fila
+    # es una figura que se va a romper otra vez.
+    cells = [("axioma_dmem", ["2 KB de SRAM · flanco de bajada"], OK),
+             ("axioma_gpio", ["PORTB/C/D · toggle por PINx · anulación"], OK),
+             ("axioma_gpior", ["GPIOR0/1/2 · almacenamiento puro"], OK),
+             ("axioma_prescaler", ["10 bits · COMPARTIDO por timer0 y timer1"], OK),
+             ("axioma_timer0", ["8 modos de onda · OC0A/OC0B · T0"], OK),
+             ("axioma_timer1", ["16 bits · captura · TEMP compartido"], OK),
+             ("axioma_timer2", ["prescaler propio · modo asíncrono"], OK),
+             ("axioma_usart", ["generador de baudios · FIFO de 2"], OK),
+             ("axioma_spi", ["maestro y esclavo · los cuatro modos"], OK),
+             ("axioma_extint", ["INT0/1 · PCINT0/1/2"], OK),
+             ("axioma_twi", ["maestro y esclavo · arbitraje · I2C"], OK),
+             ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
+             ("adc · ac · wdt", ["SAR · comparador · perro guardián"], TODO)]
+    FILAS = (len(cells) + 2) // 3
+    GY = 510
+    GH = 32 + FILAS * 74 - 12 + 14
+    PIN_Y, PIN_H = GY + GH + 14, 36
+    PY, PH = 88, PIN_Y + PIN_H + 16 - 88
+    LEG_Y = PY + PH + 24
+    H = LEG_Y + 22
     c = Canvas(W, H, t)
 
     c.text(M, 42, "Arquitectura de AxiomaCore-328", F_TITLE, bold=True)
@@ -109,7 +132,6 @@ def fig_soc(t):
            F_SUB, colour=t["muted"])
 
     # ---- plancha del SoC ----
-    PY, PH = 88, 842
     c.box(M, PY, W - 2 * M, PH, t["plate"], t["line_strong"], r=10, lw=1.6)
     c.text(M + 16, PY + 22, "axioma328_soc", 11.5, colour=t["muted"], mono=True)
 
@@ -159,7 +181,6 @@ def fig_soc(t):
     c.path([(480, CY + CH + 4), (480, BY - 5)], colour=t["strong"])
 
     # ---- lo que cuelga del bus ----
-    GY, GH = 510, 350
     c.box(IN_L, GY, IN_W, GH, t["panel"], t["line"], r=8)
     c.text(IN_L + 14, GY + 21, "en el espacio de datos", 11.5, colour=t["muted"],
            mono=True)
@@ -168,18 +189,6 @@ def fig_soc(t):
            nota, 10.5, colour=t["muted"], mono=True)
     c.path([(450, BY + BH + 4), (450, GY - 5)], colour=t["strong"])
 
-    cells = [("axioma_dmem", ["2 KB de SRAM · flanco de bajada"], OK),
-             ("axioma_gpio", ["PORTB/C/D · toggle por PINx · anulación"], OK),
-             ("axioma_gpior", ["GPIOR0/1/2 · almacenamiento puro"], OK),
-             ("axioma_prescaler", ["10 bits · COMPARTIDO por timer0 y timer1"], OK),
-             ("axioma_timer0", ["8 modos de onda · OC0A/OC0B · T0"], OK),
-             ("axioma_timer1", ["16 bits · captura · TEMP compartido"], OK),
-             ("axioma_timer2", ["prescaler propio · modo asíncrono"], OK),
-             ("axioma_usart", ["generador de baudios · FIFO de 2"], OK),
-             ("axioma_spi", ["maestro y esclavo · los cuatro modos"], OK),
-             ("axioma_extint", ["INT0/1 · PCINT0/1/2"], OK),
-             ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
-             ("twi · adc · ac · wdt", ["modelos de bus en el banco"], TODO)]
     gw = (IN_W - 32 - 24) / 3
     for i, (nm, sub, st) in enumerate(cells):
         gx = IN_L + 16 + (i % 3) * (gw + 12)
@@ -187,7 +196,7 @@ def fig_soc(t):
         block(c, gx, gy, gw, 62, nm, sub, st, title_size=12)
 
     # ---- pines ----
-    py, ph = 876, 36
+    py, ph = PIN_Y, PIN_H
     c.box(IN_L, py, IN_W, ph, t["panel"], t["line"], r=7, dash=[5, 3])
     c.text(IN_L + 20, py + ph / 2, "pines", 11, colour=t["muted"], mono=True,
            align="leftm")
@@ -197,7 +206,7 @@ def fig_soc(t):
 
     # La leyenda sólo lista los estados que la figura USA. Ahora mismo no hay
     # ningún bloque a medio verificar; el día que lo haya, PARTIAL vuelve aquí.
-    legend(c, M, 954, [(OK, "verificado contra un oráculo independiente"),
+    legend(c, M, LEG_Y, [(OK, "verificado contra un oráculo independiente"),
                        (TODO, "pendiente — fase 3 en adelante")])
     return c
 
@@ -265,7 +274,7 @@ def fig_verif(t):
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
          "160 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "160/160", "detectados",
+        ("El propio banco", "prueba de mutación", "179/179", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

@@ -53,6 +53,7 @@ GPIOR   = "rtl/periph/axioma_gpior.v"
 USART   = "rtl/periph/axioma_usart.v"
 EXTINT  = "rtl/periph/axioma_extint.v"
 SPI     = "rtl/periph/axioma_spi.v"
+TWI     = "rtl/periph/axioma_twi.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -408,9 +409,13 @@ CATALOG = [
 ("soc", TIMER0, "sim-soc", "TIMSK0 colocado una direccion mas alla",
  "localparam [7:0] A_TIMSK0 = 8'h4E;",
  "localparam [7:0] A_TIMSK0 = 8'h4F;"),
+# LOS ANCHOS DE ESTA CONCATENACION SON EL MAPA DE VECTORES, y un bit de mas en
+# cualquier campo convierte un vector en otro. El patron hay que reapuntarlo
+# cada vez que el campo cambia -paso al meter el TWI, que partio el `5'b0` de
+# arriba en tres trozos-, y la propia mutacion lo dice: «patron no encontrado».
 ("soc", SOC, "sim-diff", "el mapa de vectores se desplaza un bit",
- """    assign irq_src = { 5'b0,          // 25..21  ADC en adelante, sin periférico""",
- """    assign irq_src = { 6'b0,          // 25..21  ADC en adelante, sin periférico"""),
+ """                       3'b0,          // 23..21  comparador, EEPROM, ADC""",
+ """                       4'b0,          // 23..21  comparador, EEPROM, ADC"""),
 # ------------------------------------------------------- USART0 y el bus
 # El mutante del bus es el mas importante del catalogo: reproduce un fallo que
 # estuvo escondido desde la fase 1 y que rompia TODA lectura de periferico con
@@ -721,6 +726,90 @@ CATALOG = [
 ("soc", SOC, "sim-hello", "el canal OC1A se lleva el pin de OC1B",
  """                            oc1b, oc1a, 1'b0};""",
  """                            oc1a, oc1b, 1'b0};"""),
+# ---------------------------------------------------------------- TWI
+# Los cuatro primeros son fallos que ESTUVIERON en el RTL y que solo caza un
+# bus de verdad: con un banco de ondas perfectas y un solo maestro, los cuatro
+# pasan sin decir nada.
+("twi", TWI, "sim-twi", "el arbitraje mira tambien el noveno bit transmitiendo",
+ "                   & ((tx_byte & (bit_q <= 4'd7)) | (~tx_byte & (bit_q == 4'd8)));",
+ "                   & (tx_byte | (bit_q == 4'd8));"),
+("twi", TWI, "sim-twi", "tras perder el arbitraje se sigue conduciendo SDA",
+ "                    if (bit_q <= 4'd7)          sda_drv_q <= perdido_q ? 1'b1 : sh_q[7];",
+ "                    if (bit_q <= 4'd7)          sda_drv_q <= sh_q[7];"),
+("twi", TWI, "sim-twi", "el START pedido es de flanco y no de nivel",
+ "                if (twsta_q & ~twint_q) begin",
+ "                if (arranca & n_twsta) begin"),
+("twi", TWI, "sim-twi", "el limite de trama se decide por estado y no por el contador de bits",
+ "                if (bit_q == 4'd0) begin",
+ "                if ((est_q == S_BIT_CAE) & (bit_q == 4'd0)) begin"),
+# Temporizacion: el semiperiodo tiene que salir de la formula de la hoja de
+# datos, y eso solo se ve MIDIENDO el pin.
+("twi", TWI, "sim-twi", "el prescaler de TWPS escala por dos en vez de por cuatro",
+ "    wire [14:0] twbr_esc = {7'b0, twbr_q} << {twps_q, 1'b0};",
+ "    wire [14:0] twbr_esc = {7'b0, twbr_q} << twps_q;"),
+("twi", TWI, "sim-twi", "el semiperiodo pierde el termino fijo de la formula",
+ "    wire [14:0] semiper  = twbr_esc + 15'd8;",
+ "    wire [14:0] semiper  = twbr_esc + 15'd4;"),
+("twi", TWI, "sim-twi", "el alto no arranca al soltar SCL: se cuenta un semiperiodo de mas",
+ "                        div_q     <= semiper - 15'd1;   // arranca el ALTO",
+ "                        div_q     <= semiper + 15'd1;"),
+# Reconocimiento de direccion.
+("twi", TWI, "sim-twi", "la mascara TWAMR se aplica sin negar: tapa lo que deberia comparar",
+ "    wire dir_coincide = ((sh_q[7:1] ^ twar_q[7:1]) & ~twamr_q[7:1]) == 7'd0;",
+ "    wire dir_coincide = ((sh_q[7:1] ^ twar_q[7:1]) & twamr_q[7:1]) == 7'd0;"),
+("twi", TWI, "sim-twi", "la llamada general se atiende sin mirar TWGCE",
+ "    wire es_gencall   = (sh_q[7:1] == 7'd0) & ~sh_q[0] & twar_q[0];",
+ "    wire es_gencall   = (sh_q[7:1] == 7'd0) & ~sh_q[0];"),
+# Efectos laterales de escritura.
+("twi", TWI, "sim-twi", "TWWC se levanta al escribir TWDR en el momento correcto",
+ "                    if (twint_q) twdr_q <= io_wdata;\n                    else         twwc_q <= 1'b1;",
+ "                    if (!twint_q) twdr_q <= io_wdata;\n                    else         twwc_q <= 1'b1;"),
+("twi", TWI, "sim-twi", "TWSTO no se autolimpia al ejecutar el STOP",
+ "                    twsto_q   <= 1'b0;          // TWSTO se limpia solo al ejecutarlo",
+ "                    twsto_q   <= twsto_q;"),
+# Estado devuelto.
+("twi", TWI, "sim-twi", "el estado de lectura sale de TWEA y no del ACK que se mando",
+ "                            status_q <= ack_tx_q ? ST_MR_DAT_A : ST_MR_DAT_N;",
+ "                            status_q <= ST_MR_DAT_A;"),
+# Este mutante estuvo inyectado en la rama de S_IDLE del `case` y SOBREVIVIA,
+# y lo que senalaba era una LOGICA REPARTIDA ENTRE DOS SITIOS: el `case` ponia
+# el estado y el manejador global -que corre despues- ponia el registro de
+# desplazamiento, asi que romper el del `case` no cambiaba nada. Ninguno de los
+# dos era codigo muerto y ninguno de los dos bastaba solo; quitar el primero a
+# ciegas rompio las cuatro fases de esclavo. Ahora la transicion entera vive en
+# el manejador global, que es el unico que manda.
+("twi", TWI, "sim-twi", "el esclavo no suelta SDA al recibir: la tira durante la direccion",
+ "                        bit_q <= 4'd0;  sh_q <= 8'hFF;  addr_fase_q <= 1'b1;",
+ "                        bit_q <= 4'd0;  sh_q <= 8'h00;  addr_fase_q <= 1'b1;"),
+# EL FILTRO DE PICOS. Sin el, el sincronizador propaga el pulso de un ciclo y
+# un flanco falso de SDA con SCL alto es un START o un STOP inventado. Con
+# ondas limpias el mutante no se nota: lo caza la fase de ruido.
+("twi", TWI, "sim-twi", "sin filtro de picos: el sincronizador propaga el pulso",
+ "            if (scl_s1 == scl_s2) scl_f <= scl_s2;\n            if (sda_s1 == sda_s2) sda_f <= sda_s2;",
+ "            scl_f <= scl_s2;\n            sda_f <= sda_s2;"),
+("twi", TWI, "sim-twi", "el esclavo no suelta SCL al contestar: el bus se queda estirado",
+ "                        // Siguiente byte del esclavo. Soltar SCL es lo que\n                        // TERMINA el estiramiento: el reloj vuelve a ser del\n                        // maestro en cuanto el programa contesta.\n                        scl_drv_q <= 1'b1;",
+ "                        // Siguiente byte del esclavo."),
+# El mutante «quitar la puerta de TWEN de las salidas» se probo y SOBREVIVIA,
+# y al mirarlo resulto ser EQUIVALENTE: la escritura que baja TWEN suelta las
+# dos lineas en el mismo ciclo, asi que no hay forma de distinguirlo desde
+# fuera. Esta anotado en el RTL para que nadie lo quite creyendo que sobra.
+# Lo que si es observable es que apagar el TWI no lo devuelva a reposo.
+("twi", TWI, "sim-twi", "apagar TWEN no devuelve el TWI a reposo: reanuda la trama vieja",
+ "                    if (!io_wdata[2]) begin   // TWEN=0: el TWI suelta los pines\n                        est_q <= S_IDLE;",
+ "                    if (!io_wdata[2]) begin   // TWEN=0: el TWI suelta los pines\n                        est_q <= est_q;"),
+# Semantica de registros (nivel L2). Los bits de solo lectura y los que no
+# existen son de lo que nadie se acuerda hasta que un programa escribe un
+# registro entero con `|=` y se lleva por delante el estado del bus.
+("twi", TWI, "sim-twi", "TWSR deja que se escriba el codigo de estado",
+ "                if (hit_twsr)  twps_q  <= io_wdata[1:0];   // TWS7..3 son de solo lectura",
+ "                if (hit_twsr)  begin twps_q <= io_wdata[1:0]; status_q <= io_wdata[7:3]; end"),
+("twi", TWI, "sim-twi", "el bit 2 de TWSR, que no existe, devuelve algo",
+ "                      hit_twsr  ? {status_q, 1'b0, twps_q} :",
+ "                      hit_twsr  ? {status_q, twps_q[1], twps_q} :"),
+("twi", TWI, "sim-twi", "TWAMR se queda con un bit 0 que no existe",
+ "                if (hit_twamr) twamr_q <= io_wdata & 8'hFE; // el bit 0 no existe",
+ "                if (hit_twamr) twamr_q <= io_wdata;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

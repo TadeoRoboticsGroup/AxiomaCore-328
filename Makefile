@@ -60,7 +60,7 @@ help:
 	@echo "  make diagrams         regenera las figuras del README"
 	@echo "  make lint             lint del RTL con verilator"
 	@echo "  make synth-check      sintesis con yosys: sin latches, y area medida"
-	@echo "  make check-docs       comprueba que las rutas citadas en los .md existan"
+	@echo "  make check-docs       rutas citadas en los .md, y la cuenta de vectores"
 	@echo "  make clean            limpia los artefactos de construcción"
 	@echo ""
 	@echo -e "$(BOLD)Fase 1$(NC)  $(DIM)núcleo ISA$(NC)"
@@ -75,6 +75,7 @@ help:
 	@echo "  make sim-timer2       Timer2: prescaler propio y modo asincrono"
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
 	@echo "  make sim-spi          SPI: los cuatro modos, maestro y esclavo"
+	@echo "  make sim-twi          TWI/I2C: maestro, esclavo y arbitraje"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -173,6 +174,7 @@ synth-check:
 .PHONY: check-docs
 check-docs:
 	@$(DIAG_PYTHON) tools/check_docs.py
+	@$(DIAG_PYTHON) tools/check_vectores.py
 
 # ------------------------------------------------------------- fase 1: sim
 VEC_DIR := $(BUILD)/alu_vec
@@ -279,6 +281,15 @@ sim-spi:
 	  rtl/periph/axioma_spi.v sim/periph/tb_spi.cpp >/dev/null
 	@./$(BUILD)/vspi/tb_spi
 
+.PHONY: sim-twi
+sim-twi:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vtwi -o tb_twi \
+	  --top-module axioma_twi \
+	  rtl/periph/axioma_twi.v sim/periph/tb_twi.cpp >/dev/null
+	@echo -e "$(BOLD)TWI: maestro, esclavo y arbitraje contra un bus de colector abierto$(NC)"
+	@./$(BUILD)/vtwi/tb_twi
+
 .PHONY: sim-extint
 sim-extint:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
@@ -367,6 +378,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_timer1.v rtl/periph/axioma_timer2.v \
             rtl/periph/axioma_timer8.v rtl/periph/axioma_usart.v \
             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
+            rtl/periph/axioma_twi.v \
             rtl/periph/axioma_irq.v
 
 .PHONY: sim-soc
@@ -396,16 +408,13 @@ sim-mem:
 
 # --- co-simulación diferencial contra simavr ---
 DIFF_DIR  := $(BUILD)/diff
-DIFF_SRCS := rtl/soc/axioma328_soc.v \
-             rtl/core/axioma_core.v rtl/core/axioma_seq.v rtl/core/axioma_decode.v \
-             rtl/core/axioma_alu.v rtl/core/axioma_sreg.v rtl/core/axioma_regfile.v \
-             rtl/mem/axioma_progmem.v rtl/mem/axioma_dmem.v \
-             rtl/bus/axioma_dbus.v rtl/periph/axioma_gpio.v \
-             rtl/periph/axioma_gpior.v rtl/periph/axioma_prescaler.v \
-             rtl/periph/axioma_timer0.v rtl/periph/axioma_timer1.v \
-             rtl/periph/axioma_timer2.v rtl/periph/axioma_timer8.v \
-             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
-             rtl/periph/axioma_usart.v rtl/periph/axioma_irq.v
+# EL DISPOSITIVO ES UNO SOLO, asi que la lista tambien. Estaba escrita dos
+# veces -aqui y en SOC_SRCS- con los mismos ficheros en otro orden, que es la
+# forma mas fiable de que un periferico nuevo entre en una y no en la otra: el
+# banco que lo omite no falla, simplemente deja de elaborar el modulo y el
+# `soc.<periferico>` de la ventana de observacion deja de existir. Paso al
+# anadir el TWI. Una fuente, una lista.
+DIFF_SRCS := $(SOC_SRCS)
 AVR_AS    := avr-gcc -mmcu=atmega328p -nostdlib -nostartfiles -Wl,-Ttext=0
 
 $(DIFF_DIR)/%.bin: sim/diff/tests/%.S
@@ -453,7 +462,7 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 
 .PHONY: sim-core
 sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 \
-          sim-timer1 sim-usart sim-irq sim-soc sim-fw sim-hello sim-simavr sim-decode sim-diff
+          sim-timer1 sim-usart sim-twi sim-irq sim-soc sim-fw sim-hello sim-simavr sim-decode sim-diff
 
 # --- firmware: C de verdad, compilado con avr-gcc y avr-libc ---
 # Que un programa en C sin modificar compile y corra es medio criterio de

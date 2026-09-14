@@ -36,7 +36,7 @@ PERIF = ["rtl/bus/axioma_dbus.v", "rtl/periph/axioma_gpio.v",
          "rtl/periph/axioma_timer0.v", "rtl/periph/axioma_timer1.v",
          "rtl/periph/axioma_timer2.v", "rtl/periph/axioma_timer8.v",
          "rtl/periph/axioma_usart.v", "rtl/periph/axioma_extint.v",
-         "rtl/periph/axioma_spi.v",
+         "rtl/periph/axioma_spi.v", "rtl/periph/axioma_twi.v",
          "rtl/periph/axioma_irq.v"]
 
 SOC = ["rtl/soc/axioma328_soc.v"] + CORE + PERIF + \
@@ -61,6 +61,7 @@ MODULOS = [
     ("axioma_usart",     ["rtl/periph/axioma_usart.v"]),
     ("axioma_extint",    ["rtl/periph/axioma_extint.v"]),
     ("axioma_spi",       ["rtl/periph/axioma_spi.v"]),
+    ("axioma_twi",       ["rtl/periph/axioma_twi.v"]),
     # El dispositivo entero. Es el unico numero que significa algo de cara a la
     # FPGA: los de arriba son atribucion, este es el area.
     ("axioma328_soc",    SOC),

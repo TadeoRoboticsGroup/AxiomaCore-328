@@ -83,6 +83,32 @@ def collect_macros():
     return out
 
 
+def collect_orden():
+    """Devuelve [(fichero, nombre), ...] en el ORDEN en que se definen.
+
+    Hace falta porque avr-libc NO nombra los bits con el prefijo de su
+    registro —`TWINT` es de `TWCR`, `ADEN` de `ADCSRA`, `DDB0` de `DDRB`— y
+    asociarlos por prefijo dejaba sin bits a la mayoría de los registros de
+    control del chip: SPCR, ADCSRA, ADMUX, UCSR0A, TIMSK0, WDTCSR, SPMCSR,
+    EECR, MCUCR, PRR y los tres DDRx. Lo que sí es autoritativo es la
+    PROXIMIDAD: la cabecera define cada registro y a continuación sus bits.
+
+    `-dD` conserva las directivas en su sitio, con los marcadores de línea
+    que dicen de qué fichero viene cada una."""
+    r = _cc(["-E", "-dD", "-xc", "-"], stdin_text="#include <avr/io.h>\n")
+    if r.returncode != 0:
+        sys.exit("avr-gcc falló al preprocesar <avr/io.h> con -dD:\n" + r.stderr)
+    orden, fichero = [], ""
+    for line in r.stdout.splitlines():
+        if line.startswith("# ") and '"' in line:
+            fichero = line.split('"')[1]
+            continue
+        m = RE_DEFINE.match(line)
+        if m:
+            orden.append((fichero, m.group(1)))
+    return orden
+
+
 def resolve_addresses(names):
     """Expande cada registro con _SFR_ASM_COMPAT=1, que reduce las macros a
     aritmética pura, y evalúa el resultado."""
@@ -127,20 +153,64 @@ def collect():
         regs.append({"name": name, "data": data, "io": io, "width": widths[name]})
     regs.sort(key=lambda r: (r["data"], r["name"]))
 
-    # Bits: macros con cuerpo entero 0..7 cuyo nombre empieza por el de un registro.
-    regnames = sorted((r["name"] for r in regs), key=len, reverse=True)
+    # ------------------------------------------------------------------ bits
+    # POR PROXIMIDAD, NO POR PREFIJO. avr-libc no nombra los bits con el
+    # prefijo de su registro: `TWINT` es de `TWCR`, `ADEN` de `ADCSRA`, `DDB0`
+    # de `DDRB`, `OCR2BUB` de `ASSR`. Con la regla de prefijo se quedaban sin un
+    # solo bit SPCR, ADCSRA, ADMUX, UCSR0A, TIMSK0, WDTCSR, SPMCSR, EECR, MCUCR,
+    # PRR, TWCR, TWSR y los tres DDRx —casi todos los registros de control del
+    # chip—, y la tabla no daba ningún aviso: salía un guion, que se lee igual
+    # que «este registro no tiene bits con nombre». El nivel L2 promete las
+    # direcciones Y LOS BITS, así que media promesa estaba sin verificar.
+    #
+    # Lo autoritativo es el orden de la cabecera: un registro y, pegado detrás,
+    # su bloque de bits. EL BLOQUE SE CIERRA EN LA PRIMERA MACRO QUE NO SEA UN
+    # BIT, y eso es lo que impide que las constantes del final del fichero
+    # —`XRAMSIZE`, `E2PAGESIZE`, `FUSE_MEMORY_SIZE`— se cuelen como bits del
+    # último registro declarado. Sin esa regla se colaban las cuatro, y lo
+    # delataba la comprobación de duplicados de abajo.
+    regset = {r["name"] for r in regs}
     bits = {}
-    for name, body in macros.items():
-        m = RE_INT_BODY.match(body)
-        if not m:
+    actual, fichero_actual = None, None
+    for fichero, name in collect_orden():
+        if fichero != fichero_actual:
+            actual, fichero_actual = None, fichero
+        if name in regset:
+            actual = name                 # abre bloque
             continue
-        val = int(m.group(1))
-        if not 0 <= val <= 7 or name.endswith("_vect_num"):
+        if actual is None:
             continue
-        for rn in regnames:
-            if name.startswith(rn) and name != rn:
-                bits.setdefault(rn, []).append((name, val))
-                break
+        body = macros.get(name)
+        m = RE_INT_BODY.match(body) if body is not None else None
+        val = int(m.group(1)) if m else None
+        # Un identificador reservado —los que empiezan por `_`— nunca es el
+        # nombre de un bit de la hoja de datos.
+        elegible = (val is not None and 0 <= val <= 7
+                    and not name.endswith("_vect_num")
+                    and not name.startswith("_"))
+        if elegible:
+            bits.setdefault(actual, []).append((name, val))
+        else:
+            actual = None                 # cierra bloque
+
+    # DOS NOMBRES PARA EL MISMO BIT DELATAN UNA ASIGNACIÓN MAL HECHA, así que
+    # se comprueba. Los tres casos en que avr-libc lo hace de verdad van aquí
+    # con su motivo; cualquier otro para la generación, porque significa que
+    # la cabecera no está ordenada como se supone.
+    ALIAS = {
+        ("SPMCSR", 0): {"SELFPRGEN", "SPMEN"},   # el mismo bit, dos nombres
+        ("UCSR0C", 1): {"UCSZ00", "UCPHA0"},     # asíncrono / SPI maestro
+        ("UCSR0C", 2): {"UCSZ01", "UDORD0"},     # ídem
+    }
+    for reg, lista in sorted(bits.items()):
+        porbit = {}
+        for bname, bval in lista:
+            porbit.setdefault(bval, set()).add(bname)
+        for bval, nombres in sorted(porbit.items()):
+            if len(nombres) > 1 and ALIAS.get((reg, bval)) != nombres:
+                sys.exit(f"gen_regmap: {reg} bit {bval} tiene varios nombres "
+                         f"({', '.join(sorted(nombres))}) y no está en la lista "
+                         f"de alias conocidos. Revisa la asociación de bits.")
 
     vectors = []
     for name, body in macros.items():
@@ -179,10 +249,23 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
         io = f"  // I/O 0x{r['io']:02X}" if r["io"] is not None else ""
         L.append(f"localparam [7:0] ADDR_{r['name']:<10s} = 8'h{r['data']:02X};{io}")
     L += ["", "// ----------------------------------------------------------------- bits"]
+    # UN NOMBRE, UNA CONSTANTE. avr-libc repite algunos nombres de bit en dos
+    # registros —`OCR2_0..OCR2_7` van detrás de OCR2A Y de OCR2B—, y un
+    # `localparam` repetido es un error de declaración duplicada en cuanto
+    # alguien incluya esta cabecera. Se emite una sola vez, y si el mismo
+    # nombre trajera dos valores distintos se para: eso ya no es una
+    # repetición, es una contradicción.
+    emitidos = {}
     for reg in sorted(bits):
         if not any(r["name"] == reg for r in regs):
             continue
         for bname, bnum in sorted(bits[reg], key=lambda t: t[1]):
+            if bname in emitidos:
+                if emitidos[bname] != bnum:
+                    sys.exit(f"gen_regmap: el bit {bname} vale {emitidos[bname]} "
+                             f"en un registro y {bnum} en otro.")
+                continue
+            emitidos[bname] = bnum
             L.append(f"localparam [2:0] BIT_{bname:<12s} = 3'd{bnum};")
     L += ["", "// ------------------------------------------------- vectores de interrupción",
           f"localparam integer NUM_VECTORS = {len(vectors) + 1};  // incluye RESET"]

@@ -85,7 +85,11 @@ jobs:
           print("todos los enlaces resuelven")
           PY
 
-      - name: Rutas del repositorio citadas en la documentación
+      # Dos comprobaciones de lo mismo: que lo que la documentacion AFIRMA sea
+      # lo que el repositorio ES. Las rutas muertas ya tenian puerta; la cuenta
+      # de vectores sin fuente no, y llego a haber tres cifras distintas para
+      # la misma cosa -10, 7 y 9- cuando la verdad era 6.
+      - name: Rutas y cuentas que cita la documentación
         run: make check-docs
 
   verify:
@@ -226,6 +230,15 @@ jobs:
         run: |
           source ~/eda/oss-cad-suite/environment
           make sim-spi
+
+      # El TWI no se puede contrastar con simavr: su avr_twi.c transporta
+      # bytes enteros por IRQs internas y no serializa SDA. El oraculo es un
+      # bus de colector abierto con un maestro y un esclavo escritos desde la
+      # hoja de datos, mas las tablas de los 26 codigos de estado.
+      - name: TWI - maestro, esclavo y arbitraje sobre un bus de verdad
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-twi
 
       - name: Interrupciones externas contra la hoja de datos
         run: |

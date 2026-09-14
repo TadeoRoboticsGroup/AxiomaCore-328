@@ -914,7 +914,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **10 de los 25 vectores de interrupción no tienen fuente.** Faltan timer2, SPI, TWI, ADC, comparador, watchdog y EEPROM | Fase 3 |
+| 7 | **5 de los 25 vectores de interrupción no tienen fuente.** Faltan watchdog, ADC, EEPROM, comparador analógico y `SPM_READY` | Fase 3, salvo `SPM_READY`, que es de la 4 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -982,7 +982,39 @@ enumerado** en vez de implícito.
       `make sim-hello` cierra el lazo a nivel de SoC: el firmware hace una transacción de arranque
       de tres bytes y el banco **la decodifica del pin** con el reloj de `SCK`, como un analizador
       lógico. Es lo único que ve si el SoC encamina el pin a quien manda en cada momento.
-- [ ] `twi.v` (con modelos de bus en el testbench).
+- [x] **`twi.v`: maestro, esclavo y arbitraje.** Los 26 códigos de estado de las tablas 21-2 a
+      21-6, `TWAMR`, la llamada general, el estiramiento de reloj y el error de bus.
+
+      **No es un cable, es un BUS**, y ahí está toda la diferencia con el SPI. Nadie conduce
+      nunca una línea hacia arriba: se tira hacia abajo o se suelta, y el pull-up es el que
+      sube el nivel. De ahí salen tres propiedades que ningún periférico anterior tenía, y las
+      tres se verifican: **arbitraje** —dos maestros a la vez, y quien suelta la línea y la lee
+      baja se calla en ese mismo bit, sin STOP y sin perder el dato—, **sincronización de
+      reloj** —el alto no empieza cuando soltamos SCL sino cuando el pin sube de verdad— y
+      **estiramiento**, que es lo que hace que una ISR lenta ralentice el bus en vez de
+      corromperlo.
+
+      El colector abierto se construye con las DOS anulaciones que `axioma_gpio` ya tenía: el
+      valor se ata a cero permanentemente y lo que se modula es la dirección. No hay ningún
+      camino por el que el TWI pueda conducir un uno. Y el pull-up sigue saliendo de `PORTC`,
+      que es lo que hace funcionar el `digitalWrite(SDA, HIGH)` que `Wire.begin()` lleva dentro.
+
+      **El oráculo es un bus de colector abierto con los dos extremos escritos desde la hoja de
+      datos**, más las tablas de estado. simavr no sirve: su `avr_twi.c` transporta direcciones
+      y bytes enteros por IRQs internas y no serializa `SDA`. 4 716 comprobaciones.
+
+      **Encontró cinco fallos reales, y ninguno da error con ondas perfectas y un solo maestro:**
+      el arbitraje miraba también el noveno bit mientras transmitíamos, con lo que el ACK
+      legítimo del esclavo se leía como pérdida y el maestro se rendía justo cuando le acababan
+      de decir que sí; tras perder el arbitraje el TWI seguía conduciendo `SDA` y corrompía la
+      trama del ganador —por eso no reconocía que el ganador le llamaba a él, y el 0x68 de la
+      hoja de datos salía como 0x38—; el START pedido era de flanco y no de nivel, así que una
+      petición que llegara en el mismo ciclo que un STOP se perdía y el TWI se quedaba parado
+      con `TWSTA` puesto para siempre; el semiperiodo se contaba desde que el pin cambia y no
+      desde que se conduce, sumándole los dos ciclos del sincronizador en cada flanco —28
+      ciclos de periodo donde la fórmula da 20, o sea 71 kHz donde el programa pidió 100—; y el
+      estado de retención forzaba `SCL` abajo siempre, con lo que tras un STOP recibido el chip
+      habría bloqueado el bus entero hasta que su ISR contestara.
 - [ ] `adc.v` (controlador SAR; comparador externo o modelo), `ac.v`, `wdt.v`.
 - [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos
       —uno por pin y con dirección de flanco, otro por puerto y sólo «algo cambió»— pero comparten
@@ -1004,7 +1036,7 @@ enumerado** en vez de implícito.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 16—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta —hoy lo hacen 20—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

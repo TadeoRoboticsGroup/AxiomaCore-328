@@ -1,6 +1,6 @@
 # Deuda técnica
 
-**Última revisión:** 14 de septiembre de 2026
+**Última revisión:** 14 de septiembre de 2026 (segunda pasada)
 
 Este documento existe porque «está en el plan» y «está a medias» **no son lo mismo**, y mezclarlos
 es la forma más fácil de que algo a medias llegue a una foundry. Aquí sólo hay lo segundo.
@@ -19,13 +19,15 @@ hace todo lo que su nombre promete.
 |---|-----|--------|
 | D1 | **Los cuatro pines de comparación no llegan al pad.** `OC0A`, `OC0B`, `OC1A` y `OC1B` se generan y están verificados en sus bancos, pero en el SoC salen a `()`. Sin ellos no hay `analogWrite()`, que es de lo primero que usa cualquiera | **CERRADA** — ver abajo |
 | D2 | **`SPM` no es el del 328P.** Sin `SPMCSR` y sin granularidad de página: lo que hay es la escritura de una palabra, y está verificada. Un bootloader real no funcionará | Abierta · **fase 4** |
-| D3 | **USART: modo síncrono y `MPCM`.** Sus bits se almacenan y se leen de vuelta, pero no cambian el comportamiento | Abierta · **fase 3** — **justificada el 14-sep**, ver abajo |
+| D3 | **USART: modo síncrono y `MPCM`.** Sus bits se almacenaban y se leían de vuelta, pero no cambiaban el comportamiento | **CERRADA** 14-sep — ver abajo |
 | D4 | **Modos de onda reservados.** `WGM` 4 y 6 del Timer0 y 13 del Timer1 no los define nadie: aquí cuentan como el modo normal | **Justificada**: ningún programa puede depender de un modo reservado. Declarado en el RTL |
 | D5 | **El pull-up no es dinámico en la FPGA.** El SoC lo declara por pin como el chip, pero en el ECP5 el modo de pull-up es un atributo estático del bloque de E/S | **Justificada** para FPGA · en silicio se conecta a la celda del PDK |
 | D6 | **Sincronizador de una sola etapa en `PINx`.** Deliberado: es lo que exige la temporización documentada del `nop`. Pero es un riesgo de metaestabilidad sin cálculo de MTBF | Abierta · **fase 5** |
 | D7 | **`make sim-isa` era un objetivo que salía con error.** Prometía una suite que ya cubre `sim-diff` | **CERRADA** — ver abajo |
 | D9 | **La documentación citaba ficheros que no existen.** Tres referencias muertas, una de ellas a un «test de CI» inexistente | **CERRADA** — ver abajo |
 | D10 | **El Timer2 asíncrono no tiene dominio de reloj propio.** Cuenta los flancos de `TOSC1` sincronizados, viviendo en el reloj del sistema. La cuenta y las banderas salen bien; lo que no existe son los cinco bits de ocupado de `ASSR` —`TCN2UB` y compañía—, que se leen siempre a cero | Abierta · **fase 5** |
+| D12 | **La USART no tiene el modo SPI maestro (`UMSEL` = 11).** Es otro periférico con los mismos registros: reloj en `XCK`, `UCPHA0` y `UDORD0` reutilizando bits de `UCSR0C`, y sin bit de arranque ni paridad. Sus bits se almacenan y se leen de vuelta | Abierta · **fase 3** |
+| D13 | **`TXD` y `RXD` no llegan a `PD1` y `PD0`.** Salen del SoC por dos puertos aparte, así que el programa no puede usar esos dos pines como E/S general cuando la USART está apagada, ni la USART se adueña de ellos cuando está encendida. El pinout del encapsulado no es el del 328P en esos dos pines | Abierta · **fase 3** — estaba sólo en un comentario del RTL, sin registrar |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
 
@@ -47,32 +49,6 @@ por petición y confirmación, y los bits de ocupado saliendo de ahí. Eso es l�
 la regla del proyecto para lógica entre dominios es que no se cierra sin **verificación formal** —
 que es de la fase 5 y hoy está a cero. Cerrarla antes sería cambiar un problema declarado por uno
 escondido.
-
-### D3 — por qué sigue abierta tras abrir el frente del TWI  ·  14-sep-2026
-
-La regla de este documento es que antes de abrir un frente nuevo se revisa la lista y se cierra lo
-que se pueda; lo que no, **se justifica por escrito**. El 14-sep se abrió el TWI con D3 abierta, y
-ésta es la justificación.
-
-**Qué falta exactamente.** `UMSEL` y `MPCM0` se guardan y se leen de vuelta, pero no cambian nada:
-no hay pin `XCK`, no hay reloj síncrono —ni generado ni recibido—, y `MPCM0` no filtra las tramas
-de dirección. Un programa que los ponga se lleva una USART asíncrona sin enterarse.
-
-**Por qué el TWI iba antes.** No es una cuestión de esfuerzo sino de alcance: el criterio de
-aceptación de la fase 3 es que **el scanner I2C detecte un esclavo real**, y eso es el TWI. En
-código de verdad, además, la distancia es enorme: `Wire` está en el primer ejemplo de media
-estantería de sensores, mientras que la USART síncrona del 328P no la usa prácticamente nadie —no
-hay API de Arduino que la exponga— y `MPCM` es de buses RS-485 multipunto. Cerrar D3 primero
-habría retrasado lo que sí bloquea el criterio de la fase por lo que no lo bloquea.
-
-**Qué la desbloquea, y por qué es barato ahora.** El registro de desplazamiento con muestreo y
-cambio en flancos opuestos ya está escrito dos veces —en `axioma_spi` y en la capa de bit de
-`axioma_twi`—, y `axioma_gpio` ya tiene la anulación de dirección que `XCK` necesita. Lo que falta
-es el modo síncrono sobre esas piezas y el filtro de `MPCM`, con su banco propio contra la hoja de
-datos: simavr tampoco sirve aquí, por lo mismo que no sirvió para la asíncrona.
-
-**Lo que NO se puede decir mientras siga abierta:** que la USART esté completa. El README y la
-tabla de estado dicen «modo asíncrono», y tienen que seguir diciéndolo.
 
 ### D11 — por qué está justificada
 
@@ -211,6 +187,62 @@ estructura anterior del repositorio, las rutas de fases futuras— va en una lis
 su motivo al lado.
 
 ---
+
+### D3 — el modo síncrono y MPCM, cerrada  ·  14-sep-2026
+
+**Salió más barato de lo que parecía, y por un motivo que conviene recordar: el motor de trama es
+el mismo.** Arranque, datos, paridad y parada se cuentan igual en asíncrono y en síncrono; lo único
+que cambia es quién dice «avanza un bit». En asíncrono lo dice el generador de baudios con su
+sobremuestreo por dieciséis; en síncrono, los flancos de `XCK`. Poniendo el sobremuestreo a uno, el
+contador se agota en el mismo pulso y **la máquina de estados no se tocó**.
+
+Ése fue el orden, y es el mismo que salvó el refactor del Timer0: primero se metió la indirección
+dejando el camino asíncrono idéntico, se corrieron sus **44 082 comprobaciones** como red —0
+fallos, la misma cifra exacta— y sólo después se añadió lo nuevo.
+
+**`UCPOL` es una inversión del pin.** Visto así ahorra media máquina de estados: dentro se trabaja
+siempre con la misma convención —se muestrea en la subida y se cambia el dato en la bajada— y el
+pin lleva ese reloj pasado por un XOR. Sale exactamente lo que dicen las dos filas de la hoja de
+datos sin escribir dos caminos.
+
+**`XCK` es `PD4`, y la dirección la pone el programa.** `DDR_XCK0` es lo que elige entre maestro y
+esclavo, así que el periférico anula el **valor** del pin y nunca su dirección — el criterio
+contrario al del SPI, y el mismo que el de los canales de comparación.
+
+**Verificación:** `make sim-usart`, **45 313 comprobaciones**, contra un extremo síncrono escrito
+desde la hoja de datos que cuelga de `XCK`. El periodo de `XCK` se **mide** contra
+`f_CPU/(2·(UBRR+1))` en cuatro divisores; la forma de onda va en los dos sentidos, con las dos
+polaridades, de maestro y de esclavo, en cinco tamaños de trama y tres paridades; y hay 150
+transacciones aleatorias de semilla fija. Ocho mutantes nuevos, todos muertos.
+
+**Dos cosas que el banco enseñó, y que no se habrían visto sin ellas:**
+
+- **Que el dato llegue no prueba que `UCPOL` esté bien.** Con los dos extremos equivocados de la
+  misma manera la trama sale perfecta — el fallo de siempre, el modelo y el diseño dándose la razón
+  mutuamente. Un mutante que hacía al esclavo ignorar `UCPOL` sobrevivió a todo, incluido el
+  tráfico aleatorio con las dos polaridades, hasta que se comprobó **en el flanco**: que `TXD` esté
+  quieto alrededor del de muestreo, que es cuando el otro extremo lo lee.
+- **`RXB8` se lee ANTES que `UDR0`**, porque leer `UDR0` saca el byte del búfer y con él se va su
+  noveno bit. Lo destapó el barrido aleatorio: los casos dirigidos tenían el bit 8 a cero y pasaban
+  sin probar nada. La hoja de datos lo dice con esas palabras, y el RTL ya lo hacía bien; era el
+  banco el que leía al revés.
+
+### D13 — por qué estaba sin registrar, que es lo peor de ella
+
+`TXD` y `RXD` salen del SoC por dos puertos propios y no por `PD1` y `PD0`. Las consecuencias no
+son teóricas: un programa no puede usar esos dos pines como E/S general con la USART apagada, la
+USART no se adueña de ellos cuando está encendida, y el pinout del encapsulado no es el del 328P en
+esos dos pines. La tabla 14-9 de anulaciones del puerto D dice que con `TXEN0` puesto `PD1` es
+salida pase lo que pase, y que con `RXEN0` puesto `PD0` es entrada con su pull-up desde `PORTD0`.
+
+**Lo que la hace peor que una deuda normal es dónde estaba escrita: en un comentario del RTL y en
+ningún otro sitio.** No estaba en este documento, ni en el plan, ni en el README. Y el comentario
+decía que enchufarlos era «de la fase 3, igual que la de OC0A/OC0B» — trabajo que se cerró el
+11-sep. O sea: la condición que la desbloqueaba llevaba tres días cumplida y nadie lo sabía, porque
+la deuda no estaba en la lista que se revisa.
+
+**Qué la desbloquea:** nada que falte. `axioma_gpio` ya tiene las dos anulaciones. Lo que hace
+falta es el cableado, y que los bancos y el top de la placa dejen de usar los puertos aparte.
 
 ## Cómo se usa este documento
 

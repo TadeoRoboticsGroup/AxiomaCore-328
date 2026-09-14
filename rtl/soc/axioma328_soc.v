@@ -149,6 +149,7 @@ module axioma328_soc #(
     wire spi_sck, spi_sck_oe, spi_mosi, spi_mosi_oe, spi_miso, spi_miso_oe;
     wire spi_ss_force;
     wire twi_scl_pull, twi_sda_pull, twi_en;
+    wire us_xck, us_xck_ovr;
     wire spi_maestro = spi_sck_oe;          // sólo el maestro conduce SCK
     wire spi_esclavo = spi_ss_force;        // sólo el esclavo fuerza SS a entrada
 
@@ -187,8 +188,13 @@ module axioma328_soc #(
     wire [7:0] dir_c_en  = twi_en ? 8'b0011_0000 : 8'h00;
     wire [7:0] dir_c_val = {2'b0, twi_scl_pull, twi_sda_pull, 4'b0};
 
-    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en, 3'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    1'b0, oc2b,    3'b0};
+    // PD4 es XCK, el reloj del modo síncrono de la USART. Se anula el VALOR y
+    // nunca la dirección: la hoja de datos dice que `DDR_XCK0` es precisamente
+    // lo que elige entre maestro —reloj interno— y esclavo —reloj externo—, así
+    // que forzarla rompería el mecanismo. Es el mismo criterio que con los
+    // canales de comparación, y el contrario que con el SPI.
+    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en, 3'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    us_xck,     oc2b,    3'b0};
 
     // ---------------------------------------------------- puertos de E/S
     wire [7:0] gb_rd, gc_rd, gd_rd;
@@ -294,6 +300,11 @@ module axioma328_soc #(
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(us_rd), .io_sel(us_sel),
         .rxd(uart_rxd), .txd(uart_txd), .txd_en(uart_txd_en),
+        // XCK vive en PD4. `pd_oe[4]` es DDRD4 ya resuelto: el puerto D no
+        // lleva anulación de dirección, así que vale lo que el programa
+        // escribió, que es justo lo que la hoja de datos quiere aquí.
+        .xck_pin(pd_in[4]), .xck_es_salida(pd_oe[4]),
+        .xck_out(us_xck), .xck_ovr(us_xck_ovr),
         .irq_rxc(us_rxc), .irq_udre(us_udre), .irq_txc(us_txc),
         .ack_txc(irq_ack_v[20])
     );

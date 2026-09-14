@@ -56,7 +56,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 | `rtl/periph/axioma_prescaler.v` | **Verificado** | Ídem: es el contador **compartido** con el Timer1, y la trampa nº 12 —que arrancar un temporizador no lo pone a cero— sólo se puede comprobar con los dos juntos |
 | `rtl/periph/axioma_irq.v` | **Verificado** | **Exhaustivo**: las 67 108 864 combinaciones de las 26 peticiones, 201 326 592 comprobaciones de prioridad y reconocimiento |
 | `rtl/periph/axioma_timer1.v` | **Verificado** | **4 475 970 comprobaciones** contra un modelo de la hoja de datos: los 16 modos de onda, la captura de entrada con su cancelador de ruido, y **el registro TEMP compartido** —la trampa nº 4—, que simavr no modela |
-| `rtl/periph/axioma_usart.v` | **Verificado** | 44 082 comprobaciones contra un **receptor escrito desde la hoja de datos**, que decodifica el pin: las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores |
+| `rtl/periph/axioma_usart.v` | **Verificado** | **45 313 comprobaciones** contra un extremo escrito desde la hoja de datos que decodifica el pin. **Asíncrono:** las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores. **Síncrono:** el periodo de `XCK` medido contra `f_CPU/(2·(UBRR+1))`, las dos polaridades de `UCPOL` —comprobadas **en el flanco**, no sólo por el dato—, de maestro y de esclavo, y 150 transacciones aleatorias. **`MPCM`:** las tramas de datos se tiran en silencio y las de dirección entran, con el tipo en el noveno bit o en el primero de parada según el tamaño |
 | `rtl/periph/axioma_timer2.v` | **Verificado** | **4 666 627 comprobaciones** contra un modelo de la hoja de datos: las ocho tomas de su **prescaler propio** —incluidas `/32` y `/128`, que los otros dos no tienen—, que `PSRASY` lo ponga a cero y `PSRSYNC` no lo toque, y el **modo asíncrono**, que cuenta `TOSC1` y sin cristal no cuenta |
 | `rtl/periph/axioma_timer8.v` | **Verificado** | La máquina de forma de onda de 8 bits, **una sola vez para el Timer0 y el Timer2**: la hoja de datos los describe con las mismas palabras. La ejercitan los dos bancos, y un mutante inyectado en ella muere en los dos |
 | `rtl/periph/axioma_spi.v` | **Verificado** | **Maestro y esclavo**, contra el otro extremo del cable escrito desde la hoja de datos: los cuatro modos de `CPOL`/`CPHA` por los dos órdenes de bit, las ocho divisiones de reloj, `WCOL`, la secuencia de dos accesos que limpia `SPIF`, y que la colisión de maestros **no** salte cuando `SS` es salida —que es como selecciona a su esclavo cualquier sketch— |
@@ -77,7 +77,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los siete progr
 
 ```
 regresión   28/28 objetivos en verde
-mutación   179/179 fallos inyectados, 179 detectados
+mutación   187/187 fallos inyectados, 187 detectados
 cobertura   99,5 % del RTL, fusionando todas las fuentes
             17 de 23 módulos al 100 %; los 12 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están

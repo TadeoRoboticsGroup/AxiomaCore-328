@@ -795,8 +795,9 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       y entra en la CI junto con los dos bancos nuevos, que tampoco estaban.
 - [x] **`usart.v`.** Modo asíncrono completo: 5 a 9 bits de datos, paridad par, impar o ninguna,
       uno o dos bits de parada, U2X, búfer de recepción de **dos niveles**, `FE`/`DOR`/`UPE` viajando
-      con su trama, y los tres vectores de interrupción. El modo síncrono y `MPCM` quedan
-      declarados fuera de alcance: sus bits se almacenan y se leen, pero no hacen nada.
+      con su trama, y los tres vectores de interrupción. El modo SPI maestro queda
+      declarado fuera de alcance: sus bits se almacenan y se leen, pero no hacen nada.
+      **El modo síncrono y `MPCM` se cerraron el 14-sep** — ver la fase 3.
 
       Es el primer periférico con **efecto lateral de lectura** —leer `UDR0` saca un byte del
       búfer, la trampa nº 11—, y aquel para el que **simavr sirve de menos**: su modelo no
@@ -1031,6 +1032,27 @@ enumerado** en vez de implícito.
       Para generar los flancos sin cables, el programa de co-simulación usa lo que dice la hoja de
       datos: la detección mira el PIN y no `PORTx`, así que un pin de salida que el programa
       conmute se interrumpe a sí mismo.
+- [x] **USART: modo síncrono y `MPCM`** — la deuda D3, cerrada.
+
+      **El motor de trama es el mismo**, y de ahí que saliera barato: arranque, datos, paridad y
+      parada se cuentan igual, y lo único que cambia es quién dice «avanza un bit». En asíncrono lo
+      dice el generador de baudios con su sobremuestreo por dieciséis; en síncrono, los flancos de
+      `XCK`. Con el sobremuestreo puesto a uno el contador se agota en el mismo pulso y **la máquina
+      de estados no se tocó**. Primero se metió la indirección dejando el camino asíncrono idéntico
+      y se corrieron sus 44 082 comprobaciones como red —la misma cifra exacta, 0 fallos—, y sólo
+      después se añadió lo nuevo. Es el orden que ya salvó el refactor del Timer0.
+
+      `XCK` es `PD4` y **la dirección la pone el programa**: `DDR_XCK0` es lo que elige entre
+      maestro —reloj interno, `f_XCK = f_CPU/(2·(UBRR+1))`— y esclavo. El periférico anula el valor
+      del pin y nunca su dirección, al contrario que el SPI. Y `UCPOL`, visto desde dentro, es una
+      inversión del pin: se trabaja siempre con la misma convención y el pin lleva el reloj pasado
+      por un XOR, con lo que salen las dos filas de la hoja de datos sin duplicar nada.
+
+      **45 313 comprobaciones**, y dos lecciones: que el dato llegue **no** prueba que `UCPOL` esté
+      bien —con los dos extremos equivocados igual la trama sale perfecta, así que hay que mirar el
+      flanco—, y que `RXB8` se lee **antes** que `UDR0`, porque leer `UDR0` saca el byte del búfer y
+      con él su noveno bit. Lo segundo lo destapó el barrido aleatorio: los casos dirigidos tenían
+      el bit 8 a cero y pasaban sin probar nada.
 - [ ] `eeprom.v` + máquina de estados de `EECR`.
 - [ ] `clkctrl.v`: CLKPR, PRR, modos de sueño, `SMCR`.
 - [ ] Barrido completo del mapa de registros (Capa 4).

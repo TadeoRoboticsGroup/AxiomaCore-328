@@ -16,7 +16,7 @@ Verificado sobre Ubuntu 22.04.5 LTS, x86-64, con gcc 11.4 del sistema.
 | avr-objdump | binutils `2.26` (viene con avr-gcc) | **Oráculo del decodificador** | 1 |
 | avrdude | `6.3.0-arduino18` | Programar por el bootloader | 4 |
 | simavr | commit `66eca78` (2026-08-28) | **Oráculo de referencia del núcleo** | 1 |
-| Python | 3.10+ con venv propio | numpy, pytest, pyelftools, intelhex | 1 |
+| Python | 3.10+ con venv propio | numpy en el venv · pycairo para las figuras | 1 |
 | LibreLane + ciel | 3.x | RTL a GDSII sobre Sky130 | 6 |
 | KiCad | 8.x | PCB del módulo | 7 |
 
@@ -111,16 +111,29 @@ ls /usr/include/libelf.h /usr/include/gelf.h
 
 ## 4. Entorno Python
 
-La OSS CAD Suite trae su propio intérprete y lo antepone al `PATH`, pero **no lleva numpy**. Por eso
-el proyecto usa un venv aparte, al que `env.sh` apunta con `AXIOMA_PYTHON`.
+**Hacen falta DOS intérpretes, y no es un descuido.** La OSS CAD Suite trae el suyo y lo antepone
+al `PATH`: lleva **pycairo** pero **no lleva numpy**. El venv del proyecto lleva numpy pero no
+pycairo. Por eso el Makefile tiene dos variables:
+
+| Variable | Quién es | Quién lo usa |
+|----------|----------|--------------|
+| `PYTHON` | el venv (`AXIOMA_PYTHON`, que pone `env.sh`) | todo lo que necesita **numpy**: el mapa de registros, la tabla de ciclos, el generador aleatorio, la cobertura, la mutación |
+| `DIAG_PYTHON` | `python3` tal cual | `make diagrams`, que necesita **pycairo**, y las puertas de documentación |
 
 ```bash
 python3 -m venv ~/eda/venv
 ~/eda/venv/bin/pip install -q --upgrade pip
-~/eda/venv/bin/pip install numpy pytest pyelftools intelhex
+~/eda/venv/bin/pip install numpy
 ```
 
-Verificado con Python 3.10.12, numpy 2.2.6, pytest 9.1.1.
+Verificado con Python 3.10.12 y numpy 2.2.6. Lo único que el proyecto importa de terceros es
+**numpy** y **pycairo**; pycairo llega con la OSS CAD Suite, y si además quieres poder ejecutar
+`make diagrams` sin el entorno cargado, el paquete del sistema es `python3-cairo`.
+
+> **La trampa de `PYTHONHOME`.** El intérprete de la OSS CAD Suite se pone `PYTHONHOME` a sí mismo
+> **en el entorno del proceso**, y lo hereda todo lo que lance. Un script del venv arrancado desde
+> ahí muere con «No module named 'encodings'». `sim/mutation.py` limpia la variable antes de lanzar
+> `make` justo por esto; si escribes una herramienta nueva que lance otra, haz lo mismo.
 
 ---
 
@@ -150,26 +163,43 @@ make check-tools
 Debe listar **12 herramientas disponibles, 0 pendientes**. Y después, la regresión completa:
 
 ```bash
+# --- puertas: rápidas, y casi todos los fallos tontos caen aquí ---
 make lint          # análisis estático de todo el RTL
+make synth-check   # yosys: ni un latch, y el área de cada módulo
 make regmap-check  # el mapa de registros coincide con avr-libc
 make lpf           # constraints de la ULX3S reproducibles
+make check-docs    # las rutas citadas en los .md existen, y la cuenta de vectores
+
+# --- núcleo ---
 make sim-alu       # 22 282 240 vectores exhaustivos
 make sim-sreg      # registro de estado
 make sim-regfile   # 800 064 comprobaciones aleatorias
 make sim-mem       # memorias de programa y datos
-make sim-simavr    # contraste contra simavr
+make sim-dbus      # el fabric del espacio de datos, 65 536 direcciones
 make sim-decode    # 65 536 opcodes contra avr-objdump
+make sim-simavr    # contraste contra simavr
 make sim-diff      # co-simulación diferencial, con la tabla de ciclos
 make sim-random    # 10^6 instrucciones aleatorias
+make sim-robust    # SPM y opcode ilegal: que nada se cuelgue
+
+# --- periféricos, cada uno contra su hoja de datos ---
+make sim-gpio sim-timer0 sim-timer1 sim-timer2
+make sim-usart sim-spi sim-twi sim-extint sim-irq
+
+# --- el dispositivo entero ---
+make sim-soc       # las 224 direcciones de I/O por el bus real
+make sim-fw        # blink.c compilado con avr-gcc, contra simavr
+make sim-hello     # blink, serie, SPI y los seis PWM leídos DEL PIN
+make coverage      # cobertura del RTL fusionando todas las fuentes; es PUERTA
 ```
 
-**Los once objetivos deben pasar**, y tardan menos de un minuto en total. Se pueden encadenar en
-una sola línea, que es como los ejecuta la CI.
+**Los 28 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
+todo—. Se pueden encadenar en una sola línea, que es como los ejecuta la CI.
 
-Aparte, y no en cada push porque tarda unos 5 minutos:
+Aparte, y en un trabajo propio de la CI porque tarda unos 8 minutos:
 
 ```bash
-make mutation      # inyecta 63 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 190 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

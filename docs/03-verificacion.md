@@ -209,7 +209,7 @@ exactamente uno: si costara dos, sería un fallo.
 Se lee también `avr->cycle` y se compara. Pero **no es el oráculo**: el comentario de
 `avr_run_one` en `sim_core.c` avisa de que su cuenta de ciclos «might not be entirely accurate».
 Las discrepancias se informan aparte, con el mnemónico y el número de veces, para adjudicarlas a
-mano contra el manual. A día de hoy no hay ninguna: sobre las 120 048 instrucciones dirigidas y
+mano contra el manual. A día de hoy no hay ninguna: sobre las 300 048 instrucciones dirigidas y
 el millón de instrucciones aleatorias, simavr y el manual coinciden en todo lo ejecutado.
 
 ### Encontró un fallo real: MOVW
@@ -232,7 +232,7 @@ la comprobación de ciclos se ha apagado.
 «0 desviaciones» no dice nada de lo que ningún programa ejecutó. `sim/perf/cycle_coverage.py` une
 lo que el arnés ha comprobado de verdad y lo contrasta con la tabla.
 
-Estado actual: **97 de 97 mnemónicos**, sobre 120 048 instrucciones y 0 desviaciones. Lo cerró la
+Estado actual: **97 de 97 mnemónicos**, sobre 300 048 instrucciones y 0 desviaciones. Lo cerró la
 suite dirigida (`sim/diff/tests/isa_*.S`). `SPM` es la única exclusión, y es deliberada.
 
 ### El arnés tampoco comparaba la memoria
@@ -254,18 +254,28 @@ cualquier protocolo bit-bangeado como el de las tiras NeoPixel.
 
 ## Capa 4 — Periféricos y mapa de registros
 
-**Barrido del mapa de registros.** Test generado que escribe y lee **cada dirección de I/O**
-comprobando:
+**Lo que hay hoy: `make sim-soc`**, que barre las **224 direcciones** del espacio de I/O por el bus
+real del SoC y comprueba que el mapa coincide con la tabla `MAPA[]` de `sim/soc/tb_soc_map.cpp`
+—escrita desde la hoja de datos—, que no hay dos periféricos respondiendo a la misma dirección, y
+que los huecos se leen como `0x00`, porque **el espacio de I/O no es RAM**.
 
-- Bits reservados que deben leerse como 0
-- Máscaras de sólo lectura
-- Efectos laterales de lectura: leer `UDR0` limpia `RXC`, leer `ADCL` bloquea `ADCH`
-- Semántica *write-1-to-clear* de los registros `TIFRx`
-- El registro TEMP de 16 bits de Timer1
+**Lo que falta, y está en la fase 3 del plan:** el barrido *semántico* del mapa, que no es el mismo
+test. Comprobaría, dirección a dirección:
 
-**Modelos de bus en el testbench.** Un esclavo I2C, un esclavo SPI y un receptor UART que verifican
-la **forma de onda real** sobre los pines, no sólo el contenido de los registros. Un periférico
-puede tener los registros correctos y generar una trama incorrecta.
+- bits reservados que deben leerse como 0;
+- máscaras de sólo lectura;
+- efectos laterales de lectura: leer `UDR0` limpia `RXC`, leer `ADCL` bloquea `ADCH`;
+- la semántica *write-1-to-clear* de los `TIFRx`;
+- el registro TEMP de 16 bits del Timer1.
+
+Hoy cada una de esas propiedades la comprueba el banco propio de su periférico —que es donde vive
+el modelo de la hoja de datos—, pero no hay un barrido único que las recorra todas. Mientras no lo
+haya, la casilla de la Capa 4 se queda sin marcar.
+
+**Modelos de bus en el banco de pruebas.** Un maestro y un esclavo I2C, un maestro y un esclavo SPI
+y un extremo de USART —asíncrono y síncrono— que verifican la **forma de onda real** sobre los
+pines, no sólo el contenido de los registros. Un periférico puede tener los registros correctos y
+generar una trama incorrecta: los tres fallos del SPI y los seis del TWI son exactamente eso.
 
 ### El oráculo de cada periférico, y por qué no puede ser uno solo
 
@@ -351,11 +361,16 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: el arnés diferencial con sus
-once programas y los diez aleatorios, el banco del Timer0, el de la USART, el de robustez y el de
-extremo a extremo. La fusión es lo que importa: medir sólo el diferencial da un 80 % y una
-conclusión falsa, porque el Timer0 y la USART salen bajos cuando su funcionalidad la cubren **sus**
-bancos.
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 35 ejecuciones instrumentadas
+—el arnés diferencial con sus dieciséis programas y los diez aleatorios, el banco propio de cada
+periférico, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
+diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
+funcionalidad la cubre **su** banco.
+
+**Y el banco de un periférico nuevo tiene que ESCRIBIR su fichero de cobertura**
+(`VerilatedCov::write` con `AXIOMA_COV`). Sin eso corre entero, pasa entero, y el módulo aparece al
+65 % porque lo único que lo pisa son los programas del diferencial. Es el séptimo sitio que hay que
+tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 95,2 %.
 
 **Qué encontró la primera medida.** Cuatro caminos que ningún banco pisaba jamás:
 
@@ -366,10 +381,18 @@ bancos.
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,7 %**, con 13 de 16 módulos al 100 %. Los cinco puntos que faltan **no son
-alcanzables** y están adjudicados uno a uno: el `default:` de un `case` completo en la ALU, la señal
-de calentamiento que sólo toca el reset, y el `$readmemh` que sólo corre cuando el programa va
-dentro del bitstream. El umbral está en el 99 %: si baja, hay un camino nuevo que nadie ejercita.
+Hoy está en **99,5 %** —2 605 de 2 617 puntos—, con **17 de 22 módulos al 100 %**. Los doce puntos
+que faltan **no son alcanzables** y están adjudicados uno a uno:
+
+| Módulo | Puntos | Qué son |
+|--------|-------:|---------|
+| `axioma328_soc` | 6 | líneas de declaración cuyos bits van atados a constante: el TWI no conduce nunca un uno, y el esclavo de SPI sólo fuerza dirección |
+| `axioma_alu` | 3 | el `default:` de un `case` completo. El decodificador sólo emite operaciones válidas; es la rama defensiva que la síntesis elimina |
+| `axioma_seq` | 1 | `next_warmup`, el ciclo de calentamiento que sólo pone el reset |
+| `axioma_progmem` | 1 | el `$readmemh`, que sólo corre cuando el programa va DENTRO del bitstream; en simulación se carga por la puerta de atrás |
+| `axioma_twi` | 1 | el `default:` de la máquina de estados, con sus casos enumerados |
+
+El umbral está en el 99 %: si baja, hay un camino nuevo que nadie ejercita.
 
 ---
 
@@ -408,14 +431,23 @@ SymbiYosys sobre propiedades acotadas, donde el coste es bajo y el valor alto:
 
 ## Integración continua
 
-| Cuándo | Qué se ejecuta |
-|--------|----------------|
-| **Cada push** | Lint (`verilator -Wall`) · ALU exhaustiva · suite ISA dirigida · tabla de ciclos · diff del mapa de registros · síntesis ECP5 con reporte de área y Fmax |
-| **Cada noche** | 10⁷ instrucciones aleatorias · suite Arduino completa · síntesis para las tres familias de FPGA |
-| **Cada release** | Todo lo anterior + regeneración de la matriz de compatibilidad del README |
+**Lo que hay hoy: `.github/workflows/ci.yml`, en cada push a `main` y en cada pull request**, y en
+TRES trabajos separados a propósito:
 
-**La matriz de compatibilidad del README se genera a partir de los resultados.** Nunca se escribe a
-mano. Ésa es la diferencia entre una afirmación y una medida.
+| Trabajo | Qué ejecuta | Por qué va aparte |
+|---------|-------------|-------------------|
+| **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` | Falla en un minuto, y casi todos los fallos tontos caen aquí |
+| **Verificación del núcleo** | las 23 simulaciones, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice |
+| **Mutación** | `make mutation`, los 190 mutantes | Tarda ~8 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+
+**Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
+generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si
+existieran, en presente. Lo que sí es cierto es que **ninguna cifra de este repositorio se inventa:
+todas las imprime un comando**. Pero copiarlas al README es un acto manual, y por eso se quedan
+atrás — el 14-sep-2026 había nueve desactualizadas a la vez, y las nueve se descubrieron
+comparando el README contra la salida de `make`, no por un fallo de la CI. Generar esa tabla desde
+los resultados es trabajo pendiente; hasta que exista, **el `make` que cambie una cifra obliga a
+revisar el README en el mismo commit**.
 
 ---
 

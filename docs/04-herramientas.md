@@ -41,21 +41,23 @@ conviene fijar una fecha concreta en el proyecto para que la CI sea reproducible
 
 ## 2. Toolchain AVR
 
-```bash
-sudo apt install gcc-avr avr-libc avrdude simavr srecord
-```
+**Va con versión fijada, y sin `sudo`:** el toolchain que empaqueta Arduino, descargado de
+`downloads.arduino.cc` y extraído en `~/eda/avr`; `simavr` compilado desde fuente en el directorio
+del usuario. Los comandos exactos están en [`INSTALL.md`](../INSTALL.md), que es el documento que
+se mantiene al día.
 
-| Paquete | Uso |
-|---------|-----|
-| `gcc-avr` | Compilar los programas de test y el firmware |
-| `avr-libc` | Biblioteca C estándar. **Además es la fuente del mapa de registros** (`iom328p.h`, BSD-3-Clause) |
-| `avrdude` | Programar a través del bootloader |
-| **`simavr`** | **Oráculo de referencia para la co-simulación diferencial** |
-| `srecord` | Manipulación de ficheros `.hex` |
+| Paquete | Versión fijada | Uso |
+|---------|----------------|-----|
+| `avr-gcc` | `7.3.0-atmel3.6.1-arduino7` | Compilar los programas de test y el firmware |
+| `avr-libc` | la que trae ese paquete | Biblioteca C estándar. **Además es la fuente del mapa de registros** (`iom328p.h`, BSD-3-Clause) |
+| `avr-objdump` | binutils 2.26, del mismo paquete | **Oráculo del decodificador** |
+| `avrdude` | `6.3.0-arduino18` | Programar a través del bootloader |
+| **`simavr`** | commit `66eca78` | **Oráculo de referencia para la co-simulación diferencial** |
 
-**Sin `sudo`:** descargar el toolchain que empaqueta Arduino desde `downloads.arduino.cc` y
-extraerlo en `~/eda/avr-gcc`. `simavr` se compila desde fuente con `make` en el directorio del
-usuario.
+**Por qué fijada y no `apt install gcc-avr avr-libc`.** El mapa de registros se **genera** desde
+`iom328p.h` de avr-libc, y `make regmap-check` falla si la salida no coincide con la que hay
+comiteada. Con otra versión de avr-libc puede no coincidir **sin que nada esté mal**, y el fallo
+parece del proyecto. La CI usa exactamente estas versiones por el mismo motivo.
 
 ---
 
@@ -63,16 +65,20 @@ usuario.
 
 ```bash
 python3 -m venv ~/eda/venv
-source ~/eda/venv/bin/activate
-pip install cocotb cocotb-test pytest pyelftools intelhex
+~/eda/venv/bin/pip install numpy
 ```
 
-| Paquete | Uso |
-|---------|-----|
-| `cocotb` | Testbenches en Python sobre Verilator o Icarus |
-| `pytest` | Ejecución de la regresión |
-| `pyelftools` | Leer los `.elf` de avr-gcc en el arnés de co-simulación |
-| `intelhex` | Generar y leer ficheros `.hex` |
+**Dos intérpretes a propósito.** El del venv lleva numpy y no pycairo; el de la OSS CAD Suite lleva
+pycairo y no numpy. El Makefile los distingue con `PYTHON` y `DIAG_PYTHON`.
+
+| Paquete | Dónde | Uso |
+|---------|-------|-----|
+| `numpy` | venv (`PYTHON`) | mapa de registros, tabla de ciclos, generador aleatorio, cobertura y mutación |
+| `pycairo` | OSS CAD Suite, o `python3-cairo` del sistema (`DIAG_PYTHON`) | `make diagrams`: las figuras del README |
+
+No hay nada más. `cocotb` estuvo aquí listado desde el principio y **el proyecto no lo usa**:
+`sim/cocotb` está vacío, y la Capa 6 —verificación formal con SymbiYosys— sigue sin empezar. La
+regresión la ejecuta `make`, no `pytest`.
 
 ---
 

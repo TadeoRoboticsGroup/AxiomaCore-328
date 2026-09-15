@@ -1002,7 +1002,7 @@ enumerado** en vez de implícito.
 
       **El oráculo es un bus de colector abierto con los dos extremos escritos desde la hoja de
       datos**, más las tablas de estado. simavr no sirve: su `avr_twi.c` transporta direcciones
-      y bytes enteros por IRQs internas y no serializa `SDA`. 4 716 comprobaciones.
+      y bytes enteros por IRQs internas y no serializa `SDA`. 5 957 comprobaciones.
 
       **Encontró cinco fallos reales, y ninguno da error con ondas perfectas y un solo maestro:**
       el arbitraje miraba también el noveno bit mientras transmitíamos, con lo que el ACK
@@ -1053,6 +1053,14 @@ enumerado** en vez de implícito.
       flanco—, y que `RXB8` se lee **antes** que `UDR0`, porque leer `UDR0` saca el byte del búfer y
       con él su noveno bit. Lo segundo lo destapó el barrido aleatorio: los casos dirigidos tenían
       el bit 8 a cero y pasaban sin probar nada.
+- [x] **`TXD` y `RXD` en `PD1` y `PD0`** — la deuda D13, cerrada. Salían del SoC por dos puertos
+      aparte, así que el pinout no era el del 328P en esos dos pines y el programa no podía usarlos
+      como E/S general con la USART apagada. No hizo falta nada nuevo: `axioma_gpio` ya tenía las
+      dos anulaciones. Con `TXEN0` puesto `PD1` es salida pase lo que pase en `DDRD1`; con `RXEN0`
+      puesto `PD0` es entrada pase lo que pase en `DDRD0`, y su pull-up sigue saliendo de `PORTD0`.
+      **Se comprueba en el pin**: `hello.c` deja `PD0` como salida a propósito y no toca `DDRD1`, y
+      `make sim-hello` verifica que al encender la USART los dos dan la vuelta. Es lo único que
+      distingue un pin encaminado de un pin que resulta que vale lo mismo.
 - [ ] `eeprom.v` + máquina de estados de `EECR`.
 - [ ] `clkctrl.v`: CLKPR, PRR, modos de sueño, `SMCR`.
 - [ ] Barrido completo del mapa de registros (Capa 4).

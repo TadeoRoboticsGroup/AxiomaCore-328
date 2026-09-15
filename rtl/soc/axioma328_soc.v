@@ -47,16 +47,6 @@ module axioma328_soc #(
     input  wire        clk,
     input  wire        rst_n,
 
-    // ---------------------------------------------------------- USART0
-    // TXD es PD1 y RXD es PD0 en el encapsulado. La anulación del puerto —que
-    // el transmisor se adueñe del pad por encima de DDRx— es de la fase 3,
-    // igual que la de OC0A/OC0B: hace falta darle a axioma_gpio una entrada de
-    // anulación. Mientras tanto el top de la placa lleva estas señales
-    // directamente a los pines del conversor USB-serie.
-    input  wire        uart_rxd,
-    output wire        uart_txd,
-    output wire        uart_txd_en,
-
     // ---------------------------------------------------------- pines
     // Cada puerto sale con las tres señales que necesita una celda de pad:
     // el dato, la dirección y la declaración de pull-up. Aplicarlo es cosa del
@@ -150,6 +140,7 @@ module axioma328_soc #(
     wire spi_ss_force;
     wire twi_scl_pull, twi_sda_pull, twi_en;
     wire us_xck, us_xck_ovr;
+    wire us_txd, us_txen, us_rxen;
     wire spi_maestro = spi_sck_oe;          // sólo el maestro conduce SCK
     wire spi_esclavo = spi_ss_force;        // sólo el esclavo fuerza SS a entrada
 
@@ -193,8 +184,17 @@ module axioma328_soc #(
     // lo que elige entre maestro —reloj interno— y esclavo —reloj externo—, así
     // que forzarla rompería el mecanismo. Es el mismo criterio que con los
     // canales de comparación, y el contrario que con el SPI.
-    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en, 3'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    us_xck,     oc2b,    3'b0};
+    // PD1 es TXD y PD0 es RXD. La tabla 14-9 de la hoja de datos dice que con
+    // `TXEN0` puesto PD1 es SALIDA pase lo que pase en `DDRD1` y lo conduce el
+    // transmisor, y que con `RXEN0` puesto PD0 es ENTRADA, con su pull-up
+    // saliendo de `PORTD0`. Son los dos únicos pines del puerto D que llevan
+    // anulación de DIRECCIÓN; los canales de comparación y `XCK` no la llevan.
+    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en,
+                            1'b0, us_txen, 1'b0};
+    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    us_xck,     oc2b,
+                            1'b0, us_txd,  1'b0};
+    wire [7:0] dir_d_en  = {6'b0, us_txen, us_rxen};
+    wire [7:0] dir_d_val = {6'b0, 1'b1,    1'b0};   // PD1 salida, PD0 entrada
 
     // ---------------------------------------------------- puertos de E/S
     wire [7:0] gb_rd, gc_rd, gd_rd;
@@ -222,7 +222,7 @@ module axioma328_soc #(
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gd_rd), .io_sel(gd_sel),
         .ovr_en(ovr_d_en), .ovr_val(ovr_d_val),
-        .dir_ovr_en(8'h00), .dir_ovr_val(8'h00),
+        .dir_ovr_en(dir_d_en), .dir_ovr_val(dir_d_val),
         .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
     );
 
@@ -299,10 +299,15 @@ module axioma328_soc #(
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(us_rd), .io_sel(us_sel),
-        .rxd(uart_rxd), .txd(uart_txd), .txd_en(uart_txd_en),
-        // XCK vive en PD4. `pd_oe[4]` es DDRD4 ya resuelto: el puerto D no
-        // lleva anulación de dirección, así que vale lo que el programa
-        // escribió, que es justo lo que la hoja de datos quiere aquí.
+        // TXD es PD1 y RXD es PD0, como en el encapsulado. Ya no hay puertos
+        // aparte para el puerto serie: los dos pines son pines del puerto D,
+        // con sus anulaciones, y eso es lo que hace que el programa pueda
+        // usarlos como E/S general mientras la USART esté apagada.
+        .rxd(pd_in[0]), .txd(us_txd), .txd_en(us_txen), .rx_en(us_rxen),
+        // XCK vive en PD4. `pd_oe[4]` es DDRD4 ya resuelto, y PD4 NO lleva
+        // anulación de dirección —sólo la llevan PD1 y PD0, aquí arriba—, así
+        // que vale lo que el programa escribió, que es justo lo que la hoja de
+        // datos quiere aquí: `DDR_XCK0` es lo que elige maestro o esclavo.
         .xck_pin(pd_in[4]), .xck_es_salida(pd_oe[4]),
         .xck_out(us_xck), .xck_ovr(us_xck_ovr),
         .irq_rxc(us_rxc), .irq_udre(us_udre), .irq_txc(us_txc),

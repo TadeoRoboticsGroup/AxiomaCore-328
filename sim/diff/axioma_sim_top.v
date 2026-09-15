@@ -71,7 +71,21 @@ module axioma_sim_top (
 
     wire [7:0] pb_in = (pb_out & pb_oe) | (pb_pu & ~pb_oe);
     wire [7:0] pc_in = (pc_out & pc_oe) | (pc_pu & ~pc_oe);
-    wire [7:0] pd_in = (pd_out & pd_oe) | (pd_pu & ~pd_oe);
+    wire [7:1] pd_in_libre = (pd_out[7:1] & pd_oe[7:1])
+                           | (pd_pu[7:1] & ~pd_oe[7:1]);
+    // EL PAD DE PD0 LO CONDUCE ALGUIEN DE FUERA. En el resto de los pines, con
+    // nada conectado, un pin de entrada sin pull-up queda flotando y se modela
+    // como cero. En PD0 eso no vale: ahí está la línea de recepción del puerto
+    // serie, y un cero permanente es un bit de arranque permanente — el
+    // receptor se pondría a meter tramas de 0x00 sin parar. En una placa esa
+    // línea la conduce el conversor USB-serie, y en reposo vale uno.
+    wire [7:0] pd_in = {pd_in_libre, pd_oe[0] ? pd_out[0] : 1'b1};
+
+    // EL PULL-UP DE PD0 NO SE APLICA AQUI, y es correcto: esa linea la conduce
+    // el conversor USB-serie de la placa, y un pull-up interno no le gana a un
+    // transistor de fuera. Se declara sin usar a proposito, no se borra del
+    // SoC: el chip si lo declara, y en silicio la celda de pad lo conecta.
+    wire unused_pd_pu0 = &{1'b0, pd_pu[0]};
 
     // ------------------------------------------------------------ el chip
     axioma328_soc soc (
@@ -79,12 +93,8 @@ module axioma_sim_top (
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
-        // Sin nada conectado al puerto serie: la línea de recepción en reposo,
-        // que en un UART es el 1.
-        .uart_rxd(1'b1),
-        /* verilator lint_off PINCONNECTEMPTY */
-        .uart_txd(), .uart_txd_en(),
-        /* verilator lint_on PINCONNECTEMPTY */
+        // Ya no hay ningún puerto sin conectar que silenciar: el puerto serie
+        // dejó de tener puertos propios y salió de aquí con él la excepción.
         .dbg_pc(dbg_pc), .dbg_ir(dbg_ir), .dbg_retire(dbg_retire),
         .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry),
         .dbg_irq_vector(dbg_irq_vector), .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),

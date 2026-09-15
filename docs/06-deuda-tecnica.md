@@ -27,7 +27,7 @@ hace todo lo que su nombre promete.
 | D9 | **La documentación citaba ficheros que no existen.** Tres referencias muertas, una de ellas a un «test de CI» inexistente | **CERRADA** — ver abajo |
 | D10 | **El Timer2 asíncrono no tiene dominio de reloj propio.** Cuenta los flancos de `TOSC1` sincronizados, viviendo en el reloj del sistema. La cuenta y las banderas salen bien; lo que no existe son los cinco bits de ocupado de `ASSR` —`TCN2UB` y compañía—, que se leen siempre a cero | Abierta · **fase 5** |
 | D12 | **La USART no tiene el modo SPI maestro (`UMSEL` = 11).** Es otro periférico con los mismos registros: reloj en `XCK`, `UCPHA0` y `UDORD0` reutilizando bits de `UCSR0C`, y sin bit de arranque ni paridad. Sus bits se almacenan y se leen de vuelta | Abierta · **fase 3** |
-| D13 | **`TXD` y `RXD` no llegan a `PD1` y `PD0`.** Salen del SoC por dos puertos aparte, así que el programa no puede usar esos dos pines como E/S general cuando la USART está apagada, ni la USART se adueña de ellos cuando está encendida. El pinout del encapsulado no es el del 328P en esos dos pines | Abierta · **fase 3** — estaba sólo en un comentario del RTL, sin registrar |
+| D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
 
@@ -120,7 +120,7 @@ Register bit for the OC0A pin must be set as output before the value is visible 
 funcionar código que en silicio no funciona, que es la peor clase de incompatibilidad.
 
 El SoC conecta `OC0A`→PD6, `OC0B`→PD5, `OC1A`→PB1 y `OC1B`→PB2. Verificación: `make sim-gpio` añade
-una fase dirigida de anulación (909 886 comprobaciones) y `make sim-hello` **mide el ciclo de
+una fase dirigida de anulación (909 708 comprobaciones) y `make sim-hello` **mide el ciclo de
 trabajo en el pin**, en **tres canales a la vez y con tres ciclos distintos a propósito**:
 
 | Canal | Pin | Medido | La fórmula `(OCR+1)/(TOP+1)` |
@@ -227,22 +227,48 @@ transacciones aleatorias de semilla fija. Ocho mutantes nuevos, todos muertos.
   sin probar nada. La hoja de datos lo dice con esas palabras, y el RTL ya lo hacía bien; era el
   banco el que leía al revés.
 
-### D13 — por qué estaba sin registrar, que es lo peor de ella
+### D13 — el puerto serie vive en `PD1` y `PD0`, cerrada  ·  14-sep-2026
 
-`TXD` y `RXD` salen del SoC por dos puertos propios y no por `PD1` y `PD0`. Las consecuencias no
-son teóricas: un programa no puede usar esos dos pines como E/S general con la USART apagada, la
-USART no se adueña de ellos cuando está encendida, y el pinout del encapsulado no es el del 328P en
-esos dos pines. La tabla 14-9 de anulaciones del puerto D dice que con `TXEN0` puesto `PD1` es
-salida pase lo que pase, y que con `RXEN0` puesto `PD0` es entrada con su pull-up desde `PORTD0`.
+**No hacía falta nada que no estuviera ya escrito.** `axioma_gpio` tenía las dos anulaciones desde
+el 11-sep —la de valor, del cierre de D1, y la de dirección, que llegó con el SPI—, así que el
+trabajo era cablear:
 
-**Lo que la hace peor que una deuda normal es dónde estaba escrita: en un comentario del RTL y en
+- **`PD1`**: con `TXEN0` puesto es **salida pase lo que pase en `DDRD1`**, y la conduce el
+  transmisor. Anulación de dirección **y** de valor.
+- **`PD0`**: con `RXEN0` puesto es **entrada pase lo que pase en `DDRD0`**, y su pull-up sigue
+  saliendo de `PORTD0`. Sólo anulación de dirección.
+
+Son los dos únicos pines del puerto D que llevan anulación de dirección: los canales de comparación
+y `XCK` no la llevan, porque ahí la hoja de datos exige que el programa ponga `DDRx` él mismo.
+
+**Y se comprueba EN EL PIN, que es lo único que distingue un pin encaminado de un pin que resulta
+que vale lo mismo.** `fw/hello/hello.c` deja `PD0` como **salida a propósito** antes de encender la
+USART y no toca `DDRD1` en ningún momento; `make sim-hello` verifica que al encenderla los dos dan
+la vuelta. Tres mutantes nuevos, los tres muertos, y ninguno se ve sin esa maniobra.
+
+En el top de la placa, `PD0` y `PD1` se cablean como `D0` y `D1` en un Uno: el pad del conector y
+la patilla del conversor USB-serie son el mismo pin.
+
+### D13 — por qué estuvo sin registrar, que es lo peor de ella
+
+La deuda está cerrada —arriba está cómo—, pero la lección de dónde vivía se queda escrita, porque
+es la única parte que puede repetirse con la siguiente.
+
+`TXD` y `RXD` salían del SoC por dos puertos propios y no por `PD1` y `PD0`. Las consecuencias no
+eran teóricas: un programa no podía usar esos dos pines como E/S general con la USART apagada, la
+USART no se adueñaba de ellos cuando estaba encendida, y el pinout del encapsulado no era el del
+328P en esos dos pines.
+
+**Lo que la hizo peor que una deuda normal es dónde estaba escrita: en un comentario del RTL y en
 ningún otro sitio.** No estaba en este documento, ni en el plan, ni en el README. Y el comentario
 decía que enchufarlos era «de la fase 3, igual que la de OC0A/OC0B» — trabajo que se cerró el
 11-sep. O sea: la condición que la desbloqueaba llevaba tres días cumplida y nadie lo sabía, porque
-la deuda no estaba en la lista que se revisa.
+la deuda no estaba en la lista que se revisa. Cuando por fin se registró, cerrarla costó un rato:
+no faltaba nada: `axioma_gpio` ya tenía las dos anulaciones y el trabajo era cablear.
 
-**Qué la desbloquea:** nada que falte. `axioma_gpio` ya tiene las dos anulaciones. Lo que hace
-falta es el cableado, y que los bancos y el top de la placa dejen de usar los puertos aparte.
+**La regla que sale de aquí:** un comentario del RTL no es un registro. Si algo se deja a medias a
+propósito, la frase que lo dice va en este documento el mismo día, aunque el comentario del módulo
+la repita.
 
 ## Cómo se usa este documento
 

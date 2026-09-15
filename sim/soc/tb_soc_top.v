@@ -58,9 +58,7 @@ module tb_soc_top (
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
-        .uart_rxd(1'b1),
         /* verilator lint_off PINCONNECTEMPTY */
-        .uart_txd(), .uart_txd_en(),
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),
         /* verilator lint_on PINCONNECTEMPTY */

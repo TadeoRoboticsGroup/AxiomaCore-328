@@ -540,10 +540,10 @@ CATALOG = [
 # El patron cambio al meter XCK en PD4, que ocupa el bit 4 de la anulacion del
 # puerto D. Se reapunta EN EL MISMO COMMIT que mueve el RTL, que es la regla.
 ("soc", SOC, "sim-hello", "los dos canales del Timer0 salen por el pin del otro",
- """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en, 3'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    us_xck,     oc2b,    3'b0};""",
- """    wire [7:0] ovr_d_en  = {1'b0, oc0b_en, oc0a_en, us_xck_ovr, oc2b_en, 3'b0};
-    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    us_xck,     oc2b,    3'b0};"""),
+ """    wire [7:0] ovr_d_val = {1'b0, oc0a,    oc0b,    us_xck,     oc2b,
+                            1'b0, us_txd,  1'b0};""",
+ """    wire [7:0] ovr_d_val = {1'b0, oc0b,    oc0a,    us_xck,     oc2b,
+                            1'b0, us_txd,  1'b0};"""),
 # ----------------------------------------------------------- Timer2
 # EL FALLO QUE HABRIA COMETIDO CUALQUIERA: copiar la tabla de CS del Timer0.
 # El Timer2 tiene dos tomas mas y el orden esta corrido —CS=4 es clk/64, no
@@ -843,6 +843,21 @@ CATALOG = [
 ("usart", USART, "sim-usart", "MPCM busca el tipo de trama siempre en el bit de parada",
  "    wire       es_direccion = (databits == 4'd9) ? rx_sh[8] : rx_muestra;",
  "    wire       es_direccion = rx_muestra;"),
+# ------------------------------------------- PD0 y PD1: el puerto serie
+# Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
+# a proposito antes de encender la USART: un pin encaminado y un pin que resulta
+# que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+("soc", SOC, "sim-hello", "TXD no llega al pad: PD1 se queda con lo que diga PORTD",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en,
+                            1'b0, us_txen, 1'b0};""",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en,
+                            1'b0, 1'b0, 1'b0};"""),
+("soc", SOC, "sim-hello", "TXEN no fuerza PD1 a salida: hace falta poner DDRD1",
+ """    wire [7:0] dir_d_en  = {6'b0, us_txen, us_rxen};""",
+ """    wire [7:0] dir_d_en  = {6'b0, 1'b0, us_rxen};"""),
+("soc", SOC, "sim-hello", "RXEN no fuerza PD0 a entrada: el programa puede conducir su propia RXD",
+ """    wire [7:0] dir_d_val = {6'b0, 1'b1,    1'b0};   // PD1 salida, PD0 entrada""",
+ """    wire [7:0] dir_d_val = {6'b0, 1'b1,    1'b1};"""),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

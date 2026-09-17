@@ -406,7 +406,7 @@ La CI falla si los dos primeros están desactualizados.
 | [`docs/04-herramientas.md`](docs/04-herramientas.md) | Cadena de herramientas |
 | [`docs/05-register-map.md`](docs/05-register-map.md) | Mapa de registros y vectores. **Generado** |
 | [`docs/06-deuda-tecnica.md`](docs/06-deuda-tecnica.md) | **Deuda técnica.** RTL que existe y no hace todo lo que su nombre promete, con qué lo desbloquea |
-| [`docs/adr/`](docs/adr/) | Registros de decisiones de arquitectura |
+| [`docs/adr/`](docs/adr/) | Registros de decisiones de arquitectura: las **memorias en flanco de bajada** y la **frontera analógica del ADC** |
 | [`INSTALL.md`](INSTALL.md) | Instalación desde cero, **sin `sudo`** y con las versiones fijadas |
 | [`requerimiento.md`](requerimiento.md) | Requerimiento oficial del proyecto |
 

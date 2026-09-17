@@ -1022,7 +1022,17 @@ enumerado** en vez de implícito.
       ciclos de periodo donde la fórmula da 20, o sea 71 kHz donde el programa pidió 100—; y el
       estado de retención forzaba `SCL` abajo siempre, con lo que tras un STOP recibido el chip
       habría bloqueado el bus entero hasta que su ISR contestara.
-- [ ] `adc.v` (controlador SAR; comparador externo o modelo), `ac.v`, `wdt.v`.
+- [ ] **`adc.v`: el controlador SAR.** La frontera con lo analógico está decidida y escrita en el
+      [ADR 0002](adr/0002-frontera-analogica-del-adc.md): **el RTL es el registro de aproximaciones
+      sucesivas y su secuenciador; el DAC y el comparador quedan fuera**, detrás de cinco señales.
+      Es el corte que dibuja la propia hoja de datos, y es lo que permite que el banco compruebe que
+      el SAR **converge** —las diez decisiones, en orden de peso— en vez de mirar si el número final
+      salió bien.
+
+      **simavr no sirve de oráculo, y aquí menos que nunca:** `avr_adc.c` programa la interrupción a
+      `prescale * 11` ciclos donde el manual dice **13** —y **25** la primera conversión— y entrega
+      el valor de golpe desde una IRQ en milivoltios. No hay aproximación sucesiva en ninguna parte.
+- [ ] `ac.v` (comparador analógico) y `wdt.v` (perro guardián).
 - [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos
       —uno por pin y con dirección de flanco, otro por puerto y sólo «algo cambió»— pero comparten
       el sincronizador y la disciplina de banderas, así que separarlos duplicaría lo único

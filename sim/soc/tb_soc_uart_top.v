@@ -40,20 +40,37 @@ module tb_soc_uart_top (
     wire [7:0] pb_out, pb_oe, pb_pu, pc_out, pc_oe, pc_pu, pd_out, pd_oe, pd_pu;
     wire [7:0] pb_in = (pb_out & pb_oe) | (pb_pu & ~pb_oe);
     wire [7:0] pc_in = (pc_out & pc_oe) | (pc_pu & ~pc_oe);
-    wire [7:0] pd_in = (pd_out & pd_oe) | (pd_pu & ~pd_oe);
+    wire [7:1] pd_in_libre = (pd_out[7:1] & pd_oe[7:1])
+                           | (pd_pu[7:1] & ~pd_oe[7:1]);
+    // EL PAD DE PD0 LO CONDUCE ALGUIEN DE FUERA. En el resto de los pines, con
+    // nada conectado, un pin de entrada sin pull-up queda flotando y se modela
+    // como cero. En PD0 eso no vale: ahí está la línea de recepción del puerto
+    // serie, y un cero permanente es un bit de arranque permanente — el
+    // receptor se pondría a meter tramas de 0x00 sin parar. En una placa esa
+    // línea la conduce el conversor USB-serie, y en reposo vale uno.
+    wire [7:0] pd_in = {pd_in_libre, pd_oe[0] ? pd_out[0] : rxd};
+
+    // EL PULL-UP DE PD0 NO SE APLICA AQUI, y es correcto: esa linea la conduce
+    // el conversor USB-serie de la placa, y un pull-up interno no le gana a un
+    // transistor de fuera. Se declara sin usar a proposito, no se borra del
+    // SoC: el chip si lo declara, y en silicio la celda de pad lo conecta.
+    wire unused_pd_pu0 = &{1'b0, pd_pu[0]};
 
     axioma328_soc soc (
         .clk(clk), .rst_n(rst_n),
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
-        .uart_rxd(rxd), .uart_txd(txd), .uart_txd_en(txd_en),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),
         /* verilator lint_on PINCONNECTEMPTY */
         .dbg_reg_addr(5'd0)
     );
+
+    // TXD ES PD1, y ahora se observa como lo que es: un pin del puerto D.
+    assign txd    = pd_out[1];
+    assign txd_en = pd_oe[1];
 
     always @(posedge clk)
         if (prog_we) soc.pm.mem[prog_addr] <= prog_data;

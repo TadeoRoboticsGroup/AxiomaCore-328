@@ -153,6 +153,18 @@ int main(void)
         SPCR = 0;                             /* y los pines: PB5 vuelve al LED */
     }
 
+    /* PD0 y PD1 SON RXD Y TXD, PERO SOLO CON LA USART ENCENDIDA. Antes son dos
+     * pines de E/S general como cualquier otro, y aquí se deja PD0 como SALIDA
+     * a propósito: al poner `RXEN0`, el hardware tiene que forzarlo a ENTRADA
+     * pase lo que pase en `DDRD0`, que es lo que dice la tabla 14-9 de
+     * anulaciones del puerto. Y `DDRD1` no se toca en ningún momento: que `TXD`
+     * salga es cosa de `TXEN0`, no del programa.
+     *
+     * Un programa de verdad no hace esto; está aquí para que el banco lo vea en
+     * el PIN, que es el único sitio donde se distingue un pin encaminado de un
+     * pin que resulta que vale lo mismo. */
+    DDRD |= (1 << PD0);
+
     usart_init();
     sei();
 

@@ -273,8 +273,8 @@ def fig_verif(t):
         ("Decodificador", "avr-objdump (binutils)", "0", "discrepancias",
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
-         "160 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "187/187", "detectados",
+         "300 048 instrucciones · 97 de 97 mnemónicos"),
+        ("El propio banco", "prueba de mutación", "190/190", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

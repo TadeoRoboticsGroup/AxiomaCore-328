@@ -124,7 +124,10 @@ module axioma_ulx3s_top #(
             assign portc_io[i] = pc_oe[i] ? pc_out[i] : 1'bz;
             assign pc_in[i]    = portc_io[i];
         end
-        for (i = 0; i < 8; i = i + 1) begin : g_pd
+        // PD0 y PD1 son el puerto serie, igual que D0 y D1 en un Uno: el pad
+        // del conector y la patilla del conversor USB-serie son el mismo pin.
+        // Por eso se tratan aparte, más abajo.
+        for (i = 2; i < 8; i = i + 1) begin : g_pd
             assign portd_io[i] = pd_oe[i] ? pd_out[i] : 1'bz;
             assign pd_in[i]    = portd_io[i];
         end
@@ -142,15 +145,12 @@ module axioma_ulx3s_top #(
     // borrarlo del SoC: en silicio sí se conecta a la celda del PDK.
     wire unused_pu = &{1'b0, pb_pu, pc_pu, pd_pu};
 
-    wire soc_txd, soc_txd_en;
-
     // ---------------------------------------------------------- el chip
     axioma328_soc #(.INIT_HEX(INIT_HEX)) soc (
         .clk(clk), .rst_n(rst_n_q),
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
-        .uart_rxd(uart_rx), .uart_txd(soc_txd), .uart_txd_en(soc_txd_en),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),
@@ -164,10 +164,25 @@ module axioma_ulx3s_top #(
     // parpadea en led[5] y además se ve en el pin.
     assign led = pb_out & pb_oe;
 
-    // La USART sale directamente al conversor USB-serie de la placa. Cuando el
-    // transmisor no está habilitado, la línea queda en reposo —el 1 de un
-    // UART—, que es lo que ve el PC mientras el programa no abre el puerto.
-    assign uart_tx = soc_txd_en ? soc_txd : 1'b1;
+    // ------------------------------------------------- PD0 y PD1: el serie
+    // EN EL CHIP NO HAY UN "PUERTO SERIE" APARTE: hay dos pines del puerto D
+    // que la USART se adueña cuando está encendida. Aquí se cablea igual que en
+    // un Uno, donde D0 y D1 salen a la vez al conector y al conversor
+    // USB-serie.
+    //
+    // PD1 conduce el conector y la línea del conversor cuando es salida —con
+    // `TXEN0` puesto lo es siempre, porque el SoC anula su dirección—. Con la
+    // USART apagada vuelve a ser un pin normal, y entonces lo que ve el PC es
+    // el reposo del UART, que es un uno.
+    assign portd_io[1] = pd_oe[1] ? pd_out[1] : 1'bz;
+    assign pd_in[1]    = portd_io[1];
+    assign uart_tx     = pd_oe[1] ? pd_out[1] : 1'b1;
+
+    // PD0 lo conduce el conversor, que es quien tiene algo que decir. Si el
+    // programa pone el pin como salida gana el chip, que es lo que pasa de
+    // verdad en una placa: dos cosas conduciendo el mismo hilo.
+    assign portd_io[0] = pd_oe[0] ? pd_out[0] : 1'bz;
+    assign pd_in[0]    = pd_oe[0] ? pd_out[0] : uart_rx;
 
     // Sin esto el ESP32 reinicia la placa.
     assign wifi_gpio0 = 1'b1;

@@ -88,6 +88,7 @@ module axioma_usart (
     input  wire       rxd,
     output wire       txd,
     output wire       txd_en,      // TXEN: el transmisor se adueña del pin
+    output wire       rx_en,       // RXEN: el receptor fuerza su pin a ENTRADA
 
     // ---- XCK, el reloj del modo sincrono (PD4) ----
     // LA DIRECCION LA PONE EL PROGRAMA, no este modulo: la hoja de datos dice
@@ -311,6 +312,9 @@ module axioma_usart (
 
     assign txd    = txd_q;
     assign txd_en = txen;
+    // La tabla 14-9 de anulaciones del puerto D: con RXEN0 puesto, PD0 es
+    // ENTRADA pase lo que pase en DDRD0, y su pull-up sigue saliendo de PORTD0.
+    assign rx_en  = rxen;
 
     // --------------------------------------------------------- receptor
     // El pin es asíncrono de verdad: dos biestables de sincronización antes de

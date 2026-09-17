@@ -51,6 +51,13 @@ static const double TOLERANCIA = 0.025;
 static int fails_spi = 0;
 static std::vector<uint8_t> *spi_leidos = nullptr;
 static const uint8_t *spi_esperados = nullptr;
+// PD0 y PD1: la anulacion de DIRECCION del puerto D, mirada en el pin.
+// Es lo unico que distingue un pin ENCAMINADO de un pin que resulta que vale lo
+// mismo por casualidad, y es la razon de que `hello.c` deje PD0 como salida
+// antes de encender la USART.
+static int pd0_salida_antes = -1;   // lo que valia DDRD0 ya resuelto
+static int pd1_salida_antes = -1;
+
 static void checks_spi() {
     if (!spi_leidos) return;
     if (spi_leidos->size() != 3) {
@@ -223,6 +230,16 @@ int main(int argc, char **argv) {
             if (v) ch.alto++;
         }
 
+        // --- PD0 y PD1, la anulacion de DIRECCION ---
+        // Antes de que la USART se encienda, los dos son de E/S general: `hello.c`
+        // pone DDRD0 a SALIDA y no toca DDRD1 en ningun momento. Al encenderla,
+        // el hardware tiene que dar la vuelta a los dos: PD0 a ENTRADA pese a
+        // DDRD0, y PD1 a SALIDA sin que nadie haya escrito DDRD1.
+        if (dut->dbg_ubrr == 0) {
+            pd0_salida_antes = (dut->portd_oe & 0x01) ? 1 : 0;
+            pd1_salida_antes = (dut->portd_oe & 0x02) ? 1 : 0;
+        }
+
         // --- el pin serie ---
         int linea = dut->txd_en ? dut->txd : 1;
         if (periodo == 0 && dut->dbg_ubrr != 0) {
@@ -330,6 +347,29 @@ int main(int argc, char **argv) {
     }
 
     fails += fails_spi;
+
+    // Lo que prueba que PD0 y PD1 son pines del puerto D y no dos cables aparte.
+    if (pd0_salida_antes != 1) {
+        printf("  FALLA: PD0 no era SALIDA antes de encender la USART\n");
+        fails++;
+    }
+    if (pd1_salida_antes != 0) {
+        printf("  FALLA: PD1 conducia antes de que TXEN0 lo pidiera\n");
+        fails++;
+    }
+    if (!(dut->portd_oe & 0x02)) {
+        printf("  FALLA: con TXEN0 puesto PD1 tiene que ser SALIDA, y DDRD1 "
+               "no se toca en ningun momento\n");
+        fails++;
+    }
+    if (dut->portd_oe & 0x01) {
+        printf("  FALLA: con RXEN0 puesto PD0 tiene que ser ENTRADA, y el "
+               "programa lo dejo como salida a proposito\n");
+        fails++;
+    }
+    printf("  PD1 pasa a salida con TXEN0 sin tocar DDRD1, y PD0 vuelve a "
+           "entrada con RXEN0 pese a DDRD0\n");
+
     if (fails) return 1;
     printf("  Blink, Serial y SPI, leidos del pin: criterio de la fase 2 cumplido\n");
     return 0;

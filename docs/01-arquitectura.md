@@ -16,6 +16,10 @@ cableado de los 26 vectores— vivía dentro del banco de pruebas, de modo que l
 verificaba no era el dispositivo. El desplazamiento de un bit que convertía `TIMER0_COMPA` en
 `TIMER1_OVF` estaba justo ahí.
 
+**Esto es lo que hay instanciado hoy**, no la lista de lo que habrá. Lo que falta va al final, con
+su fase: un árbol que enseña módulos inexistentes es la forma más fácil de creer que algo está
+hecho.
+
 ```
 axioma328_soc
 ├── axioma_core
@@ -26,17 +30,31 @@ axioma328_soc
 │   └── axioma_sreg        registro de estado
 ├── axioma_progmem         16K × 16 bits · backend parametrizable
 ├── axioma_dmem            2 KB · backend parametrizable
-├── axioma_eeprom          1 KB · backend parametrizable
 ├── axioma_dbus            fabric del espacio de datos
 ├── axioma_irq             26 vectores con prioridad fija
-├── axioma_prescaler       contador de 10 bits COMPARTIDO por Timer0 y Timer1, y GTCCR
+├── axioma_gpio × 3        PORTB, PORTC y PORTD · anulación de valor y de dirección
 ├── axioma_gpior           GPIOR0/1/2 · almacenamiento puro, tres bytes del chip
-├── axioma_clkctrl         CLKPR, PRR, SMCR, MCUCR, MCUSR
-├── axioma_extint          INT0, INT1 y PCINT0/1/2 · un solo módulo, dos mecanismos
-├── axioma_timer8          motor de forma de onda de 8 bits, COMÚN al Timer0 y al Timer2
+├── axioma_prescaler       contador de 10 bits COMPARTIDO por Timer0 y Timer1, y GTCCR
+├── axioma_timer0          8 modos de onda · OC0A/OC0B · reloj externo por T0
+│   └── axioma_timer8      motor de forma de onda de 8 bits, COMÚN con el Timer2
+├── axioma_timer1          16 bits · captura con cancelador de ruido · TEMP compartido
+├── axioma_timer2          prescaler PROPIO · modo asíncrono por TOSC1
+│   └── axioma_timer8      el mismo motor, instanciado otra vez
+├── axioma_usart           asíncrono · síncrono por XCK (PD4) · MPCM · TXD=PD1, RXD=PD0
 ├── axioma_spi             maestro y esclavo · los cuatro modos · anula pines de PORTB
-└── periféricos            gpio · timer0/1/2 · usart · twi · adc · ac · wdt
+├── axioma_twi             maestro y esclavo · arbitraje y estiramiento · SDA/SCL en PORTC
+└── axioma_extint          INT0, INT1 y PCINT0/1/2 · un solo módulo, dos mecanismos
 ```
+
+**Lo que todavía no existe**, y por qué está aquí escrito y no dibujado arriba:
+
+| Módulo | Qué traerá | Fase |
+|--------|-----------|------|
+| `axioma_adc` | SAR de 10 bits, 8 canales, su propio reloj | 3 |
+| `axioma_ac` | comparador analógico · `ACSR` · captura del Timer1 | 3 |
+| `axioma_wdt` | perro guardián · `WDTCSR` · reinicio e interrupción | 3 |
+| `axioma_eeprom` | 1 KB · máquina de estados de `EECR` | 3 |
+| `axioma_clkctrl` | `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` · modos de sueño | 3 |
 
 ---
 

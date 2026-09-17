@@ -66,9 +66,43 @@
 // PARADA. Por eso el manual exige dos bits de parada al usar MPCM con tramas
 // cortas: el primero deja de ser parada.
 //
-// FUERA DE ALCANCE, y declarado: el modo SPI MAESTRO (UMSEL = 11), que es otro
-// periférico con los mismos registros. Sus bits se almacenan y se leen de
-// vuelta. Está en el registro de deuda técnica como D12.
+// MSPIM: LA USART COMO MAESTRO SPI (UMSEL = 11). Es el mismo motor otra vez,
+// con la trama más corta que se puede escribir —ocho bits de datos y nada
+// más— y tres diferencias que sí son de fondo:
+//
+//   1. NO HAY BIT DE ARRANQUE, así que el reloj es lo ÚNICO que delimita la
+//      trama. De ahí sale todo lo demás: el receptor no puede buscar un flanco
+//      de bajada, tiene que arrancar con el transmisor; y la trama no puede
+//      terminar «cuando toque el bit de parada», tiene que terminar en el
+//      OCTAVO FLANCO DE SALIDA, que es el único instante que existe con las dos
+//      fases y deja el pin en su nivel de reposo.
+//   2. XCK SÓLO CORRE MIENTRAS HAY TRAMA. Un maestro SPI no puede dejar el
+//      reloj suelto entre bytes: el esclavo cuenta flancos, y un pulso de más
+//      lo descoloca para siempre. En el modo síncrono es al revés —ahí el
+//      reloj corre libre—, y por eso son dos cosas distintas y no un parámetro.
+//   3. UDORD PERMITE EL BIT MÁS SIGNIFICATIVO PRIMERO, que es lo que hace
+//      casi todo el mundo en SPI. El registro de desplazamiento sigue siendo
+//      el mismo, que saca el bit 0 primero: lo que se hace es DAR LA VUELTA AL
+//      BYTE al cargarlo y al guardarlo. Duplicar el desplazador para leerlo al
+//      revés habría sido la otra opción, y habría costado dos caminos que
+//      mantener sincronizados.
+//
+// UCPHA dice en qué flanco del pulso se muestrea. Con UCPHA=0 el dato tiene que
+// estar en el pin ANTES del primer flanco —por eso la trama pone su primer bit
+// al arrancar, sin esperar a ningún reloj—; con UCPHA=1 el primer bit sale EN
+// el primer flanco. Dentro no hay dos máquinas: cambia quién dice «avanza».
+//
+// Y EL DATO NO PASA POR EL SINCRONIZADOR DE TRES ETAPAS. En asíncrono ese
+// sincronizador es parte de la recuperación de reloj, y en síncrono se lo puede
+// permitir porque el bit de arranque viaja por el MISMO retardo y la trama se
+// alinea sola. En MSPIM no hay bit de arranque que alinee nada: el reloj lo
+// pone este mismo módulo, y tres ciclos de retraso a f_CPU/2 son bit y medio.
+// Se muestrea con UNA etapa, que es la guarda de metaestabilidad y nada más.
+//
+// Los bits de UCSR0C son los MISMOS BIESTABLES con otro nombre, que es lo que
+// hace el chip: bit 2 es UDORD donde había UCSZ01, bit 1 es UCPHA donde había
+// UCSZ00, y bit 0 sigue siendo UCPOL. Los de UPM y USBS quedan reservados: se
+// almacenan y se leen de vuelta, pero no los mira nadie.
 
 `default_nettype none
 
@@ -177,10 +211,35 @@ module axioma_usart (
     // el mismo pulso y cada tick avanza un bit, sin tocar una linea de la
     // maquina de estados.
     //
-    // UMSEL: 00 asincrono · 01 SINCRONO · 10 reservado · 11 SPI maestro, que no
-    // esta implementado y tiene su entrada en el registro de deuda.
-    wire       sincrono = (umsel == 2'b01);
-    wire [4:0] osr = sincrono ? 5'd1 : (u2x ? 5'd8 : 5'd16);   // muestras por bit
+    // UMSEL: 00 asincrono · 01 SINCRONO · 10 reservado · 11 SPI MAESTRO.
+    // Los dos que cuelgan de XCK son el 01 y el 11, y eso es justo umsel[0].
+    wire       sincrono  = (umsel == 2'b01);
+    wire       mspim     = (umsel == 2'b11);
+    wire       reloj_xck = umsel[0];
+    wire [4:0] osr = reloj_xck ? 5'd1 : (u2x ? 5'd8 : 5'd16);  // muestras por bit
+
+    // EN MSPIM LOS BITS DE UCSR0C SON LOS MISMOS BIESTABLES CON OTRO NOMBRE,
+    // que es lo que hace el chip. No hay registro nuevo que almacenar.
+    wire       udord = ucsz10[1];        // 0 = el mas significativo primero
+    wire       ucpha = ucsz10[0];        // en que flanco del pulso se muestrea
+
+    // LA FORMA DE LA TRAMA EN MSPIM ES FIJA: ocho bits de datos, sin arranque,
+    // sin paridad y sin parada. No se toca la maquina: se le da otro numero.
+    wire [3:0] databits_ef = mspim ? 4'd8 : databits;
+
+    // Y LA PARIDAD, LA PARADA Y MPCM NO HACE FALTA APAGARLOS, aunque el programa
+    // los deje puestos en UCSR0C —donde siguen siendo biestables de verdad, que
+    // se leen de vuelta—. La razon es que en MSPIM la trama la delimita EL
+    // RELOJ y no la cuenta de bits: el receptor cierra en su octava muestra y el
+    // transmisor en el octavo flanco de salida, asi que las tres ramas que los
+    // miran —paridad, bit de parada y descarte de MPCM— quedan DETRAS del final
+    // de la trama y no se alcanzan nunca.
+    //
+    // No es una suposicion: estuvieron apagados con tres `wire` y el mutante que
+    // los volvia a encender SOBREVIVIA a la regresion entera. Y no por falta de
+    // banco —el de MSPIM corre con UPM=11, USBS=1 y MPCM=1 puestos a proposito—
+    // sino porque era EQUIVALENTE. Tres lineas que no cambian nada son tres
+    // lineas que alguien tendra que entender algun dia.
 
     // ------------------------------------------------------------ XCK
     // UCPOL ES UNA INVERSION DEL PIN, y verlo asi ahorra media maquina de
@@ -195,20 +254,41 @@ module axioma_usart (
     // El maestro usa SU reloj, sin leerlo de vuelta del pin: en el chip el
     // registro de desplazamiento cuelga del reloj interno. El esclavo si lee el
     // pin, y con dos etapas de sincronizacion porque es asincrono de verdad.
-    wire       xck_maestro = sincrono & xck_es_salida;
+    // MSPIM ES MAESTRO Y NADA MAS -la hoja de datos no le da modo esclavo-, y
+    // como en el sincrono es DDR_XCK0 quien enciende el maestro.
+    wire       xck_maestro = reloj_xck & xck_es_salida;
 
     reg        xck_gen;
     reg [1:0]  xck_sync;
     reg        xck_i_q;
+    reg [4:0]  m_tog;        // flancos generados en la trama de MSPIM, 0..16
+
+    // EN MSPIM EL RELOJ SOLO CORRE MIENTRAS HAY TRAMA, y dura EXACTAMENTE ocho
+    // pulsos. Contar los flancos generados -y no los detectados- es lo que
+    // impide el pulso de mas: el detector de flanco va un ciclo por detras, y a
+    // UBRR=0 ese ciclo es medio pulso.
+    wire       xck_corre = sincrono | (mspim & tx_activo & (m_tog != 5'd16));
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             xck_gen <= 1'b0;  xck_sync <= 2'b00;  xck_i_q <= 1'b0;
+            m_tog   <= 5'd0;
         end else begin
             xck_sync <= {xck_sync[0], xck_pin};
             // f_XCK = f_CPU / (2*(UBRR+1)): el generador ya da un pulso cada
             // UBRR+1 ciclos, asi que basta con conmutar en cada uno.
-            if (xck_maestro && brg_tick) xck_gen <= ~xck_gen;
+            if (xck_maestro && brg_tick && xck_corre) begin
+                xck_gen <= ~xck_gen;
+                if (mspim) m_tog <= m_tog + 5'd1;
+            end
+            // ENTRE TRAMAS XCK SE QUEDA EN SU NIVEL DE REPOSO, que es UCPOL.
+            // No basta con dejar de conmutarlo: el modo sincrono lo deja donde
+            // le pilla, y al pasar a MSPIM ese uno colgado es un flanco de
+            // bajada nada mas arrancar -la primera trama sale corrida un bit-.
+            // La hoja de datos pide justo esto al hablar de la inicializacion
+            // inmediata de XCK al encender el transmisor.
+            if (mspim && !tx_activo) xck_gen <= 1'b0;
+            if (m_arranca) m_tog <= 5'd0;
             xck_i_q <= xck_i;
         end
     end
@@ -220,8 +300,29 @@ module axioma_usart (
     assign xck_out = xck_gen ^ ucpol;
     assign xck_ovr = xck_maestro;
 
-    wire tx_tick = sincrono ? xck_baja : brg_tick;
-    wire rx_tick = sincrono ? xck_sube : brg_tick;
+    // QUIEN DICE «AVANZA UN BIT». UCPHA no duplica la maquina: intercambia los
+    // dos flancos. Con UCPHA=0 se muestrea en el de entrada del pulso y se
+    // cambia el dato en el de salida; con UCPHA=1, al reves.
+    wire tx_tick = !reloj_xck ? brg_tick : ((mspim & ucpha) ? xck_sube : xck_baja);
+    wire rx_tick = !reloj_xck ? brg_tick : ((mspim & ucpha) ? xck_baja : xck_sube);
+
+    // LA TRAMA DE MSPIM TERMINA EN EL OCTAVO FLANCO DE SALIDA DEL PULSO, valga
+    // lo que valga UCPHA: es el unico instante que existe en las dos fases con
+    // los ocho bits ya movidos, y el que deja el pin en su nivel de reposo.
+    wire m_fin = mspim & tx_activo & xck_baja & (m_tog == 5'd16);
+
+    // Y ARRANCA AL ESCRIBIR UDR0, no en un flanco: el reloj no existe hasta que
+    // hay trama, asi que esperar a un flanco seria esperar para siempre. Ademas
+    // hace falta para UCPHA=0, que pide el primer bit en el pin ANTES del
+    // primer flanco.
+    // SIN `DDR_XCK0` NO ARRANCA NADA, y eso es deliberado: la hoja de datos
+    // enciende el maestro con ese bit -«setting the XCKn port pin as output
+    // enables master mode»-, y en MSPIM no hay otro modo. Si la trama arrancara
+    // igual, el byte saldria del bufer -UDRE diria que hay sitio- y se quedaria
+    // en el desplazador esperando un reloj que nadie va a generar: un byte
+    // perdido en silencio. Asi se queda en el bufer, UDRE dice que no, y en
+    // cuanto el programa ponga el DDR la trama sale.
+    wire m_arranca = mspim & txen & xck_maestro & ~tx_activo & tx_buf_full;
 
     // ------------------------------------------------------- transmisor
     // Un registro de desplazamiento y UN búfer, como el chip: UDRE dice que el
@@ -238,9 +339,24 @@ module axioma_usart (
 
     // Estados de la trama, contados: 0 = arranque, 1..databits = datos,
     // luego paridad si la hay, luego uno o dos de parada.
-    wire [3:0] tx_bit_par  = 4'd1 + databits;                     // índice de la paridad
+    wire [3:0] tx_bit_par  = 4'd1 + databits_ef;                     // índice de la paridad
     wire [3:0] tx_bit_stop = tx_bit_par + (par_en ? 4'd1 : 4'd0); // primer bit de parada
     wire [3:0] tx_bit_fin  = tx_bit_stop + (dos_stop ? 4'd1 : 4'd0);
+
+    // EL BYTE SE DA LA VUELTA AL CARGARLO, y con eso el desplazador de siempre
+    // -que saca el bit 0 primero- emite el mas significativo primero. Es la
+    // alternativa a tener dos desplazadores que mantener sincronizados.
+    wire [7:0] tx_lsb = tx_buf[7:0];
+    wire [7:0] tx_msb = {tx_lsb[0], tx_lsb[1], tx_lsb[2], tx_lsb[3],
+                         tx_lsb[4], tx_lsb[5], tx_lsb[6], tx_lsb[7]};
+    wire [8:0] tx_carga = mspim ? {1'b0, (udord ? tx_lsb : tx_msb)} : tx_buf;
+
+    // Con UCPHA=0 el primer bit sale YA, sin esperar flanco; con UCPHA=1 sale
+    // en el primero. De ahi que la carga difiera en una posicion.
+    wire       m_ya      = mspim & ~ucpha;                 // adelanta el bit 1
+    wire [8:0] tx_sh_ini = m_ya ? {1'b0, tx_carga[8:1]} : tx_carga;
+    wire [3:0] tx_bit_ini = m_ya ? 4'd1 : 4'd0;
+    wire       tx_pin_ini = m_ya ? tx_carga[0] : (mspim ? txd_q : 1'b0);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -263,9 +379,23 @@ module axioma_usart (
             if (!txen) begin
                 tx_activo <= 1'b0;
                 txd_q     <= 1'b1;
+            end else if (m_arranca) begin
+                // MSPIM: la trama arranca con la escritura, no con un flanco.
+                tx_sh       <= tx_sh_ini;
+                tx_buf_full <= 1'b0;
+                tx_activo   <= 1'b1;
+                tx_bit      <= tx_bit_ini;
+                tx_cnt      <= osr - 5'd1;
+                tx_par      <= 1'b0;
+                txd_q       <= tx_pin_ini;
+            end else if (m_fin) begin
+                // Y termina en el octavo flanco de salida. Si hay otro byte
+                // esperando, la siguiente trama arranca sola por `m_arranca`.
+                tx_activo <= 1'b0;
+                txc_q     <= ~tx_buf_full;
             end else if (tx_tick) begin
                 if (!tx_activo) begin
-                    if (tx_buf_full) begin
+                    if (tx_buf_full && !mspim) begin
                         tx_sh       <= tx_buf;
                         tx_buf_full <= 1'b0;
                         tx_activo   <= 1'b1;
@@ -278,7 +408,16 @@ module axioma_usart (
                     tx_cnt <= tx_cnt - 5'd1;
                 end else begin
                     tx_cnt <= osr - 5'd1;
-                    if (tx_bit == tx_bit_fin) begin
+                    if (mspim) begin
+                        // En MSPIM no hay bit de parada que cierre: mientras la
+                        // trama dure, cada flanco de cambio saca un bit mas, y
+                        // el que cierra es `m_fin`.
+                        if (tx_bit != tx_bit_fin) begin
+                            tx_bit <= tx_bit + 4'd1;
+                            txd_q  <= tx_sh[0];
+                            tx_sh  <= {1'b0, tx_sh[8:1]};
+                        end
+                    end else if (tx_bit == tx_bit_fin) begin
                         // Se acabó la trama. Si hay otro byte esperando, encadena
                         // sin soltar la línea; si no, TXC.
                         if (tx_buf_full) begin
@@ -294,7 +433,7 @@ module axioma_usart (
                         end
                     end else begin
                         tx_bit <= tx_bit + 4'd1;
-                        if (tx_bit + 4'd1 <= databits) begin
+                        if (tx_bit + 4'd1 <= databits_ef) begin
                             // Bit de datos, el menos significativo primero.
                             txd_q  <= tx_sh[0];
                             tx_par <= tx_par ^ tx_sh[0];
@@ -347,13 +486,21 @@ module axioma_usart (
     // EN SINCRONO NO HAY NADA QUE VOTAR: el reloj dice cuando vale el dato y
     // se toma UNA muestra por flanco, que es lo que hace el chip. La votacion
     // es de la recuperacion de reloj del modo asincrono, no del receptor.
-    wire [4:0] pos_1a  = sincrono ? 5'd0 : (u2x ? 5'd3 : 5'd7);
-    wire [4:0] pos_3a  = sincrono ? 5'd0 : (u2x ? 5'd5 : 5'd9);
+    wire [4:0] pos_1a  = reloj_xck ? 5'd0 : (u2x ? 5'd3 : 5'd7);
+    wire [4:0] pos_3a  = reloj_xck ? 5'd0 : (u2x ? 5'd5 : 5'd9);
     wire [4:0] pos_fin = osr - 5'd1;
 
     // La muestra que se usa para decidir. En asincrono es el voto; en sincrono,
     // el pin. Una sola expresion para que el resto de la maquina no distinga.
-    wire       rx_muestra = sincrono ? rxd_s : rx_voto_ahora;
+    //
+    // EN MSPIM SE MIRA UNA ETAPA ANTES, y no es un ajuste fino: en asincrono el
+    // sincronizador de tres etapas es parte de la recuperacion de reloj, y en
+    // sincrono se lo puede permitir porque el BIT DE ARRANQUE viaja por el
+    // mismo retardo y la trama se alinea sola. En MSPIM no hay arranque que
+    // alinee nada -el reloj lo pone este modulo- y tres ciclos a f_CPU/2 son
+    // bit y medio. Queda una etapa, que es la guarda de metaestabilidad.
+    wire       rx_muestra = mspim    ? rx_sync[0] :
+                            sincrono ? rxd_s      : rx_voto_ahora;
 
     // Búfer de DOS niveles, con su FE y su UPE pegados a cada trama.
     reg [10:0] rx_fifo0, rx_fifo1;
@@ -370,7 +517,17 @@ module axioma_usart (
     // datos, y por eso la trama termina en la rama por defecto sin contar el
     // segundo. Con dos bits de parada, el segundo es tiempo de línea en reposo
     // y el receptor ya está esperando el siguiente arranque.
-    wire [3:0] rx_bit_par  = 4'd1 + databits;
+    wire [3:0] rx_bit_par  = 4'd1 + databits_ef;
+
+    // El desplazamiento deja el dato alineado arriba cuando son menos de nueve
+    // bits. En MSPIM el ultimo bit entra EN ESTE MISMO FLANCO -no hay bit de
+    // parada detras que de tiempo-, asi que hay que mirar el valor NUEVO.
+    wire [8:0] rx_sh_nuevo = {rx_muestra, rx_sh[8:1]};
+    wire [7:0] rx_m_lsb = rx_sh_nuevo[8:1];
+    wire [7:0] rx_m_msb = {rx_m_lsb[0], rx_m_lsb[1], rx_m_lsb[2], rx_m_lsb[3],
+                           rx_m_lsb[4], rx_m_lsb[5], rx_m_lsb[6], rx_m_lsb[7]};
+    wire [8:0] rx_guarda = mspim ? {1'b0, (udord ? rx_m_lsb : rx_m_msb)}
+                                 : (rx_sh >> (4'd9 - databits_ef));
 
     // MPCM: QUE BIT DICE SI LA TRAMA ES UNA DIRECCION. La hoja de datos usa dos
     // sitios distintos segun el tamaño de trama, y no es un capricho: con nueve
@@ -380,7 +537,7 @@ module axioma_usart (
     //
     // `rx_sh[8]` es el noveno bit de datos: el registro desplaza hacia la
     // derecha, asi que el ultimo que entra se queda arriba.
-    wire       es_direccion = (databits == 4'd9) ? rx_sh[8] : rx_muestra;
+    wire       es_direccion = (databits_ef == 4'd9) ? rx_sh[8] : rx_muestra;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -405,6 +562,16 @@ module axioma_usart (
                 rx_activo <= 1'b0;
                 rx_n      <= 2'd0;
                 dor_q     <= 1'b0;
+            end else if (m_arranca) begin
+                // EN MSPIM EL RECEPTOR ARRANCA CON EL TRANSMISOR. No hay bit de
+                // arranque que buscar: la trama la delimita el reloj, y el
+                // primer flanco de muestreo ya trae el primer bit.
+                rx_activo <= 1'b1;
+                rx_bit    <= 4'd1;
+                rx_pos    <= 5'd0;
+                rx_vota   <= 2'b11;
+                rx_par    <= 1'b0;
+                rx_upe    <= 1'b0;
             end else if (rx_tick) begin
                 if (!rx_activo) begin
                     // Flanco de bajada en reposo: posible bit de arranque. La
@@ -439,10 +606,23 @@ module axioma_usart (
                         // Arranque. Si el centro no es cero, era ruido.
                         if (rx_muestra) rx_activo <= 1'b0;
                         else            rx_bit    <= 4'd1;
-                    end else if (rx_bit <= databits) begin
-                        rx_sh  <= {rx_muestra, rx_sh[8:1]};
+                    end else if (rx_bit <= databits_ef) begin
+                        rx_sh  <= rx_sh_nuevo;
                         rx_par <= rx_par ^ rx_muestra;
                         rx_bit <= rx_bit + 4'd1;
+                        if (mspim && rx_bit == databits_ef) begin
+                            // LA ULTIMA MUESTRA CIERRA LA TRAMA, porque detras
+                            // no hay nada: ni paridad, ni parada, ni otro
+                            // flanco. Se guarda con el valor NUEVO del
+                            // desplazador, que es el que trae este bit.
+                            rx_activo <= 1'b0;
+                            if (rx_lleno) dor_q <= 1'b1;
+                            else begin
+                                if (rx_n == 2'd0) rx_fifo0 <= {2'b00, rx_guarda};
+                                else              rx_fifo1 <= {2'b00, rx_guarda};
+                                rx_n <= rx_n + 2'd1;
+                            end
+                        end
                     end else if (par_en && (rx_bit == rx_bit_par)) begin
                         rx_upe <= (rx_muestra != rx_par);
                         rx_bit <= rx_bit + 4'd1;
@@ -465,11 +645,9 @@ module axioma_usart (
                             // El desplazamiento deja el dato alineado arriba
                             // cuando son menos de 9 bits.
                             if (rx_n == 2'd0)
-                                rx_fifo0 <= {!rx_muestra, rx_upe,
-                                             rx_sh >> (4'd9 - databits)};
+                                rx_fifo0 <= {!rx_muestra, rx_upe, rx_guarda};
                             else
-                                rx_fifo1 <= {!rx_muestra, rx_upe,
-                                             rx_sh >> (4'd9 - databits)};
+                                rx_fifo1 <= {!rx_muestra, rx_upe, rx_guarda};
                             rx_n <= rx_n + 2'd1;
                         end
                     end
@@ -534,10 +712,6 @@ module axioma_usart (
             if (hit_brrh) ubrr[11:8] <= io_wdata[3:0];
         end
     end
-
-    // De UMSEL sólo se usa el bit bajo: 01 es el modo síncrono. El 11 -SPI
-    // maestro- no está implementado y tiene su entrada en el registro de deuda.
-    wire unused_modos = &{1'b0, umsel[1]};
 
     assign irq_rxc  = (!rx_vacio)   & rxcie;
     assign irq_udre = (!tx_buf_full) & udrie;

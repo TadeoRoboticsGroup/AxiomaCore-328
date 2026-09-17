@@ -26,7 +26,7 @@ hace todo lo que su nombre promete.
 | D7 | **`make sim-isa` era un objetivo que salía con error.** Prometía una suite que ya cubre `sim-diff` | **CERRADA** — ver abajo |
 | D9 | **La documentación citaba ficheros que no existen.** Tres referencias muertas, una de ellas a un «test de CI» inexistente | **CERRADA** — ver abajo |
 | D10 | **El Timer2 asíncrono no tiene dominio de reloj propio.** Cuenta los flancos de `TOSC1` sincronizados, viviendo en el reloj del sistema. La cuenta y las banderas salen bien; lo que no existe son los cinco bits de ocupado de `ASSR` —`TCN2UB` y compañía—, que se leen siempre a cero | Abierta · **fase 5** |
-| D12 | **La USART no tiene el modo SPI maestro (`UMSEL` = 11).** Es otro periférico con los mismos registros: reloj en `XCK`, `UCPHA0` y `UDORD0` reutilizando bits de `UCSR0C`, y sin bit de arranque ni paridad. Sus bits se almacenan y se leen de vuelta | Abierta · **fase 3** |
+| D12 | **La USART no tenía el modo SPI maestro (`UMSEL` = 11).** Sus bits se almacenaban y se leían de vuelta, y nada más | **CERRADA** 16-sep — ver abajo |
 | D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
@@ -226,6 +226,59 @@ transacciones aleatorias de semilla fija. Ocho mutantes nuevos, todos muertos.
   noveno bit. Lo destapó el barrido aleatorio: los casos dirigidos tenían el bit 8 a cero y pasaban
   sin probar nada. La hoja de datos lo dice con esas palabras, y el RTL ya lo hacía bien; era el
   banco el que leía al revés.
+
+### D12 — la USART como maestro SPI, cerrada  ·  16-sep-2026
+
+**El motor es el mismo por tercera vez** —asíncrono, síncrono y ahora MSPIM—, con la trama más
+corta que se puede escribir: ocho bits de datos y nada más. Lo que no se pudo reutilizar son tres
+cosas, y las tres son de fondo.
+
+**1. Sin bit de arranque, la trama la delimita EL RELOJ.** De ahí sale todo lo demás: el receptor
+no puede buscar un flanco de bajada, así que arranca con el transmisor; y la trama no puede
+terminar «cuando toque el bit de parada», así que termina en el **octavo flanco de salida del
+pulso**. Ése es el único instante que existe con las dos fases de `UCPHA` y el único que deja el
+pin en su nivel de reposo — parar en la última muestra dejaría el reloj colgado a media altura.
+
+**2. `XCK` sólo corre mientras hay trama.** Un maestro SPI no puede dejar el reloj suelto entre
+bytes: el esclavo cuenta flancos, y un pulso de más lo descoloca para siempre. En el modo síncrono
+es al revés —ahí el reloj corre libre—, y por eso son dos cosas distintas y no un parámetro.
+Y **vuelve a su reposo entre tramas**: no basta con dejar de conmutarlo, porque el modo síncrono lo
+deja donde le pilla y ese uno colgado es un flanco de bajada nada más arrancar. **La primera trama
+salía corrida un bit** hasta que se escribió esa línea.
+
+**3. El dato NO pasa por el sincronizador de tres etapas.** En asíncrono ese sincronizador es parte
+de la recuperación de reloj. En síncrono se lo puede permitir por una razón que conviene no perder:
+**el bit de arranque viaja por el mismo retardo, así que la trama se alinea sola**. En MSPIM no hay
+arranque que alinee nada —el reloj lo pone este mismo módulo— y tres ciclos a `f_CPU/2` son **bit y
+medio**. Se muestrea con una etapa, que es la guarda de metaestabilidad y nada más.
+
+Lo que sí salió gratis: `UCPHA` **intercambia los dos flancos** en vez de duplicar la máquina, y
+`UDORD` se resuelve **dando la vuelta al byte** al cargarlo y al guardarlo, con lo que el
+desplazador sigue siendo uno solo. Los bits de `UCSR0C` son **los mismos biestables con otro
+nombre**, que es lo que hace el chip, así que no hay un registro nuevo que almacenar.
+
+**Verificación:** `make sim-usart`, **46 650 comprobaciones**, contra un **esclavo SPI escrito
+desde la hoja de datos** —el mismo oráculo que usó el SPI: el otro extremo del cable—. Los cuatro
+modos por los dos órdenes de bit, que una trama sean **ocho pulsos y ni uno más**, que `XCK` esté
+quieto antes y después, el periodo contra `f_CPU/(2·(UBRR+1))`, el búfer de dos niveles con su
+desbordamiento, tráfico aleatorio de semilla fija, y que con `UPM`, `USBS` y `MPCM` puestos la
+trama salga **idéntica**. **Doce mutantes nuevos, los doce muertos.**
+
+**Y tres cosas que dejó por el camino:**
+
+- **Al modo síncrono le faltaba su velocidad máxima.** La suite empezaba en `UBRR=3`, así que de
+  `UBRR=0` —que son `f_CPU/2`, lo que hace útil el modo— no se sabía nada. Ahora se barre 0..3.
+- **Un mutante que sobrevive no siempre es un fallo.** Tres `wire` apagaban la paridad, la parada y
+  `MPCM` en MSPIM; el mutante que los volvía a encender **sobrevivió a la regresión entera**, y no
+  por falta de banco —corre con `UPM=11`, `USBS=1` y `MPCM=1` puestos a propósito— sino porque era
+  **equivalente**: en MSPIM esas tres ramas quedan detrás del final de la trama y no se alcanzan
+  nunca. Se quitaron los tres y se escribió el porqué en el módulo.
+- **La cobertura destapó el segundo nivel del búfer.** El banco leía `UDR0` justo después de `RXC`,
+  así que en MSPIM nunca había dos bytes a la vez y la rama salía sin cubrir. `axioma_usart.v`
+  vuelve a estar al **100 %**.
+
+**Coste medido:** el módulo pasa de **391 a 486 LUT4** en el ECP5, y el `Fmax` del dispositivo
+entero de 20,23 a **19,77 MHz** tras el rutado —con la placa a 12,5, margen 1,58×—.
 
 ### D13 — el puerto serie vive en `PD1` y `PD0`, cerrada  ·  14-sep-2026
 

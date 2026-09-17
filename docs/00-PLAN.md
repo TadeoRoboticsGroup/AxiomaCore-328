@@ -1022,7 +1022,20 @@ enumerado** en vez de implícito.
       ciclos de periodo donde la fórmula da 20, o sea 71 kHz donde el programa pidió 100—; y el
       estado de retención forzaba `SCL` abajo siempre, con lo que tras un STOP recibido el chip
       habría bloqueado el bus entero hasta que su ISR contestara.
-- [ ] **`adc.v`: el controlador SAR.** La frontera con lo analógico está decidida y escrita en el
+- [~] **`adc.v`: el controlador SAR.** **El módulo está escrito y verificado; falta integrarlo en el
+      SoC.** 1 561 comprobaciones contra un comparador escrito desde la hoja de datos, 15 mutantes y
+      los 15 muertos, 100 % de cobertura, 269 LUT4 en el ECP5 y sin latches. Hace conversiones
+      sueltas —lo que usa `analogRead()`—; el disparo automático es la deuda **D14**, declarada el
+      mismo día.
+
+      **El banco encontró un fallo real, y de los que no dan error:** la conversión duraba **12,5
+      ciclos de ADC** en vez de 13, porque arrancaba en cuanto se escribía `ADSC` y no en el
+      siguiente flanco del reloj de ADC. Con la cuenta empezada a media fase, medio ciclo se perdía.
+      La hoja de datos lo dice con estas palabras —«the conversion starts at the following rising
+      edge of the ADC clock cycle after ADSC is written»— y el resultado de la conversión salía
+      bien igualmente: sólo se ve midiendo.
+
+      La frontera con lo analógico está decidida y escrita en el
       [ADR 0002](adr/0002-frontera-analogica-del-adc.md): **el RTL es el registro de aproximaciones
       sucesivas y su secuenciador; el DAC y el comparador quedan fuera**, detrás de cinco señales.
       Es el corte que dibuja la propia hoja de datos, y es lo que permite que el banco compruebe que

@@ -28,6 +28,7 @@ hace todo lo que su nombre promete.
 | D10 | **El Timer2 asíncrono no tiene dominio de reloj propio.** Cuenta los flancos de `TOSC1` sincronizados, viviendo en el reloj del sistema. La cuenta y las banderas salen bien; lo que no existe son los cinco bits de ocupado de `ASSR` —`TCN2UB` y compañía—, que se leen siempre a cero | Abierta · **fase 5** |
 | D12 | **La USART no tenía el modo SPI maestro (`UMSEL` = 11).** Sus bits se almacenaban y se leían de vuelta, y nada más | **CERRADA** 16-sep — ver abajo |
 | D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
+| D14 | **El ADC no tiene disparo automático (`ADATE` con `ADTS`).** Sólo hace conversiones sueltas, que es lo que usa `analogRead()`. Sus bits se almacenan y se leen de vuelta | Abierta · **fase 3** |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
 
@@ -226,6 +227,27 @@ transacciones aleatorias de semilla fija. Ocho mutantes nuevos, todos muertos.
   noveno bit. Lo destapó el barrido aleatorio: los casos dirigidos tenían el bit 8 a cero y pasaban
   sin probar nada. La hoja de datos lo dice con esas palabras, y el RTL ya lo hacía bien; era el
   banco el que leía al revés.
+
+### D14 — el ADC sin disparo automático  ·  nace el 17-sep-2026
+
+**Qué hay:** conversiones sueltas. Se escribe `ADSC`, el SAR aproxima y `ADIF` avisa. Es lo que usa
+`analogRead()`, que es el 99 % de lo que hace cualquiera con este periférico.
+
+**Qué falta:** `ADATE`, que rearma la conversión sola cuando se dispara la fuente que elijan los
+tres bits `ADTS` — modo libre, comparador analógico, `INT0`, y cinco banderas de los
+temporizadores. Los bits **se almacenan y se leen de vuelta**, así que un programa que los ponga no
+recibe ningún error: simplemente no pasa nada más.
+
+**Por qué se deja fuera ahora, por escrito.** Dos de las ocho fuentes **no existen todavía** —el
+comparador analógico es de esta misma fase y aún no está—, y el disparo se hace **en el flanco de
+la bandera**, no en su nivel, así que cablear las otras seis desde el SoC sin poder probar las ocho
+dejaría media función sin banco. El modo libre —`ADTS`=000— es el que se usa de verdad y es el más
+barato de los ocho, pero meterlo solo y llamar a eso «disparo automático» sería exactamente lo que
+este documento existe para evitar.
+
+**Qué la desbloquea:** el comparador analógico, que es el siguiente de la lista. Con él dentro, las
+ocho fuentes se pueden cablear y probar a la vez, y el módulo ya está escrito para que añadirlo sea
+**una condición más en el arranque de la conversión** — la misma línea que hoy mira `ADSC`.
 
 ### D12 — la USART como maestro SPI, cerrada  ·  16-sep-2026
 

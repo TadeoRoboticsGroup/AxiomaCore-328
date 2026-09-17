@@ -54,6 +54,7 @@ USART   = "rtl/periph/axioma_usart.v"
 EXTINT  = "rtl/periph/axioma_extint.v"
 SPI     = "rtl/periph/axioma_spi.v"
 TWI     = "rtl/periph/axioma_twi.v"
+ADC     = "rtl/periph/axioma_adc.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -937,6 +938,57 @@ CATALOG = [
 ("soc", SOC, "sim-hello", "RXEN no fuerza PD0 a entrada: el programa puede conducir su propia RXD",
  """    wire [7:0] dir_d_val = {6'b0, 1'b1,    1'b0};   // PD1 salida, PD0 entrada""",
  """    wire [7:0] dir_d_val = {6'b0, 1'b1,    1'b1};"""),
+# ===================================================================== ADC
+# EL MUTANTE QUE HAY QUE TENER: «el ADC de simavr». Su avr_adc.c entrega el
+# valor de golpe y programa la interrupcion a prescale*11 ciclos. Si un mutante
+# que se salta la aproximacion sobrevive, es que el banco mira el RESULTADO y no
+# el PROCESO — y entonces el DAC y el comparador podrian estar dentro del RTL,
+# que es justo lo que el ADR 0002 decidio que no.
+("adc", ADC, "sim-adc", "el SAR acepta todos los bits: no hay aproximacion, hay 0x3FF",
+ "                    if (adc_cmp) sar_q <= dac_prueba;",
+ "                    sar_q <= dac_prueba;"),
+("adc", ADC, "sim-adc", "el comparador se lee al reves",
+ "                    if (adc_cmp) sar_q <= dac_prueba;",
+ "                    if (!adc_cmp) sar_q <= dac_prueba;"),
+("adc", ADC, "sim-adc", "el SAR prueba los bits de menos a mas peso",
+ "                    peso <= peso - 4'd1;",
+ "                    peso <= peso + 4'd1;"),
+("adc", ADC, "sim-adc", "la conversion arranca sin esperar al reloj de ADC",
+ "                    mitad <= 6'd1;      // este flanco YA es el primer medio ciclo",
+ "                    mitad <= 6'd0;"),
+("adc", ADC, "sim-adc", "una conversion normal dura 12 ciclos y no 13",
+ "    wire [5:0] total    = primera ? 6'd50 : 6'd26;",
+ "    wire [5:0] total    = primera ? 6'd50 : 6'd24;"),
+("adc", ADC, "sim-adc", "la primera conversion no es la larga",
+ "    wire [5:0] sh_en    = primera ? 6'd27 : 6'd3;",
+ "    wire [5:0] sh_en    = 6'd3;"),
+("adc", ADC, "sim-adc", "el S/H cierra un ciclo tarde: se muestrea otra tension",
+ "    wire [5:0] sh_en    = primera ? 6'd27 : 6'd3;",
+ "    wire [5:0] sh_en    = primera ? 6'd27 : 6'd5;"),
+("adc", ADC, "sim-adc", "ADPS=0 divide por uno, que es la tabla mal copiada",
+ "    wire [6:0] medio_div = (adps == 3'd0) ? 7'd1  :",
+ "    wire [6:0] medio_div = (adps == 3'd0) ? 7'd64 :"),
+("adc", ADC, "sim-adc", "leer ADCL no echa el cerrojo: se mezclan dos conversiones",
+ "            if (lee_l)      cerrojo <= 1'b1;",
+ "            if (1'b0)       cerrojo <= 1'b1;"),
+("adc", ADC, "sim-adc", "el cerrojo no impide que el dato nuevo entre",
+ "                    if (!cerrojo) dato <= resultado;",
+ "                    dato <= resultado;"),
+("adc", ADC, "sim-adc", "ADLAR no alinea a la izquierda",
+ "    wire [15:0] alineado = adlar ? {dato, 6'd0} : {6'd0, dato};",
+ "    wire [15:0] alineado = {6'd0, dato};"),
+("adc", ADC, "sim-adc", "apagar el ADC no para la conversion en marcha",
+ "            if (!aden) adsc <= 1'b0;",
+ "            if (1'b0) adsc <= 1'b0;"),
+("adc", ADC, "sim-adc", "escribir un cero en ADSC para la conversion",
+ "                if (io_wdata[6]) adsc <= 1'b1;",
+ "                adsc <= io_wdata[6];"),
+("adc", ADC, "sim-adc", "ADIF no se limpia escribiendo un uno",
+ "                if (io_wdata[4]) adif <= 1'b0;",
+ "                if (1'b0) adif <= 1'b0;"),
+("adc", ADC, "sim-adc", "DIDR0 no apaga el bufer de entrada digital",
+ "    assign didr_dis     = {2'b00, didr};",
+ "    assign didr_dis     = 8'h00;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

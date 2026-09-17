@@ -247,6 +247,15 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-twi
 
+      # El ADC es el primero que no es digital de punta a punta: el DAC y el
+      # comparador viven FUERA del RTL (ADR 0002). Eso es lo que deja comprobar
+      # que la aproximacion CONVERGE -las diez decisiones, en orden de peso- y
+      # no solo que el numero final salga bien.
+      - name: ADC - la aproximacion sucesiva, no solo el resultado
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-adc
+
       - name: Interrupciones externas contra la hoja de datos
         run: |
           source ~/eda/oss-cad-suite/environment

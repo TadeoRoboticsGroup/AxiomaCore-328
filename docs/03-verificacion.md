@@ -125,7 +125,24 @@ Los mutantes están curados para que ninguno sea *equivalente*. Por ejemplo, en 
 `n = r_lsr[7]`: como `r_lsr = {1'b0, a[7:1]}`, su bit 7 es siempre 0 y la mutación sería idéntica
 al original. Sobreviviría sin que eso indicara agujero alguno.
 
-Se ejecuta con `make mutation` (~5 min). No forma parte del CI de cada push.
+**Y la curación no se acaba nunca**, porque el RTL se mueve. Al cerrar D12 sobrevivió un mutante
+que apagaba la paridad y la parada en MSPIM: no era un agujero del banco —que corre con `UPM=11`,
+`USBS=1` y `MPCM=1` puestos a propósito— sino un **equivalente sobrevenido**, porque en ese modo la
+trama la delimita el reloj y esas ramas ya no se alcanzan. Un superviviente **no es** un fallo del
+RTL por defecto: es una pregunta, y hay tres respuestas posibles —falta banco, falta observar el
+pin, o la línea no hace nada—. En este caso la respuesta fue quitar tres líneas.
+
+Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
+
+**Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
+un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
+línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 202
+patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
+lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
+
+**El catálogo se reapunta EN EL MISMO COMMIT que mueve el RTL.** No es una recomendación: es la
+única forma de que la cifra de mutantes signifique algo.
 
 **Al terminar reconstruye el árbol.** Los ficheros se restauran, pero `build/` se quedaba con
 los binarios del último mutante: quien después ejecutara `./build/vdiff/diff` a mano —que es
@@ -381,7 +398,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,5 %** —2 605 de 2 617 puntos—, con **17 de 22 módulos al 100 %**. Los doce puntos
+Hoy está en **99,6 %** —2 659 de 2 671 puntos—, con **17 de 22 módulos al 100 %**. Los doce puntos
 que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -436,9 +453,9 @@ TRES trabajos separados a propósito:
 
 | Trabajo | Qué ejecuta | Por qué va aparte |
 |---------|-------------|-------------------|
-| **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` | Falla en un minuto, y casi todos los fallos tontos caen aquí |
+| **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí |
 | **Verificación del núcleo** | las 23 simulaciones, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice |
-| **Mutación** | `make mutation`, los 190 mutantes | Tarda ~8 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 202 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

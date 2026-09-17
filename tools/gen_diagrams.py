@@ -111,7 +111,7 @@ def fig_soc(t):
              ("axioma_timer0", ["8 modos de onda · OC0A/OC0B · T0"], OK),
              ("axioma_timer1", ["16 bits · captura · TEMP compartido"], OK),
              ("axioma_timer2", ["prescaler propio · modo asíncrono"], OK),
-             ("axioma_usart", ["asíncrono · síncrono · MPCM"], OK),
+             ("axioma_usart", ["asíncrono · síncrono · MPCM · SPI maestro"], OK),
              ("axioma_spi", ["maestro y esclavo · los cuatro modos"], OK),
              ("axioma_extint", ["INT0/1 · PCINT0/1/2"], OK),
              ("axioma_twi", ["maestro y esclavo · arbitraje · I2C"], OK),
@@ -274,7 +274,7 @@ def fig_verif(t):
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
          "300 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "190/190", "detectados",
+        ("El propio banco", "prueba de mutación", "202/202", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

@@ -56,14 +56,14 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciséis 
 | `rtl/periph/axioma_prescaler.v` | **Verificado** | Ídem: es el contador **compartido** con el Timer1, y la trampa nº 12 —que arrancar un temporizador no lo pone a cero— sólo se puede comprobar con los dos juntos |
 | `rtl/periph/axioma_irq.v` | **Verificado** | **Exhaustivo**: las 67 108 864 combinaciones de las 26 peticiones, 201 326 592 comprobaciones de prioridad y reconocimiento |
 | `rtl/periph/axioma_timer1.v` | **Verificado** | **4 475 970 comprobaciones** contra un modelo de la hoja de datos: los 16 modos de onda, la captura de entrada con su cancelador de ruido, y **el registro TEMP compartido** —la trampa nº 4—, que simavr no modela |
-| `rtl/periph/axioma_usart.v` | **Verificado** | **45 313 comprobaciones** contra un extremo escrito desde la hoja de datos que decodifica el pin. **Asíncrono:** las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores. **Síncrono:** el periodo de `XCK` medido contra `f_CPU/(2·(UBRR+1))`, las dos polaridades de `UCPOL` —comprobadas **en el flanco**, no sólo por el dato—, de maestro y de esclavo, y 150 transacciones aleatorias. **`MPCM`:** las tramas de datos se tiran en silencio y las de dirección entran, con el tipo en el noveno bit o en el primero de parada según el tamaño |
+| `rtl/periph/axioma_usart.v` | **Verificado** | **46 650 comprobaciones** contra extremos escritos desde la hoja de datos que decodifican el pin. **Asíncrono:** las cinco longitudes de palabra, las tres paridades, uno y dos bits de parada, con y sin U2X, el periodo de bit exacto, el búfer de dos niveles y la búsqueda de errores. **Síncrono:** el periodo de `XCK` contra `f_CPU/(2·(UBRR+1))` desde `UBRR=0` —que es `f_CPU/2`—, las dos polaridades de `UCPOL` comprobadas **en el flanco** y no sólo por el dato, de maestro y de esclavo. **`MPCM`:** las tramas de datos se tiran en silencio y las de dirección entran. **SPI maestro (`MSPIM`):** los cuatro modos de `UCPOL`/`UCPHA` por los dos órdenes de bit contra un **esclavo SPI** al otro lado del cable, que una trama sean **ocho pulsos y ni uno más**, y que `XCK` esté quieto entre ellas |
 | `rtl/periph/axioma_timer2.v` | **Verificado** | **4 666 627 comprobaciones** contra un modelo de la hoja de datos: las ocho tomas de su **prescaler propio** —incluidas `/32` y `/128`, que los otros dos no tienen—, que `PSRASY` lo ponga a cero y `PSRSYNC` no lo toque, y el **modo asíncrono**, que cuenta `TOSC1` y sin cristal no cuenta |
 | `rtl/periph/axioma_timer8.v` | **Verificado** | La máquina de forma de onda de 8 bits, **una sola vez para el Timer0 y el Timer2**: la hoja de datos los describe con las mismas palabras. La ejercitan los dos bancos, y un mutante inyectado en ella muere en los dos |
 | `rtl/periph/axioma_spi.v` | **Verificado** | **Maestro y esclavo**, contra el otro extremo del cable escrito desde la hoja de datos: los cuatro modos de `CPOL`/`CPHA` por los dos órdenes de bit, las ocho divisiones de reloj, `WCOL`, la secuencia de dos accesos que limpia `SPIF`, y que la colisión de maestros **no** salte cuando `SS` es salida —que es como selecciona a su esclavo cualquier sketch— |
 | `rtl/periph/axioma_twi.v` | **Verificado** | **5 957 comprobaciones** contra un **bus de colector abierto** con un maestro y un esclavo I2C escritos desde la hoja de datos: los 26 códigos de estado de las tablas 21-2 a 21-6, las 128 direcciones de esclavo una por una, `TWAMR` contrastada contra su fórmula sobre las 128, la llamada general, el **arbitraje** —perder, no perder con los ceros propios, y perder siendo además el llamado, que da 0x68 y no 0x38—, el **estiramiento de reloj**, el error de bus y el periodo de `SCL` medido contra `f_CPU/(16+2·TWBR·4^TWPS)` en ocho combinaciones |
 | `rtl/periph/axioma_extint.v` | **Verificado** | **2 501 159 comprobaciones** contra un modelo de la hoja de datos, más un programa de co-simulación contra `simavr`: los cuatro modos de `ISCn`, el de **nivel bajo** —que no deja bandera y sostiene la petición—, que la bandera se ponga con el vector deshabilitado, y que `PCMSKn` filtre la bandera mientras `PCICR` sólo filtra el salto |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
-| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 289 KB para la ULX3S 25F. `nextpnr` mide **Fmax 20,23 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,62× |
+| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 286 KiB para la ULX3S 25F. `nextpnr` mide **Fmax 19,77 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,58× |
 | `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
@@ -76,17 +76,20 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciséis 
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   28/28 objetivos en verde
-mutación   190/190 fallos inyectados, 190 detectados
-cobertura   99,5 % del RTL, fusionando todas las fuentes
+regresión   29/29 objetivos en verde
+mutación   202/202 fallos inyectados, 202 detectados
+cobertura   99,6 % del RTL, fusionando todas las fuentes
             17 de 22 módulos al 100 %; los 12 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 8 259 LUT4 y 1 211 FF en el ECP5
-bitstream   289 KB · 33 % de las LUT y 58 % de la BRAM de la ULX3S 25F
-            Fmax 20,23 MHz medida tras el rutado, y se corre a 12,5 MHz
+síntesis    sin latches · el SoC entero: 7 480 LUT4 y 1 216 FF en el ECP5
+            es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
+            que un cambio local mueve el total en cientos. El número atribuible
+            es el de cada módulo por separado
+bitstream   286 KiB · 32,8 % de las LUT y 58,9 % de la BRAM de la ULX3S 25F
+            Fmax 19,77 MHz medida tras el rutado, y se corre a 12,5 MHz
 ```
 
 **La fase 1 cumple su criterio de aceptación, y su única deuda está saldada.** La entrada a
@@ -178,13 +181,19 @@ arquitectura ya decía que debía costar uno; el que contradecía al documento e
 ```bash
 source env.sh
 make check-tools
-make lint synth-check regmap-check lpf check-docs sim-alu sim-sreg sim-regfile sim-mem \
-     sim-dbus sim-gpio sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi \
-     sim-extint sim-irq sim-soc \
-     sim-robust sim-fw sim-hello sim-simavr sim-decode sim-diff sim-random coverage
+make lint synth-check regmap-check lpf check-docs mutation-check \
+     sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
+     sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi sim-extint sim-irq \
+     sim-soc sim-robust sim-fw sim-hello sim-simavr sim-decode sim-diff sim-random \
+     coverage
 ```
 
-Los veintisiete objetivos deben pasar. Tarda menos de un minuto en un portátil.
+**Los veintinueve objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
+`synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
+
+```bash
+make mutation      # 202 fallos inyectados, ~9 min; MODIFICA el RTL mientras corre
+```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
 **dieciséis programas**: tres de aritmética, control de flujo y memoria; cuatro dirigidos que
@@ -254,9 +263,13 @@ programa, los 2 KB de SRAM y el 1 KB de EEPROM, y sobran pines para sacar los tr
 | Tang Nano 9K | Gowin GW1NR-9 | 8,6 k LUT4 | 468 Kbit BSRAM | ~18 USD | Secundaria. Toolchain abierta algo menos madura |
 | iCEBreaker | iCE40 UP5K | 5,3 k LUT4 | 128 KB SPRAM | ~70 USD | Secundaria. La cadena más madura; ajustado en LUTs |
 
-El SoC es el mismo para las tres familias: sólo cambian el top y las constraints bajo
-`rtl/fpga/`. Las constraints de la ULX3S **se generan** desde el fichero oficial de la placa
-(`make lpf`, 36 pines), de modo que ningún pin puede quedar mal transcrito.
+El SoC está escrito para que cambiar de familia sea cambiar el top y las constraints bajo
+`rtl/fpga/`: la memoria se infiere y no hay ni una primitiva del fabricante dentro del dispositivo.
+**Pero hoy sólo existe el top del ECP5** — `rtl/fpga/gowin/` y `rtl/fpga/ice40/` son directorios
+vacíos, marcadores de la fase 5, y mientras no haya un bitstream que cierre timing ahí, que el SoC
+sea portable es un argumento y no una medida. Las constraints de la ULX3S **se generan** desde el
+fichero oficial de la placa (`make lpf`, 36 pines), de modo que ningún pin puede quedar mal
+transcrito.
 
 **Objetivo de rendimiento:** cierre de timing a ≥ 32 MHz en ECP5, el doble de un ATmega328P real,
 con F_CPU seleccionable (8/16/20/25/32 MHz) para correr binarios de Arduino sin recompilar.
@@ -306,8 +319,8 @@ make check-tools
 |------|-----------|--------|
 | 0 | Fundación: estructura, licencias, generador del mapa de registros, CI | **Hecha** |
 | **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **Hecha** — criterio de aceptación cumplido |
-| 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | Pendiente |
-| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | Pendiente |
+| 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | **Cumplida en simulación** — falta enchufar la placa |
+| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **En marcha** — cinco de sus diez dentro |
 | 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | Pendiente |
 | 5 | Endurecimiento: cierre de timing, portes a iCE40 y Gowin, regresión nocturna | Pendiente |
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
@@ -322,10 +335,16 @@ Criterio de aceptación de la fase 1, sin ambigüedad, y su estado:
 | ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
 | Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |
 
-La **fase 2** está en marcha: ya están el bus de datos, los puertos de E/S, el Timer0 con su
-prescaler compartido y el controlador de interrupciones —que desbloqueó la única parte del
-secuenciador que no se podía ejercitar—. Quedan la USART, el top de ECP5 y el backend de BRAM,
-y con ellos el primer bitstream con un LED parpadeando en la FPGA.
+La **fase 2 cumple su criterio de aceptación en simulación** desde el 11-sep: bus de datos,
+puertos de E/S, Timer0 con su prescaler compartido, controlador de interrupciones, USART, top de
+ECP5 y backend de BRAM. `make sim-hello` compila C con avr-gcc **sin modificar**, lo corre sobre el
+SoC completo y **decodifica el pin**: el texto por el puerto serie, el LED parpadeando, una
+transacción SPI y los seis canales PWM medidos a la vez. El bitstream se genera, cierra timing y
+lleva el programa dentro. **Lo único que falta es enchufar la placa** (`make prog-ulx3s`).
+
+La **fase 3** está en marcha, con **cinco de sus diez periféricos** dentro —Timer1, Timer2, las
+interrupciones externas, el SPI y el TWI— y las deudas D3, D12 y D13 de la USART cerradas. Quedan
+el ADC, el comparador analógico, el watchdog, la EEPROM y el control de reloj.
 
 ---
 
@@ -371,8 +390,9 @@ La CI falla si los dos primeros están desactualizados.
 | [`docs/02-legal.md`](docs/02-legal.md) | Política clean-room y análisis de licencias |
 | [`docs/04-herramientas.md`](docs/04-herramientas.md) | Cadena de herramientas |
 | [`docs/05-register-map.md`](docs/05-register-map.md) | Mapa de registros y vectores. **Generado** |
+| [`docs/06-deuda-tecnica.md`](docs/06-deuda-tecnica.md) | **Deuda técnica.** RTL que existe y no hace todo lo que su nombre promete, con qué lo desbloquea |
 | [`docs/adr/`](docs/adr/) | Registros de decisiones de arquitectura |
-| [`INSTALL.md`](INSTALL.md) | Instalación desde cero, con y sin `sudo` |
+| [`INSTALL.md`](INSTALL.md) | Instalación desde cero, **sin `sudo`** y con las versiones fijadas |
 | [`requerimiento.md`](requerimiento.md) | Requerimiento oficial del proyecto |
 
 ---

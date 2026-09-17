@@ -826,14 +826,16 @@ CATALOG = [
  "    wire xck_i    = xck_maestro ? xck_gen : (xck_sync[1] ^ ucpol);",
  "    wire xck_i    = xck_maestro ? xck_gen : xck_sync[1];"),
 ("usart", USART, "sim-usart", "XCK conmuta sin mirar el generador: se va la frecuencia",
- "            if (xck_maestro && brg_tick) xck_gen <= ~xck_gen;",
- "            if (xck_maestro) xck_gen <= ~xck_gen;"),
+ "            if (xck_maestro && brg_tick && xck_corre) begin",
+ "            if (xck_maestro && xck_corre) begin"),
 ("usart", USART, "sim-usart", "en sincrono se sigue sobremuestreando por dieciseis",
- "    wire [4:0] osr = sincrono ? 5'd1 : (u2x ? 5'd8 : 5'd16);   // muestras por bit",
+ "    wire [4:0] osr = reloj_xck ? 5'd1 : (u2x ? 5'd8 : 5'd16);  // muestras por bit",
  "    wire [4:0] osr = u2x ? 5'd8 : 5'd16;"),
 ("usart", USART, "sim-usart", "en sincrono se vota con muestras viejas en vez de mirar el pin",
- "    wire       rx_muestra = sincrono ? rxd_s : rx_voto_ahora;",
- "    wire       rx_muestra = rx_voto_ahora;"),
+ """    wire       rx_muestra = mspim    ? rx_sync[0] :
+                            sincrono ? rxd_s      : rx_voto_ahora;""",
+ """    wire       rx_muestra = mspim    ? rx_sync[0] :
+                            rx_voto_ahora;"""),
 ("usart", USART, "sim-usart", "el arranque sincrono gasta un periodo de XCK de mas",
  "                        rx_bit    <= sincrono ? 4'd1 : 4'd0;",
  "                        rx_bit    <= 4'd0;"),
@@ -841,8 +843,60 @@ CATALOG = [
  "                        if (mpcm && !es_direccion) begin",
  "                        if (1'b0 && !es_direccion) begin"),
 ("usart", USART, "sim-usart", "MPCM busca el tipo de trama siempre en el bit de parada",
- "    wire       es_direccion = (databits == 4'd9) ? rx_sh[8] : rx_muestra;",
+ "    wire       es_direccion = (databits_ef == 4'd9) ? rx_sh[8] : rx_muestra;",
  "    wire       es_direccion = rx_muestra;"),
+# ------------------------------------------------- MSPIM, la USART como SPI
+# NINGUNO DE ESTOS DA ERROR CONTRA UN SOLO MODO. Con los dos extremos
+# equivocados de la misma manera la trama sale perfecta, que es la leccion que
+# ya dejo UCPOL: por eso el esclavo del banco calcula sus flancos desde la tabla
+# de la hoja de datos y no desde el DUT.
+("usart", USART, "sim-usart", "XCK corre libre entre tramas, como en el sincrono",
+ "    wire       xck_corre = sincrono | (mspim & tx_activo & (m_tog != 5'd16));",
+ "    wire       xck_corre = sincrono | mspim;"),
+("usart", USART, "sim-usart", "la trama de MSPIM dura un pulso de mas",
+ "    wire m_fin = mspim & tx_activo & xck_baja & (m_tog == 5'd16);",
+ "    wire m_fin = mspim & tx_activo & xck_baja & (m_tog == 5'd18);"),
+("usart", USART, "sim-usart", "UDORD no se mira: siempre sale el bit 0 primero",
+ "    wire [8:0] tx_carga = mspim ? {1'b0, (udord ? tx_lsb : tx_msb)} : tx_buf;",
+ "    wire [8:0] tx_carga = mspim ? {1'b0, tx_lsb} : tx_buf;"),
+("usart", USART, "sim-usart", "UDORD se mira al transmitir y no al recibir",
+ """    wire [8:0] rx_guarda = mspim ? {1'b0, (udord ? rx_m_lsb : rx_m_msb)}
+                                 : (rx_sh >> (4'd9 - databits_ef));""",
+ """    wire [8:0] rx_guarda = mspim ? {1'b0, rx_m_lsb}
+                                 : (rx_sh >> (4'd9 - databits_ef));"""),
+("usart", USART, "sim-usart", "UCPHA no cambia el flanco de muestreo",
+ """    wire tx_tick = !reloj_xck ? brg_tick : ((mspim & ucpha) ? xck_sube : xck_baja);
+    wire rx_tick = !reloj_xck ? brg_tick : ((mspim & ucpha) ? xck_baja : xck_sube);""",
+ """    wire tx_tick = !reloj_xck ? brg_tick : xck_baja;
+    wire rx_tick = !reloj_xck ? brg_tick : xck_sube;"""),
+("usart", USART, "sim-usart", "con UCPHA=0 el primer bit no se adelanta al primer flanco",
+ "    wire       m_ya      = mspim & ~ucpha;                 // adelanta el bit 1",
+ "    wire       m_ya      = 1'b0;"),
+# EL DATO A TRAVES DEL SINCRONIZADOR DE TRES ETAPAS: a UBRR=0 son bit y medio de
+# retraso. Sobrevive a cualquier banco que solo pruebe velocidades comodas, y
+# por eso la fase de MSPIM barre UBRR=0 y 1.
+("usart", USART, "sim-usart", "MSPIM muestrea el dato por el sincronizador entero",
+ """    wire       rx_muestra = mspim    ? rx_sync[0] :
+                            sincrono ? rxd_s      : rx_voto_ahora;""",
+ """    wire       rx_muestra = mspim    ? rx_sync[2] :
+                            sincrono ? rxd_s      : rx_voto_ahora;"""),
+("usart", USART, "sim-usart", "XCK no vuelve a su reposo entre tramas",
+ "            if (mspim && !tx_activo) xck_gen <= 1'b0;",
+ "            if (1'b0 && !tx_activo) xck_gen <= 1'b0;"),
+("usart", USART, "sim-usart", "MSPIM arranca sin DDR_XCK0 y pierde el byte en silencio",
+ "    wire m_arranca = mspim & txen & xck_maestro & ~tx_activo & tx_buf_full;",
+ "    wire m_arranca = mspim & txen & ~tx_activo & tx_buf_full;"),
+("usart", USART, "sim-usart", "la trama de MSPIM no vacia el bufer y se repite sola",
+ """                tx_sh       <= tx_sh_ini;
+                tx_buf_full <= 1'b0;""",
+ """                tx_sh       <= tx_sh_ini;
+                tx_buf_full <= tx_buf_full;"""),
+("usart", USART, "sim-usart", "MSPIM cuenta los bits de datos de UCSZ en vez de ocho",
+ "    wire [3:0] databits_ef = mspim ? 4'd8 : databits;",
+ "    wire [3:0] databits_ef = databits;"),
+("usart", USART, "sim-usart", "la ultima muestra de MSPIM guarda el byte sin ella",
+ "                            if (rx_n == 2'd0) rx_fifo0 <= {2'b00, rx_guarda};",
+ "                            if (rx_n == 2'd0) rx_fifo0 <= {2'b00, rx_sh};"),
 # ------------------------------------------- PD0 y PD1: el puerto serie
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
@@ -919,9 +973,31 @@ class Lock:
 
 def main():
     want = set(sys.argv[1:])
+    solo_patrones = "--patrones" in want
+    want.discard("--patrones")
     cat = [c for c in CATALOG if not want or c[0] in want]
     if not cat:
         sys.exit(f"grupos disponibles: {sorted({c[0] for c in CATALOG})}")
+
+    # ---------------------------------------- los patrones, ANTES de nada
+    # QUE UN PATRON NO SE ENCUENTRE NO ES «DETECTADO»: es un mutante que no se
+    # inyecta, o sea un agujero silencioso. Pasa cada vez que se mueve el RTL
+    # —van cinco— y hasta ahora se descubria al final, ocho minutos despues.
+    # Comprobarlo cuesta un segundo, asi que se hace primero y se para aqui.
+    # Con `--patrones` se hace SOLO esto, que es lo que puede correr el trabajo
+    # rapido de la CI en cada push.
+    fuentes = {f: (ROOT / f).read_text(encoding="utf-8") for f in {c[1] for c in CATALOG}}
+    perdidos = [(g, d) for g, f, _t, d, old, _n in CATALOG if old not in fuentes[f]]
+    if perdidos:
+        print(f"  {RED}{len(perdidos)} patrones no encontrados{NC} — el catálogo se ha "
+              f"desincronizado del RTL:")
+        for g, d in perdidos:
+            print(f"    [{g}] {d}")
+        print("\n  El catálogo se reapunta EN EL MISMO COMMIT que mueve el RTL.")
+        return 1
+    if solo_patrones:
+        print(f"  {GREEN}los {len(CATALOG)} patrones del catálogo siguen en su sitio{NC}")
+        return 0
 
     originals = {f: (ROOT / f).read_text(encoding="utf-8")
                  for f in {c[1] for c in cat}}

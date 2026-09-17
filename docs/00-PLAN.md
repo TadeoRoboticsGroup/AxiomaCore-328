@@ -1061,6 +1061,27 @@ enumerado** en vez de implícito.
       **Se comprueba en el pin**: `hello.c` deja `PD0` como salida a propósito y no toca `DDRD1`, y
       `make sim-hello` verifica que al encender la USART los dos dan la vuelta. Es lo único que
       distingue un pin encaminado de un pin que resulta que vale lo mismo.
+- [x] **La USART como MAESTRO SPI (`UMSEL` = 11)** — la deuda D12, cerrada. Es el mismo motor por
+      tercera vez, con la trama más corta que se puede escribir: ocho bits y nada más.
+
+      **Lo que no se pudo reutilizar, y por qué:** sin bit de arranque, la trama la delimita **el
+      reloj**, así que el receptor arranca con el transmisor y la trama muere en el **octavo flanco
+      de salida del pulso** —el único instante que existe con las dos fases de `UCPHA` y el único
+      que deja el pin en su reposo—; `XCK` **sólo corre mientras hay trama** y vuelve a su nivel de
+      reposo, porque un esclavo SPI cuenta flancos y un pulso de más lo descoloca para siempre; y
+      **el dato no pasa por el sincronizador de tres etapas**, que en síncrono se podía permitir
+      porque el bit de arranque viaja por el mismo retardo y alinea la trama sola, y aquí no hay
+      arranque que alinee nada: tres ciclos a `f_CPU/2` son bit y medio.
+
+      `UCPHA` intercambia los dos flancos en vez de duplicar la máquina, y `UDORD` se resuelve
+      dando la vuelta al byte al cargarlo y al guardarlo, con lo que el desplazador sigue siendo
+      uno. Los bits de `UCSR0C` son los mismos biestables con otro nombre, como en el chip.
+
+      **46 650 comprobaciones** contra un esclavo SPI escrito desde la hoja de datos, doce mutantes
+      nuevos y los doce muertos. De paso: al modo síncrono le faltaba su velocidad máxima —la suite
+      empezaba en `UBRR=3` y `UBRR=0` es `f_CPU/2`—, un mutante superviviente resultó **equivalente**
+      y se quitaron tres líneas muertas, y la cobertura destapó que el segundo nivel del búfer no lo
+      pisaba nadie en MSPIM.
 - [ ] `eeprom.v` + máquina de estados de `EECR`.
 - [ ] `clkctrl.v`: CLKPR, PRR, modos de sueño, `SMCR`.
 - [ ] Barrido completo del mapa de registros (Capa 4).

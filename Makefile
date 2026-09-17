@@ -89,7 +89,8 @@ help:
 	@echo "  make cycles-table     regenera la tabla de ciclos del contrato L3"
 	@echo "  make sim-core         todas las anteriores"
 	@echo "  make sim-random       10^6 instrucciones aleatorias vs simavr"
-	@echo "  make mutation         prueba de mutación de TODO el RTL (~5 min)"
+	@echo "  make mutation         prueba de mutación de TODO el RTL (~8 min)"
+	@echo "  make mutation-check   los patrones del catálogo siguen en el RTL (1 s)"
 
 	@echo ""
 	@echo -e "$(BOLD)Fase 2$(NC)  $(DIM)FPGA$(NC)"
@@ -519,6 +520,15 @@ sim-random: $(BUILD)/vdiff/Vaxioma_sim_top $(PERF_DIR)/cycles.bin
 .PHONY: mutation
 mutation:
 	@$(PYTHON) sim/mutation.py
+
+# --- el catalogo de mutacion, apuntando a donde debe ---
+# QUE UN PATRON NO SE ENCUENTRE NO ES «DETECTADO»: es un mutante que no se
+# inyecta, y por tanto un agujero silencioso. Pasa cada vez que se mueve el RTL
+# -van cinco- y hasta ahora se descubria al final de `make mutation`, ocho
+# minutos despues. Esto tarda un segundo y va en el trabajo rapido de la CI.
+.PHONY: mutation-check
+mutation-check:
+	@$(PYTHON) sim/mutation.py --patrones
 
 # ------------------------------------------------------------ fase 2: FPGA
 $(BUILD):

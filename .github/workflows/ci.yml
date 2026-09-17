@@ -92,6 +92,13 @@ jobs:
       - name: Rutas y cuentas que cita la documentación
         run: make check-docs
 
+      # El trabajo de mutacion tarda ocho minutos y corre aparte. Pero un
+      # catalogo desincronizado no hace falta esperarlos para verlo: un patron
+      # que ya no se encuentra es un mutante que NO SE INYECTA, o sea un
+      # agujero silencioso, y ha pasado cinco veces al mover el RTL. Un segundo.
+      - name: El catálogo de mutación apunta a donde debe
+        run: make mutation-check
+
   verify:
     name: Verificación del núcleo
     runs-on: ubuntu-latest

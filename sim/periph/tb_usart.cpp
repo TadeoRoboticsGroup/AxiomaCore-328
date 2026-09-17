@@ -50,7 +50,7 @@ enum { A_UCSR0A = 0xA0, A_UCSR0B = 0xA1, A_UCSR0C = 0xA2,
 
 // Bits, con los nombres de avr-libc.
 enum { RXC = 0x80, TXC = 0x40, UDRE = 0x20, FE = 0x10, DOR = 0x08, UPE = 0x04,
-       U2X = 0x02 };
+       U2X = 0x02, MPCM = 0x01 };
 enum { RXEN = 0x10, TXEN = 0x08, UCSZ2 = 0x04 };
 
 static void tick() { dut->clk = 1; dut->eval(); dut->clk = 0; dut->eval(); }
@@ -366,6 +366,104 @@ static void emitir_sinc(const CfgSinc &c, uint16_t dato, bool tipo = true) {
     for (int i = 0; i < 8; i++) tick();
 }
 
+// ===================================================================== MSPIM
+// LA USART COMO MAESTRO SPI, y el oraculo es EL OTRO EXTREMO DEL CABLE, igual
+// que con axioma_spi: un esclavo escrito desde la hoja de datos que cuelga de
+// XCK, muestrea MOSI en un flanco y presenta MISO en el otro. Si los dos
+// extremos no coinciden bit a bit, uno de los dos esta mal.
+//
+// QUE FLANCO ES CUAL. La tabla de la hoja de datos se resume en un XOR: el
+// flanco de MUESTREO es la subida del pin cuando UCPOL y UCPHA coinciden, y la
+// bajada cuando no.
+//
+//   UCPOL UCPHA   entrada del pulso   salida del pulso
+//     0     0     muestreo (subida)   cambio  (bajada)
+//     0     1     cambio   (subida)   muestreo(bajada)
+//     1     0     muestreo (bajada)   cambio  (subida)
+//     1     1     cambio   (bajada)   muestreo(subida)
+struct EsclavoSpi {
+    bool ucpol = false, ucpha = false, udord = false;
+    uint8_t a_enviar = 0;          // lo que el esclavo devuelve por MISO
+    uint8_t recibido = 0;          // lo que el esclavo ve por MOSI
+    int  muestras = 0, emitidos = 0, flancos = 0, pulsos = 0;
+    bool xck_ant = false;
+    bool armado  = false;
+
+    bool bit_de(uint8_t v, int i) const {
+        return udord ? ((v >> i) & 1) : ((v >> (7 - i)) & 1);
+    }
+    void mete(bool v) {
+        if (muestras < 8) {
+            if (v) recibido = (uint8_t)(recibido | (udord ? (1u << muestras)
+                                                          : (0x80u >> muestras)));
+            muestras++;
+        }
+    }
+    // Arranca una transferencia: con UCPHA=0 el primer bit tiene que estar en
+    // el pin ANTES del primer flanco, que es lo que en un SPI de verdad hace el
+    // esclavo cuando le bajan SS.
+    void armar(uint8_t dato) {
+        a_enviar = dato; recibido = 0; muestras = 0; emitidos = 0;
+        flancos = 0; pulsos = 0; armado = true;
+        xck_ant = dut->xck_out;
+        if (!ucpha) { dut->rxd = bit_de(a_enviar, 0); emitidos = 1; }
+    }
+    // Un ciclo de reloj del sistema, con el esclavo mirando el pin.
+    void paso() {
+        tick();
+        bool x = dut->xck_out;
+        bool sube = x && !xck_ant, baja = !x && xck_ant;
+        xck_ant = x;
+        if (!armado || (!sube && !baja)) return;
+        flancos++;
+        if (baja == (ucpol != 0)) pulsos++;      // un pulso por flanco de entrada
+        bool muestreo = (ucpol == ucpha) ? sube : baja;
+        if (muestreo) mete(dut->txd);
+        else if (emitidos < 8) { dut->rxd = bit_de(a_enviar, emitidos); emitidos++; }
+    }
+};
+
+static EsclavoSpi esclavo;
+
+// UMSEL=11, y los bits de UCSR0C con su OTRO nombre: bit 2 UDORD, bit 1 UCPHA,
+// bit 0 UCPOL. Los de UPM y USBS quedan reservados y se escriben a cero.
+static void configurar_mspim(int ubrr, bool ucpol, bool ucpha, bool udord) {
+    for (int i = 0; i < 200; i++) tick();
+    dut->xck_es_salida = 1;                     // DDR_XCK0: lo que enciende el maestro
+    wr(A_UCSR0B, 0);                            // apagado mientras se configura
+    wr(A_UCSR0C, (uint8_t)(0xC0 | (udord ? 0x04 : 0) | (ucpha ? 0x02 : 0) |
+                           (ucpol ? 0x01 : 0)));
+    wr(A_UBRR0H, (uint8_t)(ubrr >> 8));
+    wr(A_UBRR0L, (uint8_t)(ubrr & 0xFF));
+    wr(A_UCSR0A, 0);
+    wr(A_UCSR0B, (uint8_t)(RXEN | TXEN));
+    esclavo.ucpol = ucpol; esclavo.ucpha = ucpha; esclavo.udord = udord;
+    esclavo.armado = false;
+    dut->rxd = 1;
+    for (int i = 0; i < 20; i++) tick();
+}
+
+// Una transferencia entera: el maestro manda `envia`, el esclavo devuelve
+// `responde`, y al terminar los dos tienen que tener el byte del otro.
+static bool transferir(uint8_t envia, uint8_t responde, uint8_t &leido,
+                       int periodo) {
+    esclavo.armar(responde);
+    wr(A_UDR0, envia);
+    const long tope = 40L * periodo + 600;
+    bool visto = false;
+    for (long i = 0; i < tope && !visto; i++) {
+        esclavo.paso();
+        if (peek(A_UCSR0A) & RXC) { leido = rd(A_UDR0); visto = true; }
+    }
+    if (!visto) return false;
+    // RXC SE LEVANTA EN LA ULTIMA MUESTRA, y con UCPHA=0 esa es la ENTRADA del
+    // octavo pulso: el flanco de salida todavia no ha ocurrido. Parar aqui
+    // dejaria sin contar el ultimo flanco y sin ver el pin volver al reposo,
+    // que es justo lo que hay que comprobar.
+    for (int i = 0; i < 2 * periodo + 8; i++) esclavo.paso();
+    return true;
+}
+
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     dut = new Vaxioma_usart;
@@ -641,6 +739,36 @@ int main(int argc, char **argv) {
         }
     }
 
+    // ------------------------------------- 9bis. el sincrono A SU VELOCIDAD
+    // LA HOJA DE DATOS PERMITE UBRR=0, y eso son f_CPU/2: un bit cada DOS
+    // ciclos de reloj, que es la velocidad que hace util el modo sincrono. La
+    // fase de arriba empieza en UBRR=3, asi que de UBRR<3 no se sabia nada.
+    //
+    // Es justo donde se rompe un receptor que mire el pin a traves de un
+    // sincronizador: con el dato retrasado N ciclos y el semiperiodo valiendo
+    // UBRR+1, el muestreo se sale del bit en cuanto UBRR+1 <= N. Con ondas
+    // lentas no se nota, y ese es el problema.
+    fase = "sincrono: a la velocidad maxima (UBRR 0..3)";
+    for (int ubrr : {0, 1, 2, 3})
+      for (bool pol : {false, true}) {
+        CfgSinc c { ubrr, 8, 0, 1, pol };
+        configurar_sinc(c, true, true, true);
+
+        uint16_t patron = (uint16_t)(0xB4 ^ (ubrr * 17));
+        wr(A_UDR0, (uint8_t)patron);
+        uint16_t got = 0; bool pok = false, sok = false;
+        if (recibir_sinc(c, got, pok, sok))
+            chk("el byte sale entero a f_CPU/(2*(UBRR+1))", got, patron);
+        else
+            chk("no salio trama a la velocidad maxima", 0, 1);
+
+        uint16_t envio = (uint16_t)(0x5A ^ (ubrr * 33));
+        emitir_sinc(c, envio);
+        for (int i = 0; i < 400 && !(peek(A_UCSR0A) & RXC); i++) tick();
+        chk("RXC a la velocidad maxima", (peek(A_UCSR0A) & RXC) != 0, 1);
+        chk("el byte recibido a la velocidad maxima", rd(A_UDR0), envio);
+      }
+
     // Y la forma de onda, en los dos sentidos y con las dos polaridades.
     fase = "sincrono: maestro, los dos sentidos";
     for (bool pol : {false, true})
@@ -868,6 +996,200 @@ int main(int argc, char **argv) {
     }
 
 
+    // ======================================================= 13. MSPIM
+    // La USART como MAESTRO SPI. Lo primero, el reloj: f_XCK = f_CPU/(2*(UBRR+1))
+    // es la misma formula que el sincrono, y ademas hay que comprobar dos cosas
+    // que el sincrono NO tiene: que el reloj este QUIETO entre tramas y que una
+    // trama sean OCHO PULSOS, ni uno mas. Un pulso de sobra descoloca a un
+    // esclavo de verdad para siempre, y con ondas bonitas no se ve.
+    fase = "MSPIM: ocho pulsos y el reloj quieto entre tramas";
+    for (int ubrr : {0, 1, 3, 7})
+      for (bool pol : {false, true}) {
+        configurar_mspim(ubrr, pol, false, false);
+        const int periodo = 2 * (ubrr + 1);
+
+        chk("XCK en reposo vale UCPOL", dut->xck_out, pol ? 1 : 0);
+        chk("y el maestro se adueña del pin", dut->xck_ovr, 1);
+
+        // Quieto ANTES de que haya nada que transmitir.
+        int flancos_ocioso = 0; bool ant = dut->xck_out;
+        for (int i = 0; i < 200; i++) {
+            tick();
+            if ((bool)dut->xck_out != ant) flancos_ocioso++;
+            ant = dut->xck_out;
+        }
+        chk("XCK no se mueve sin trama", flancos_ocioso, 0);
+
+        uint8_t leido = 0;
+        bool ok = transferir(0xA5, 0x3C, leido, periodo);
+        chk("la transferencia termina", ok, 1);
+        chk("el esclavo recibio lo que mando el maestro", esclavo.recibido, 0xA5);
+        chk("y el maestro recibio lo que mando el esclavo", leido, 0x3C);
+        chk("una trama son OCHO pulsos", esclavo.pulsos, 8);
+        chk("o sea dieciseis flancos", esclavo.flancos, 16);
+
+        // Y vuelve a quedarse quieto, en su nivel de reposo.
+        chk("XCK vuelve al reposo", dut->xck_out, pol ? 1 : 0);
+        flancos_ocioso = 0; ant = dut->xck_out;
+        for (int i = 0; i < 200; i++) {
+            tick();
+            if ((bool)dut->xck_out != ant) flancos_ocioso++;
+            ant = dut->xck_out;
+        }
+        chk("y no se mueve despues", flancos_ocioso, 0);
+      }
+
+    // El periodo, medido. Es la misma promesa que en sincrono y se rompe igual
+    // de silenciosamente: un esclavo lento no se queja, se equivoca.
+    fase = "MSPIM: el periodo de XCK";
+    for (int ubrr : {1, 3, 7, 15}) {
+        configurar_mspim(ubrr, false, false, false);
+        esclavo.armar(0x00);
+        wr(A_UDR0, 0x5A);
+        long t[3] = {0,0,0}; int n = 0; long ciclo = 0; bool ant = dut->xck_out;
+        for (long i = 0; i < 40L * 2 * (ubrr + 1) + 600 && n < 3; i++) {
+            esclavo.paso(); ciclo++;
+            bool p = dut->xck_out;
+            if (p && !ant) t[n++] = ciclo;
+            ant = p;
+        }
+        if (n >= 3) {
+            chk("periodo de XCK en MSPIM", (uint32_t)(t[2] - t[1]),
+                (uint32_t)(2 * (ubrr + 1)));
+            chk("y es estable", (uint32_t)(t[1] - t[0]),
+                (uint32_t)(2 * (ubrr + 1)));
+        } else {
+            chk("no se vieron tres flancos de XCK", 0, 1);
+        }
+    }
+
+    // LOS CUATRO MODOS Y LOS DOS ORDENES DE BIT. Que el dato llegue con un modo
+    // no dice nada de los otros tres: con los dos extremos equivocados de la
+    // misma manera la trama sale perfecta, y por eso el esclavo del banco
+    // calcula sus flancos desde la tabla y no desde el DUT.
+    fase = "MSPIM: los cuatro modos por los dos ordenes";
+    for (bool pol : {false, true})
+      for (bool pha : {false, true})
+        for (bool ord : {false, true}) {
+            configurar_mspim(3, pol, pha, ord);
+            static const uint8_t casos[4][2] = {
+                {0x00, 0xFF}, {0xFF, 0x00}, {0x80, 0x01}, {0x96, 0x69}
+            };
+            for (int k = 0; k < 4; k++) {
+                uint8_t leido = 0;
+                bool ok = transferir(casos[k][0], casos[k][1], leido, 8);
+                chk("la transferencia termina", ok, 1);
+                chk("el esclavo ve el byte del maestro", esclavo.recibido,
+                    casos[k][0]);
+                chk("el maestro ve el byte del esclavo", leido, casos[k][1]);
+                chk("ocho pulsos en todos los modos", esclavo.pulsos, 8);
+            }
+        }
+
+    // TRAFICO ALEATORIO, que es lo unico que destapa los casos que a nadie se
+    // le ocurre escribir. Semilla fija: un fallo se reproduce.
+    fase = "MSPIM: trafico aleatorio";
+    {
+        std::mt19937 rng(20260914);
+        for (int i = 0; i < 120; i++) {
+            bool pol = rng() & 1, pha = rng() & 1, ord = rng() & 1;
+            int ubrr = (int)(rng() % 5);
+            configurar_mspim(ubrr, pol, pha, ord);
+            for (int k = 0; k < 3; k++) {
+                uint8_t a = (uint8_t)(rng() & 0xFF), b = (uint8_t)(rng() & 0xFF);
+                uint8_t leido = 0;
+                if (transferir(a, b, leido, 2 * (ubrr + 1))) {
+                    chk("ida", esclavo.recibido, a);
+                    chk("vuelta", leido, b);
+                    chk("ocho pulsos", esclavo.pulsos, 8);
+                } else {
+                    chk("la transferencia aleatoria no termino", 0, 1);
+                }
+            }
+        }
+    }
+
+    // LO QUE MSPIM *NO* TIENE, y que hay que comprobar que no aparece: ni
+    // paridad, ni bit de parada, ni MPCM. Los bits de UCSR0C siguen siendo los
+    // mismos biestables -se leen de vuelta-, pero no los mira nadie: con UPM,
+    // USBS y MPCM puestos la trama tiene que salir IDENTICA.
+    fase = "MSPIM: paridad, parada y MPCM no existen aqui";
+    {
+        configurar_mspim(3, false, false, false);
+        uint8_t limpio = 0;
+        transferir(0x5A, 0xC3, limpio, 8);
+        int pulsos_limpios = esclavo.pulsos;
+
+        // Ahora con toda la parafernalia de la USART encendida.
+        wr(A_UCSR0C, 0xF9);                      // UMSEL=11, UPM=11, USBS=1, ...
+        chk("UCSR0C se lee de vuelta entera", peek(A_UCSR0C), 0xF9);
+        wr(A_UCSR0A, MPCM);
+        esclavo.ucpol = true; esclavo.ucpha = false; esclavo.udord = false;
+        uint8_t sucio = 0;
+        bool ok = transferir(0x5A, 0xC3, sucio, 8);
+        chk("la trama sale igual con UPM y USBS puestos", ok, 1);
+        chk("mismo byte de ida", esclavo.recibido, 0x5A);
+        chk("mismo byte de vuelta", sucio, limpio);
+        chk("y los mismos pulsos", esclavo.pulsos, pulsos_limpios);
+        chk("MPCM no tira la trama", (peek(A_UCSR0A) & RXC) != 0, 0);
+        wr(A_UCSR0A, 0);
+    }
+
+    // EL BUFER DE DOS NIVELES TAMBIEN EXISTE EN MSPIM, y es el mismo: un
+    // programa que encadene dos transferencias sin leer UDR0 tiene que
+    // encontrarse los DOS bytes, en orden, y sin DOR. La cobertura lo destapo:
+    // el banco leia siempre justo despues de RXC, asi que el segundo nivel no
+    // lo pisaba nadie y la rama salia sin cubrir.
+    fase = "MSPIM: el bufer de dos niveles";
+    {
+        configurar_mspim(3, false, false, false);
+        const int periodo = 8;
+
+        // Dos tramas seguidas SIN leer UDR0 en medio.
+        esclavo.armar(0x11);
+        wr(A_UDR0, 0xAA);
+        for (int i = 0; i < 20 * periodo + 200; i++) esclavo.paso();
+        chk("la primera trama entra", (peek(A_UCSR0A) & RXC) != 0, 1);
+
+        esclavo.armar(0x22);
+        wr(A_UDR0, 0xBB);
+        for (int i = 0; i < 20 * periodo + 200; i++) esclavo.paso();
+        chk("el segundo byte cabe, sin desbordar", (peek(A_UCSR0A) & DOR) != 0, 0);
+
+        chk("y salen en orden: primero el que llego antes", rd(A_UDR0), 0x11);
+        chk("y despues el segundo", rd(A_UDR0), 0x22);
+        chk("el bufer queda vacio", (peek(A_UCSR0A) & RXC) != 0, 0);
+
+        // Y el tercero SI desborda, como en cualquier otro modo.
+        for (uint8_t v : {0x33, 0x44, 0x55}) {
+            esclavo.armar(v);
+            wr(A_UDR0, 0x00);
+            for (int i = 0; i < 20 * periodo + 200; i++) esclavo.paso();
+        }
+        chk("el tercero desborda y lo dice", (peek(A_UCSR0A) & DOR) != 0, 1);
+        chk("los dos primeros siguen intactos", rd(A_UDR0), 0x33);
+        chk("en su orden", rd(A_UDR0), 0x44);
+    }
+
+    // SIN DDR_XCK0 NO HAY MAESTRO, que es como la hoja de datos enciende el
+    // modo: "setting the XCKn port pin as output enables master mode".
+    fase = "MSPIM: sin DDR_XCK0 no hay reloj";
+    {
+        configurar_mspim(3, false, false, false);
+        dut->xck_es_salida = 0;
+        for (int i = 0; i < 20; i++) tick();
+        chk("no se adueña del pin", dut->xck_ovr, 0);
+        wr(A_UDR0, 0x77);
+        int flancos = 0; bool ant = dut->xck_out;
+        for (int i = 0; i < 400; i++) {
+            tick();
+            if ((bool)dut->xck_out != ant) flancos++;
+            ant = dut->xck_out;
+        }
+        chk("y no genera ni un flanco", flancos, 0);
+        chk("la trama se queda esperando", (peek(A_UCSR0A) & UDRE) != 0, 0);
+        dut->xck_es_salida = 1;
+    }
 
 #if VM_COVERAGE
     // Sólo existe al compilar con `--coverage`. Sin esta llamada la

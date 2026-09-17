@@ -169,6 +169,7 @@ make synth-check   # yosys: ni un latch, y el área de cada módulo
 make regmap-check  # el mapa de registros coincide con avr-libc
 make lpf           # constraints de la ULX3S reproducibles
 make check-docs    # las rutas citadas en los .md existen, y la cuenta de vectores
+make mutation-check # los patrones del catálogo de mutación siguen en el RTL
 
 # --- núcleo ---
 make sim-alu       # 22 282 240 vectores exhaustivos
@@ -193,13 +194,13 @@ make sim-hello     # blink, serie, SPI y los seis PWM leídos DEL PIN
 make coverage      # cobertura del RTL fusionando todas las fuentes; es PUERTA
 ```
 
-**Los 28 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
+**Los 29 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
 todo—. Se pueden encadenar en una sola línea, que es como los ejecuta la CI.
 
-Aparte, y en un trabajo propio de la CI porque tarda unos 8 minutos:
+Aparte, y en un trabajo propio de la CI porque tarda unos 9 minutos:
 
 ```bash
-make mutation      # inyecta 190 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 202 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

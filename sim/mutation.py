@@ -901,6 +901,19 @@ CATALOG = [
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
 # que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+# --------------------------------------------- SDA y SCL, los pines del TWI
+# El banco del TWI cuelga de un bus propio y no ve el SoC, asi que tampoco puede
+# decir por que pines sale. Y `twi.S` en el diferencial TAMPOCO: ahi el pad se
+# realimenta, y un lazo sobre si mismo se cree cualquier cosa —los dos mutantes
+# de abajo SOBREVIVIAN a la regresion entera—. Lo que los mata es mirar la
+# LINEA en `sim-hello`: un START es SDA bajando con SCL alta, y eso solo ocurre
+# si SDA es PC4 y SCL es PC5.
+("soc", SOC, "sim-hello", "SDA y SCL salen intercambiados del SoC",
+ "    wire [7:0] dir_c_val = {2'b0, twi_scl_pull, twi_sda_pull, 4'b0};",
+ "    wire [7:0] dir_c_val = {2'b0, twi_sda_pull, twi_scl_pull, 4'b0};"),
+("soc", SOC, "sim-hello", "el TWI se aduenia de dos pines del puerto C que no son suyos",
+ "    wire [7:0] ovr_c_en  = twi_en ? 8'b0011_0000 : 8'h00;",
+ "    wire [7:0] ovr_c_en  = twi_en ? 8'b0000_1100 : 8'h00;"),
 # ------------------------------------------------- XCK, el reloj de MSPIM
 # EL BANCO DEL PERIFERICO NO VE EL SOC, asi que no puede decir por que pin sale
 # XCK. Estos dos SOLO los caza `sim-hello`, y solo porque hello.c hace una

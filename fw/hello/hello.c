@@ -212,6 +212,38 @@ int main(void)
         UCSR0C = 0;
     }
 
+    /* TWI: un START, una dirección y un STOP, que es exactamente lo que hace
+     * `Wire.beginTransmission()` por dentro antes de mandar nada.
+     *
+     * `PORTC4` y `PORTC5` DECLARAN EL PULL-UP y siguen mandando con el TWI
+     * encendido: el periférico ata el valor del pin a cero y modula la
+     * DIRECCIÓN, que es como se construye un colector abierto. Es lo que hace
+     * funcionar el `digitalWrite(SDA, HIGH)` que `Wire.begin()` lleva dentro.
+     *
+     * Aquí no hay ningún esclavo al otro lado, así que la dirección se queda
+     * sin reconocer y el estado sale 0x20 —SLA+W con NACK—, que es justo lo que
+     * devuelve un escáner I2C cuando esa dirección está vacía. No importa: lo
+     * que se verifica es que SDA salga por **PC4** y SCL por **PC5**, y eso no
+     * lo puede decir el banco del TWI, que cuelga de un bus propio y no ve el
+     * SoC. Se comprueba EN EL PIN. */
+    {
+        PORTC |= (1 << PC4) | (1 << PC5);     /* los pull-ups del bus */
+        TWSR = 0;                             /* prescaler 1 */
+        TWBR = 32;                            /* f_SCL = F_CPU/(16+2*32) */
+
+        TWCR = (1 << TWINT) | (1 << TWSTA) | (1 << TWEN);   /* START */
+        while (!(TWCR & (1 << TWINT)))
+            ;
+        TWDR = 0xA0;                          /* SLA+W: nadie va a contestar */
+        TWCR = (1 << TWINT) | (1 << TWEN);
+        while (!(TWCR & (1 << TWINT)))
+            ;
+        TWCR = (1 << TWINT) | (1 << TWSTO) | (1 << TWEN);   /* STOP */
+        while (TWCR & (1 << TWSTO))
+            ;
+        TWCR = 0;
+    }
+
     usart_init();
     sei();
 

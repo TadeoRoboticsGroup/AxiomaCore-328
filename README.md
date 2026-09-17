@@ -100,11 +100,26 @@ vector multiplicando por cuatro en vez de por dos, y su máquina de estados de e
 cumplirse en cuanto el primer ciclo limpiaba el bit `I`.
 
 **Cuánto queda, y medido contra qué.** El [plan](docs/00-PLAN.md) presupuesta las fases en semanas:
-1 + 4 + 2 + 5 + 3 + 2 = **17 semanas** hasta la v1.0 sobre FPGA, y de 6 a 10 más si hay silicio.
-Con las fases 0 y 1 cerradas, la 2 **cumplida en simulación** —a falta de enchufar la placa— y la 3
-con **cinco de sus diez periféricos** dentro —Timer1, Timer2, las interrupciones externas, el
-SPI y el TWI—, salen **~49 % hasta la v1.0 en FPGA** y **~34 % contando el silicio**. Es el presupuesto del propio plan,
-no una impresión.
+1 + 4 + 2 + 5 + 3 + 2 = **17 semanas** hasta la v1.0 sobre FPGA, y de 6 a 10 más si hay silicio. La
+cuenta se hace con esos pesos, no a ojo:
+
+| Fase | Semanas | Hecho | Aporta |
+|------|--------:|------:|-------:|
+| 0 · fundación | 1 | 100 % | 1,00 |
+| 1 · núcleo ISA | 4 | 100 % | 4,00 |
+| 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
+| 3 · periféricos | 5 | 55 % — cinco de sus diez dentro, más las tres deudas de la USART | 2,75 |
+| 4 · Arduino | 3 | 0 % | 0,00 |
+| 5 · endurecimiento | 2 | 0 % | 0,00 |
+| | **17** | | **9,55** |
+
+Salen **~56 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 35 % y un 42 %, y **~38 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+impresión.
+
+Los cinco periféricos de la fase 3 que faltan son el **ADC**, el **comparador analógico**, el
+**watchdog**, la **EEPROM** y el **control de reloj**; y con ellos los cinco vectores de
+interrupción que siguen sin fuente.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando

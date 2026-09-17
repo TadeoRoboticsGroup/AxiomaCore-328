@@ -58,6 +58,17 @@ static const uint8_t *spi_esperados = nullptr;
 static int pd0_salida_antes = -1;   // lo que valia DDRD0 ya resuelto
 static int pd1_salida_antes = -1;
 
+// MSPIM LEIDO DEL PIN. Que XCK salga por PD4 y no por otro sitio NO lo puede
+// decir el banco del periferico, que no ve el SoC; y un pin encaminado y un pin
+// que resulta que vale lo mismo son indistinguibles si nadie mira. El programa
+// manda tres bytes en modo 3 -UCPOL=1, UCPHA=1- con el mas significativo
+// primero, asi que el flanco de muestreo es la SUBIDA del pin.
+static std::vector<uint8_t> mspim_bytes;
+static int  mspim_xck_previo = -1;
+static int  mspim_bit = 0, mspim_flancos = 0;
+static uint8_t mspim_sh = 0;
+static int  mspim_xck_salida = 0;   // que PD4 llegue a ser salida de verdad
+
 static void checks_spi() {
     if (!spi_leidos) return;
     if (spi_leidos->size() != 3) {
@@ -230,19 +241,40 @@ int main(int argc, char **argv) {
             if (v) ch.alto++;
         }
 
+        // --- MSPIM en el pin: XCK es PD4 y MOSI es PD1 ---
+        if (dut->dbg_umsel == 3) {
+            if (dut->portd_oe & 0x10) mspim_xck_salida = 1;
+            int xck = (dut->portd >> 4) & 1;
+            if (mspim_xck_previo >= 0 && xck != mspim_xck_previo) {
+                mspim_flancos++;
+                if (xck) {                       // modo 3: se muestrea al subir
+                    mspim_sh = (uint8_t)((mspim_sh << 1) |
+                                         ((dut->portd >> 1) & 1));
+                    if (++mspim_bit == 8) {
+                        mspim_bytes.push_back(mspim_sh);
+                        mspim_bit = 0; mspim_sh = 0;
+                    }
+                }
+            }
+            mspim_xck_previo = xck;
+        }
+
         // --- PD0 y PD1, la anulacion de DIRECCION ---
         // Antes de que la USART se encienda, los dos son de E/S general: `hello.c`
         // pone DDRD0 a SALIDA y no toca DDRD1 en ningun momento. Al encenderla,
         // el hardware tiene que dar la vuelta a los dos: PD0 a ENTRADA pese a
         // DDRD0, y PD1 a SALIDA sin que nadie haya escrito DDRD1.
-        if (dut->dbg_ubrr == 0) {
+        if (dut->dbg_ubrr == 0 && dut->dbg_umsel == 0) {
             pd0_salida_antes = (dut->portd_oe & 0x01) ? 1 : 0;
             pd1_salida_antes = (dut->portd_oe & 0x02) ? 1 : 0;
         }
 
         // --- el pin serie ---
         int linea = dut->txd_en ? dut->txd : 1;
-        if (periodo == 0 && dut->dbg_ubrr != 0) {
+        // EL DIVISOR DE MSPIM TAMBIEN VIVE EN UBRR0, y es otro: sin mirar
+        // UMSEL, el banco mediria el periodo de bit del puerto serie con el
+        // divisor del SPI y no decodificaria ni una trama.
+        if (periodo == 0 && dut->dbg_ubrr != 0 && dut->dbg_umsel == 0) {
             periodo = (long)(dut->dbg_ubrr + 1) * (dut->dbg_u2x ? 8 : 16);
             printf("  el programa configuro UBRR=%u y U2X=%u -> %ld ciclos por bit\n",
                    (unsigned)dut->dbg_ubrr, (unsigned)dut->dbg_u2x, periodo);
@@ -369,6 +401,38 @@ int main(int argc, char **argv) {
     }
     printf("  PD1 pasa a salida con TXEN0 sin tocar DDRD1, y PD0 vuelve a "
            "entrada con RXEN0 pese a DDRD0\n");
+
+    // Lo que prueba que XCK sale por PD4 y que MSPIM funciona por el bus real.
+    {
+        static const uint8_t esperado[3] = { 0x96, 0x5A, 0xC3 };
+        if (!mspim_xck_salida) {
+            printf("  FALLA: PD4 nunca fue SALIDA; DDR_XCK0 es lo que enciende "
+                   "el maestro\n");
+            fails++;
+        }
+        if (mspim_bytes.size() != 3) {
+            printf("  FALLA: se leyeron %zu bytes de MSPIM en el pin, no 3\n",
+                   mspim_bytes.size());
+            fails++;
+        } else {
+            for (int i = 0; i < 3; i++)
+                if (mspim_bytes[i] != esperado[i]) {
+                    printf("  FALLA: byte %d de MSPIM leido del pin = 0x%02X, "
+                           "esperado 0x%02X\n", i, mspim_bytes[i], esperado[i]);
+                    fails++;
+                }
+        }
+        // Tres tramas de ocho pulsos son 48 flancos. Ni uno mas: un pulso de
+        // sobra descoloca a un esclavo de verdad para siempre.
+        if (mspim_flancos != 48) {
+            printf("  FALLA: XCK dio %d flancos en PD4, y tres tramas de ocho "
+                   "pulsos son 48\n", mspim_flancos);
+            fails++;
+        }
+        if (!fails)
+            printf("  MSPIM leido del PIN: XCK en PD4 con 48 flancos exactos, "
+                   "y 96 5A C3 por PD1\n");
+    }
 
     if (fails) return 1;
     printf("  Blink, Serial y SPI, leidos del pin: criterio de la fase 2 cumplido\n");

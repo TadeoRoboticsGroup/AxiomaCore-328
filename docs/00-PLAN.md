@@ -1078,7 +1078,10 @@ enumerado** en vez de implícito.
       uno. Los bits de `UCSR0C` son los mismos biestables con otro nombre, como en el chip.
 
       **46 650 comprobaciones** contra un esclavo SPI escrito desde la hoja de datos, doce mutantes
-      nuevos y los doce muertos. De paso: al modo síncrono le faltaba su velocidad máxima —la suite
+      nuevos y los doce muertos. **Y por qué pin sale `XCK` no lo puede decir ese banco**, que no ve
+      el SoC: `hello.c` hace una transacción MSPIM de tres bytes y `make sim-hello` la decodifica
+      **del pin** —`XCK` en PD4 con 48 flancos exactos y `96 5A C3` por PD1—, con dos mutantes que
+      sólo caza ese banco. De paso: al modo síncrono le faltaba su velocidad máxima —la suite
       empezaba en `UBRR=3` y `UBRR=0` es `f_CPU/2`—, un mutante superviviente resultó **equivalente**
       y se quitaron tres líneas muertas, y la cobertura destapó que el segundo nivel del búfer no lo
       pisaba nadie en MSPIM.

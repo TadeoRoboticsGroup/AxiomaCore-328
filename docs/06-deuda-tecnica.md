@@ -277,6 +277,20 @@ trama salga **idéntica**. **Doce mutantes nuevos, los doce muertos.**
   así que en MSPIM nunca había dos bytes a la vez y la rama salía sin cubrir. `axioma_usart.v`
   vuelve a estar al **100 %**.
 
+**Y hay una segunda verificación que el banco del periférico NO puede dar: por qué pin sale `XCK`.**
+`tb_usart.cpp` no ve el SoC, así que un `XCK` encaminado a otro bit del puerto D le parecería
+correcto. Por eso `fw/hello/hello.c` hace ahora una **transacción MSPIM de tres bytes** —modo 3, el
+más significativo primero, con `<avr/io.h>` sin tocar— y `make sim-hello` **la decodifica del pin**:
+`XCK` en **PD4** con **48 flancos exactos** —tres tramas de ocho pulsos, ni uno más— y los bytes
+`96 5A C3` por **PD1**. Dos mutantes nuevos, y son de los que **sólo** caza ese banco: quitarle a
+`XCK` la anulación de PD4, y hacer que el modo maestro mire el `DDR` de otro pin.
+
+De paso apareció algo que no es del chip sino **de quien lo observa**: al apagar MSPIM, el orden
+importa. Si se borra `UCSR0C` antes que `UBRR0`, queda una ventana de dos instrucciones en la que
+`UMSEL` ya dice «asíncrono» y el divisor sigue siendo el del SPI — y el banco midió ahí un periodo
+de bit que no existe y no decodificó ni una trama del puerto serie. El chip no se entera; el
+analizador lógico de al lado, sí.
+
 **Coste medido:** el módulo pasa de **391 a 486 LUT4** en el ECP5, y el `Fmax` del dispositivo
 entero de 20,23 a **19,77 MHz** tras el rutado —con la placa a 12,5, margen 1,58×—.
 

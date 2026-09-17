@@ -64,7 +64,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciséis 
 | `rtl/periph/axioma_extint.v` | **Verificado** | **2 501 159 comprobaciones** contra un modelo de la hoja de datos, más un programa de co-simulación contra `simavr`: los cuatro modos de `ISCn`, el de **nivel bajo** —que no deja bandera y sostiene la petición—, que la bandera se ponga con el vector deshabilitado, y que `PCMSKn` filtre la bandera mientras `PCICR` sólo filtra el salto |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
 | `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 286 KiB para la ULX3S 25F. `nextpnr` mide **Fmax 19,77 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,58× |
-| `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
+| `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, **decodifica también una transacción de la USART en modo SPI maestro** —`XCK` en PD4 con 48 flancos exactos y los bytes por PD1—, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
 | `rtl/core/axioma_seq.v` | **Verificado** | 16 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
@@ -77,9 +77,9 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciséis 
 
 ```
 regresión   29/29 objetivos en verde
-mutación   202/202 fallos inyectados, 202 detectados
+mutación   204/204 fallos inyectados, 204 detectados
 cobertura   99,6 % del RTL, fusionando todas las fuentes
-            17 de 22 módulos al 100 %; los 12 puntos restantes, adjudicados:
+            17 de 22 módulos al 100 %; los 11 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
@@ -192,7 +192,7 @@ make lint synth-check regmap-check lpf check-docs mutation-check \
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 202 fallos inyectados, ~9 min; MODIFICA el RTL mientras corre
+make mutation      # 204 fallos inyectados, ~9 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son

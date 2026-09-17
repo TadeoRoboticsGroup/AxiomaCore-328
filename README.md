@@ -61,6 +61,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciséis 
 | `rtl/periph/axioma_timer8.v` | **Verificado** | La máquina de forma de onda de 8 bits, **una sola vez para el Timer0 y el Timer2**: la hoja de datos los describe con las mismas palabras. La ejercitan los dos bancos, y un mutante inyectado en ella muere en los dos |
 | `rtl/periph/axioma_spi.v` | **Verificado** | **Maestro y esclavo**, contra el otro extremo del cable escrito desde la hoja de datos: los cuatro modos de `CPOL`/`CPHA` por los dos órdenes de bit, las ocho divisiones de reloj, `WCOL`, la secuencia de dos accesos que limpia `SPIF`, y que la colisión de maestros **no** salte cuando `SS` es salida —que es como selecciona a su esclavo cualquier sketch— |
 | `rtl/periph/axioma_twi.v` | **Verificado** | **5 957 comprobaciones** contra un **bus de colector abierto** con un maestro y un esclavo I2C escritos desde la hoja de datos: los 26 códigos de estado de las tablas 21-2 a 21-6, las 128 direcciones de esclavo una por una, `TWAMR` contrastada contra su fórmula sobre las 128, la llamada general, el **arbitraje** —perder, no perder con los ceros propios, y perder siendo además el llamado, que da 0x68 y no 0x38—, el **estiramiento de reloj**, el error de bus y el periodo de `SCL` medido contra `f_CPU/(16+2·TWBR·4^TWPS)` en ocho combinaciones |
+| `rtl/periph/axioma_adc.v` | **Verificado**, aún **sin integrar en el SoC** | **1 561 comprobaciones** contra un **comparador escrito desde la hoja de datos**, que es lo que el [ADR 0002](docs/adr/0002-frontera-analogica-del-adc.md) compra al dejar el DAC y el comparador FUERA del RTL: se comprueba que el SAR **converge** —las diez decisiones, en orden de peso— y no sólo que el número final salga. Los **1 024 códigos** uno por uno; la duración medida **entre transiciones del DAC**, que son lo único con registro uniforme: **13 ciclos de ADC** una conversión normal y **25 la primera**; el instante del `S/H` a 1,5 y 13,5 ciclos, comprobado con la entrada moviéndose; el cerrojo de `ADCL`/`ADCH`; `ADLAR`; y el prescaler, con su `ADPS`=0 y `ADPS`=1 que dividen los dos por 2 |
 | `rtl/periph/axioma_extint.v` | **Verificado** | **2 501 159 comprobaciones** contra un modelo de la hoja de datos, más un programa de co-simulación contra `simavr`: los cuatro modos de `ISCn`, el de **nivel bajo** —que no deja bandera y sostiene la petición—, que la bandera se ponga con el vector deshabilitado, y que `PCMSKn` filtre la bandera mientras `PCICR` sólo filtra el salto |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
 | `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 286 KiB para la ULX3S 25F. `nextpnr` mide **Fmax 19,77 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,58× |
@@ -76,10 +77,10 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciséis 
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   29/29 objetivos en verde
-mutación   206/206 fallos inyectados, 206 detectados
+regresión   30/30 objetivos en verde
+mutación   221/221 fallos inyectados, 221 detectados
 cobertura   99,7 % del RTL, fusionando todas las fuentes
-            17 de 22 módulos al 100 %; los 9 puntos restantes, adjudicados:
+            18 de 23 módulos al 100 %; los 9 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
@@ -198,16 +199,16 @@ source env.sh
 make check-tools
 make lint synth-check regmap-check lpf check-docs mutation-check \
      sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
-     sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi sim-extint sim-irq \
+     sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi sim-adc sim-extint sim-irq \
      sim-soc sim-robust sim-fw sim-hello sim-simavr sim-decode sim-diff sim-random \
      coverage
 ```
 
-**Los veintinueve objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
+**Los treinta objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 206 fallos inyectados, ~9 min; MODIFICA el RTL mientras corre
+make mutation      # 221 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
@@ -406,7 +407,7 @@ La CI falla si los dos primeros están desactualizados.
 | [`docs/04-herramientas.md`](docs/04-herramientas.md) | Cadena de herramientas |
 | [`docs/05-register-map.md`](docs/05-register-map.md) | Mapa de registros y vectores. **Generado** |
 | [`docs/06-deuda-tecnica.md`](docs/06-deuda-tecnica.md) | **Deuda técnica.** RTL que existe y no hace todo lo que su nombre promete, con qué lo desbloquea |
-| [`docs/adr/`](docs/adr/) | Registros de decisiones de arquitectura |
+| [`docs/adr/`](docs/adr/) | Registros de decisiones de arquitectura: las **memorias en flanco de bajada** y la **frontera analógica del ADC** |
 | [`INSTALL.md`](INSTALL.md) | Instalación desde cero, **sin `sudo`** y con las versiones fijadas |
 | [`requerimiento.md`](requerimiento.md) | Requerimiento oficial del proyecto |
 

@@ -76,6 +76,7 @@ help:
 	@echo "  make sim-usart        USART0: forma de onda contra la hoja de datos"
 	@echo "  make sim-spi          SPI: los cuatro modos, maestro y esclavo"
 	@echo "  make sim-twi          TWI/I2C: maestro, esclavo y arbitraje"
+	@echo "  make sim-adc          ADC: aproximacion sucesiva de 10 bits"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -290,6 +291,19 @@ sim-twi:
 	  rtl/periph/axioma_twi.v sim/periph/tb_twi.cpp >/dev/null
 	@echo -e "$(BOLD)TWI: maestro, esclavo y arbitraje contra un bus de colector abierto$(NC)"
 	@./$(BUILD)/vtwi/tb_twi
+
+# --- ADC: el SAR contra un comparador escrito desde la hoja de datos ---
+# El DAC y el comparador viven FUERA del RTL (ADR 0002), y por eso el banco
+# puede comprobar que el SAR converge -las diez decisiones- y no solo si el
+# numero final salio bien.
+.PHONY: sim-adc
+sim-adc:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vadc -o tb_adc \
+	  --top-module axioma_adc \
+	  rtl/periph/axioma_adc.v sim/periph/tb_adc.cpp >/dev/null
+	@echo -e "$(BOLD)ADC: aproximacion sucesiva contra un comparador de la hoja de datos$(NC)"
+	@./$(BUILD)/vadc/tb_adc
 
 .PHONY: sim-extint
 sim-extint:

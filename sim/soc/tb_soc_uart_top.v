@@ -32,6 +32,12 @@ module tb_soc_uart_top (
     // OC0A en PD6 y OC0B en PD5.
     output wire [7:0]  portd,
     output wire [7:0]  portd_oe,
+    // EL PUERTO C ES EL DEL TWI: SDA en PC4 y SCL en PC5. Lo que se saca es el
+    // NIVEL DE LA LINEA -el pad ya resuelto-, que es lo que veria una sonda:
+    // en un bus de colector abierto lo que importa no es quien conduce sino a
+    // que altura esta el hilo.
+    output wire [7:0]  portc_linea,
+    output wire [7:0]  portc_oe,
 
     output wire [11:0] dbg_ubrr,
     output wire        dbg_u2x,
@@ -83,6 +89,8 @@ module tb_soc_uart_top (
     assign portb_oe = pb_oe;
     assign portd    = pd_out;
     assign portd_oe = pd_oe;
+    assign portc_linea = pc_in;
+    assign portc_oe    = pc_oe;
     assign dbg_ubrr = soc.usart.ubrr;
     assign dbg_u2x  = soc.usart.u2x;
     assign dbg_umsel = soc.usart.umsel;

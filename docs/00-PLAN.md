@@ -1004,6 +1004,12 @@ enumerado** en vez de implícito.
       datos**, más las tablas de estado. simavr no sirve: su `avr_twi.c` transporta direcciones
       y bytes enteros por IRQs internas y no serializa `SDA`. 5 957 comprobaciones.
 
+      **Y por qué pines sale, lo dice `make sim-hello`**, no ese banco: `hello.c` hace un START,
+      una dirección y un STOP —lo mismo que `Wire.beginTransmission()` por dentro— y el banco
+      **decodifica la línea**: `SDA` en PC4 y `SCL` en PC5. Hasta que se escribió, intercambiar los
+      dos pines o moverlos a otros dos **sobrevivía a la regresión entera**: el arnés diferencial
+      realimenta el pad sobre sí mismo y un lazo cerrado se cree cualquier cosa.
+
       **Encontró cinco fallos reales, y ninguno da error con ondas perfectas y un solo maestro:**
       el arbitraje miraba también el noveno bit mientras transmitíamos, con lo que el ACK
       legítimo del esclavo se leía como pérdida y el maestro se rendía justo cuando le acababan

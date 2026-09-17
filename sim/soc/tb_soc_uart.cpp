@@ -69,6 +69,17 @@ static int  mspim_bit = 0, mspim_flancos = 0;
 static uint8_t mspim_sh = 0;
 static int  mspim_xck_salida = 0;   // que PD4 llegue a ser salida de verdad
 
+// EL TWI LEIDO DEL PIN. SDA es PC4 y SCL es PC5, y eso tampoco lo puede decir
+// el banco del periferico: cuelga de un bus propio y no ve el SoC. Lo que se
+// mira es el NIVEL DE LA LINEA, que en un colector abierto es lo unico que
+// significa algo. Un START es SDA bajando con SCL ALTA; un STOP, SDA subiendo
+// con SCL alta; y los bits se muestrean en la SUBIDA de SCL.
+static int twi_starts = 0, twi_stops = 0;
+static int twi_bits = 0;
+static uint8_t twi_sh = 0;
+static int twi_dir_leida = -1;      // el primer byte de la trama: SLA+W
+static int twi_scl_previo = -1, twi_sda_previo = -1;
+
 static void checks_spi() {
     if (!spi_leidos) return;
     if (spi_leidos->size() != 3) {
@@ -239,6 +250,26 @@ int main(int argc, char **argv) {
             ch.previo = v;
             ch.total++;
             if (v) ch.alto++;
+        }
+
+        // --- el TWI en el pin: SDA es PC4 y SCL es PC5 ---
+        {
+            int sda = (dut->portc_linea >> 4) & 1;
+            int scl = (dut->portc_linea >> 5) & 1;
+            if (twi_scl_previo >= 0) {
+                if (scl && twi_sda_previo && !sda) {         // START
+                    twi_starts++; twi_bits = 0; twi_sh = 0;
+                } else if (scl && !twi_sda_previo && sda) {  // STOP
+                    twi_stops++;
+                } else if (scl && !twi_scl_previo) {         // subida: muestrear
+                    if (twi_bits < 8) {
+                        twi_sh = (uint8_t)((twi_sh << 1) | sda);
+                        if (++twi_bits == 8 && twi_dir_leida < 0)
+                            twi_dir_leida = twi_sh;
+                    }
+                }
+            }
+            twi_scl_previo = scl; twi_sda_previo = sda;
         }
 
         // --- MSPIM en el pin: XCK es PD4 y MOSI es PD1 ---
@@ -432,6 +463,27 @@ int main(int argc, char **argv) {
         if (!fails)
             printf("  MSPIM leido del PIN: XCK en PD4 con 48 flancos exactos, "
                    "y 96 5A C3 por PD1\n");
+    }
+
+    // Y el TWI, en SUS pines. Sin esto, SDA y SCL podrian salir intercambiados
+    // -o por otros dos pines del puerto C- y la regresion entera pasaria: se
+    // inyectaron los dos fallos como mutantes y sobrevivian a todo.
+    if (twi_starts < 1) {
+        printf("  FALLA: no se vio ningun START en el bus: SDA bajando con SCL "
+               "alta, en PC4 y PC5\n");
+        fails++;
+    }
+    if (twi_stops < 1) {
+        printf("  FALLA: no se vio ningun STOP en PC4/PC5\n");
+        fails++;
+    }
+    if (twi_dir_leida != 0xA0) {
+        printf("  FALLA: la direccion leida del bus es 0x%02X, y el programa "
+               "mando 0xA0\n", twi_dir_leida);
+        fails++;
+    } else {
+        printf("  TWI leido del PIN: START, SLA+W 0xA0 y STOP sobre SDA=PC4 y "
+               "SCL=PC5\n");
     }
 
     if (fails) return 1;

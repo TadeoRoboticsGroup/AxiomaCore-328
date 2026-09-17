@@ -59,6 +59,18 @@ module axioma328_soc #(
     input  wire [7:0]  pd_in,
     output wire [7:0]  pd_out, pd_oe, pd_pu,
 
+    // --------------------------------------- la frontera con lo analógico
+    // EL SOC NO CONTIENE EL FRENTE ANALÓGICO: lo contiene quien lo instancia.
+    // Aquí salen las cinco señales del ADR 0002 hacia el multiplexor, la
+    // referencia, el S/H, el DAC y el comparador. En el flujo ASIC van al macro
+    // del PDK; en la FPGA, que no convierte tensiones, el top de la placa lleva
+    // un modelo digital. El dispositivo es el mismo en los dos destinos.
+    output wire [3:0]  adc_canal,
+    output wire [1:0]  adc_ref,
+    output wire        adc_muestrea,
+    output wire [9:0]  adc_dac,
+    input  wire        adc_cmp,
+
     // ---------------------------------------------------- observación
     // No existen en el 328P. En la placa se quedan sin conectar y la síntesis
     // las descarta; en simulación son lo que mira el arnés diferencial.
@@ -206,6 +218,7 @@ module axioma328_soc #(
         .io_rdata(gb_rd), .io_sel(gb_sel),
         .ovr_en(ovr_b_en), .ovr_val(ovr_b_val),
         .dir_ovr_en(dir_b_en), .dir_ovr_val(8'h00),
+        .din_dis(8'h00),
         .pad_in(pb_in), .pad_out(pb_out), .pad_oe(pb_oe), .pad_pullup(pb_pu)
     );
     // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
@@ -215,6 +228,11 @@ module axioma328_soc #(
         .io_rdata(gc_rd), .io_sel(gc_sel),
         .ovr_en(ovr_c_en), .ovr_val(ovr_c_val),
         .dir_ovr_en(dir_c_en), .dir_ovr_val(dir_c_val),
+        // DIDR0 APAGA EL BUFER DE ENTRADA DIGITAL de ADC0..ADC5, que son PC0 a
+        // PC5. Es del ADC y solo lo tiene este puerto: `DIDR1`, que hace lo
+        // mismo con AIN0 y AIN1 en PD6 y PD7, es del comparador analogico y
+        // todavia no existe.
+        .din_dis(adc_didr),
         .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
     );
     axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
@@ -223,6 +241,7 @@ module axioma328_soc #(
         .io_rdata(gd_rd), .io_sel(gd_sel),
         .ovr_en(ovr_d_en), .ovr_val(ovr_d_val),
         .dir_ovr_en(dir_d_en), .dir_ovr_val(dir_d_val),
+        .din_dis(8'h00),
         .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
     );
 
@@ -374,6 +393,26 @@ module axioma328_soc #(
         .irq(tw_irq)
     );
 
+    // ---------------------------------------------------------------- ADC
+    // El primero que no es digital de punta a punta. Sus seis registros viven
+    // en la I/O EXTENDIDA, 0x78..0x7E, fuera del alcance de IN/OUT, igual que
+    // los del TWI.
+    //
+    // `DIDR0` sale de aquí hacia el puerto C: son los seis bits que apagan el
+    // bufer de entrada digital de ADC0..ADC5, o sea de PC0 a PC5.
+    wire [7:0] ad_rd, adc_didr;
+    wire       ad_sel, ad_irq;
+
+    axioma_adc adc (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ad_rd), .io_sel(ad_sel),
+        .adc_canal(adc_canal), .adc_ref(adc_ref),
+        .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
+        .didr_dis(adc_didr),
+        .irq_adc(ad_irq), .ack_adc(irq_ack_v[21])
+    );
+
     // ---------------------------------------------- interrupciones externas
     // Los pines llegan tal como los ve el pad. INT0 e INT1 viven DENTRO del
     // puerto D —PD2 y PD3—, así que no se pasan aparte: un solo camino hasta
@@ -404,9 +443,10 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd;
+                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
-                    | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel;
+                    | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel
+                    | ad_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -419,7 +459,8 @@ module axioma328_soc #(
 
     assign irq_src = { 1'b0,          // 25      SPM_READY, sin periférico
                        tw_irq,        // 24      TWI
-                       3'b0,          // 23..21  comparador, EEPROM, ADC
+                       2'b0,          // 23..22  comparador y EEPROM
+                       ad_irq,        // 21      ADC
                        us_txc,        // 20      USART_TX
                        us_udre,       // 19      USART_UDRE
                        us_rxc,        // 18      USART_RX

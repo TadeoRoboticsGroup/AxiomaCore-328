@@ -44,14 +44,15 @@ axioma328_soc
 │                          TXD=PD1, RXD=PD0, XCK=PD4
 ├── axioma_spi             maestro y esclavo · los cuatro modos · anula pines de PORTB
 ├── axioma_twi             maestro y esclavo · arbitraje y estiramiento · SDA/SCL en PORTC
-└── axioma_extint          INT0, INT1 y PCINT0/1/2 · un solo módulo, dos mecanismos
+├── axioma_extint          INT0, INT1 y PCINT0/1/2 · un solo módulo, dos mecanismos
+└── axioma_adc             SAR de 10 bits · el DAC y el comparador quedan FUERA
+                           (ADR 0002) · DIDR0 apaga el buffer de entrada de PORTC
 ```
 
 **Lo que todavía no existe**, y por qué está aquí escrito y no dibujado arriba:
 
 | Módulo | Qué traerá | Fase |
 |--------|-----------|------|
-| `axioma_adc` | SAR de 10 bits, 8 canales, su propio reloj | 3 |
 | `axioma_ac` | comparador analógico · `ACSR` · captura del Timer1 | 3 |
 | `axioma_wdt` | perro guardián · `WDTCSR` · reinicio e interrupción | 3 |
 | `axioma_eeprom` | 1 KB · máquina de estados de `EECR` | 3 |

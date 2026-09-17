@@ -66,11 +66,28 @@ module tb_soc_uart_top (
     // SoC: el chip si lo declara, y en silicio la celda de pad lo conecta.
     wire unused_pd_pu0 = &{1'b0, pd_pu[0]};
 
+
+    // ------------------------------------------- el frente analogico del ADC
+    // No es parte del chip (ADR 0002): el SoC saca las cinco senales y quien lo
+    // instancia decide que cuelga de ellas. Aqui cuelga el modelo digital.
+    wire [3:0] adc_canal;
+    wire [1:0] adc_ref;
+    wire       adc_muestrea, adc_cmp;
+    wire [9:0] adc_dac;
+
+    axioma_adc_frente frente (
+        .clk(clk), .rst_n(rst_n),
+        .canal(adc_canal), .ref_sel(adc_ref), .muestrea(adc_muestrea),
+        .dac(adc_dac), .cmp(adc_cmp)
+    );
+
     axioma328_soc soc (
         .clk(clk), .rst_n(rst_n),
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
+        .adc_canal(adc_canal), .adc_ref(adc_ref),
+        .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

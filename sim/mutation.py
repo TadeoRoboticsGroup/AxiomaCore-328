@@ -179,7 +179,7 @@ CATALOG = [
 # Este SOLO lo caza el banco propio: simavr no modela el sincronizador, asi que
 # el contraste contra el pasaria igualmente.
 ("gpio", GPIO, "sim-gpio", "el sincronizador de PINx desaparece (simavr no lo veria)",
- "            sync1 <= pad_in & BITS;", "            sync1 <= sync1;"),
+ "            sync1 <= pad_in & BITS & ~din_dis;", "            sync1 <= sync1;"),
 ("gpio", GPIO, "sim-gpio", "no se enmascaran los bits que no existen, como PC7",
  "                if (hit_ddr)  ddr_q  <= io_wdata & BITS;",
  "                if (hit_ddr)  ddr_q  <= io_wdata;"),
@@ -415,7 +415,8 @@ CATALOG = [
 # cada vez que el campo cambia -paso al meter el TWI, que partio el `5'b0` de
 # arriba en tres trozos-, y la propia mutacion lo dice: «patron no encontrado».
 ("soc", SOC, "sim-diff", "el mapa de vectores se desplaza un bit",
- """                       3'b0,          // 23..21  comparador, EEPROM, ADC""",
+ """                       2'b0,          // 23..22  comparador y EEPROM
+                       ad_irq,        // 21      ADC""",
  """                       4'b0,          // 23..21  comparador, EEPROM, ADC"""),
 # ------------------------------------------------------- USART0 y el bus
 # El mutante del bus es el mas importante del catalogo: reproduce un fallo que
@@ -902,6 +903,18 @@ CATALOG = [
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
 # que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+# ------------------------------------------------- el ADC dentro del SoC
+# Lo que el banco del periferico NO puede ver: donde esta su vector y si su
+# DIDR0 llega al puerto. Los dos se cazan en el SoC y en el pin.
+("soc", SOC, "sim-diff", "el ADC dispara el vector del comparador analogico",
+ """                       2'b0,          // 23..22  comparador y EEPROM
+                       ad_irq,        // 21      ADC""",
+ """                       1'b0,          // 23      comparador
+                       ad_irq,        // 22      EEPROM
+                       1'b0,          // 21      ADC"""),
+("soc", SOC, "sim-hello", "DIDR0 no llega del ADC al puerto C",
+ "        .din_dis(adc_didr),",
+ "        .din_dis(8'h00),"),
 # --------------------------------------------- SDA y SCL, los pines del TWI
 # El banco del TWI cuelga de un bus propio y no ve el SoC, asi que tampoco puede
 # decir por que pines sale. Y `twi.S` en el diferencial TAMPOCO: ahi el pad se

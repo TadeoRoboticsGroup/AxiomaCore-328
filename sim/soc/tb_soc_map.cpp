@@ -85,6 +85,10 @@ static const Esperado MAPA[] = {
     {0x4B, "extint", "PCMSK0"}, {0x4C, "extint", "PCMSK1"}, {0x4D, "extint", "PCMSK2"},
     {0xA0, "usart",  "UCSR0A"}, {0xA1, "usart",  "UCSR0B"}, {0xA2, "usart", "UCSR0C"},
     {0xA4, "usart",  "UBRR0L"}, {0xA5, "usart",  "UBRR0H"}, {0xA6, "usart", "UDR0"},
+    // ADC: 0x78..0x7E en el espacio de datos, tambien en la I/O extendida.
+    // Ojo con el hueco: 0x7D no existe -DIDR0 esta en 0x7E, no pegado a ADMUX-.
+    {0x58, "adc",    "ADCL"},   {0x59, "adc",    "ADCH"},   {0x5A, "adc", "ADCSRA"},
+    {0x5B, "adc",    "ADCSRB"}, {0x5C, "adc",    "ADMUX"},  {0x5E, "adc", "DIDR0"},
 };
 
 int main(int argc, char **argv) {
@@ -137,6 +141,7 @@ int main(int argc, char **argv) {
                 {"usart",  dut->sel_usart}, {"timer1", dut->sel_timer1},
                 {"extint", dut->sel_extint}, {"timer2", dut->sel_timer2},
                 {"spi",    dut->sel_spi},   {"twi",    dut->sel_twi},
+                {"adc",    dut->sel_adc},
             };
             int n = 0;
             for (auto &q : quien)

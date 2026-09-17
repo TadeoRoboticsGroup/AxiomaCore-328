@@ -69,8 +69,11 @@ MODULOS = [
     ("axioma328_soc",    SOC),
     # Y el top de la placa, que es lo que acaba en el bitstream: anade el PLL,
     # la secuencia de reset y las celdas de pad con triestado.
+    # El modelo del frente analogico cuelga del TOP y no del SoC: una FPGA no
+    # convierte tensiones, y el ADR 0002 deja esa caja fuera del dispositivo.
     ("axioma_ulx3s_top", ["rtl/fpga/ecp5/axioma_ulx3s_top.v",
-                          "rtl/fpga/ecp5/axioma_pll.v"] + SOC),
+                          "rtl/fpga/ecp5/axioma_pll.v",
+                          "rtl/fpga/axioma_adc_frente.v"] + SOC),
 ]
 
 VERDE, ROJO, GRIS, NEGRITA, FIN = "\033[0;32m", "\033[0;31m", "\033[2m", "\033[1m", "\033[0m"

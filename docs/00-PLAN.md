@@ -915,7 +915,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **5 de los 25 vectores de interrupción no tienen fuente.** Faltan watchdog, ADC, EEPROM, comparador analógico y `SPM_READY` | Fase 3, salvo `SPM_READY`, que es de la 4 |
+| 7 | **4 de los 25 vectores de interrupción no tienen fuente.** Faltan watchdog, EEPROM, comparador analógico y `SPM_READY` — el del ADC ya dispara desde el 17-sep | Fase 3, salvo `SPM_READY`, que es de la 4 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -1022,8 +1022,8 @@ enumerado** en vez de implícito.
       ciclos de periodo donde la fórmula da 20, o sea 71 kHz donde el programa pidió 100—; y el
       estado de retención forzaba `SCL` abajo siempre, con lo que tras un STOP recibido el chip
       habría bloqueado el bus entero hasta que su ISR contestara.
-- [~] **`adc.v`: el controlador SAR.** **El módulo está escrito y verificado; falta integrarlo en el
-      SoC.** 1 561 comprobaciones contra un comparador escrito desde la hoja de datos, 15 mutantes y
+- [x] **`adc.v`: el controlador SAR, y dentro del SoC.** **Verificado y enchufado**, con su vector
+      21 disparando —21 de los 25 ya tienen fuente—. 1 561 comprobaciones contra un comparador escrito desde la hoja de datos, 15 mutantes y
       los 15 muertos, 100 % de cobertura, 269 LUT4 en el ECP5 y sin latches. Hace conversiones
       sueltas —lo que usa `analogRead()`—; el disparo automático es la deuda **D14**, declarada el
       mismo día.
@@ -1034,6 +1034,17 @@ enumerado** en vez de implícito.
       La hoja de datos lo dice con estas palabras —«the conversion starts at the following rising
       edge of the ADC clock cycle after ADSC is written»— y el resultado de la conversión salía
       bien igualmente: sólo se ve midiendo.
+
+      **Y se comprueba de extremo a extremo**, que es lo único que ve el cableado: `hello.c`
+      convierte el canal 3 y **escribe el resultado por el puerto serie**, así que el número cruza
+      el chip entero —bus, SAR, frente analógico, registros con su cerrojo, USART y PD1— y el banco
+      lo lee del pin. Y `DIDR0`, cuyo registro vive en el ADC pero cuyo efecto es del **puerto**,
+      enciende un testigo en PB0 sólo si `PINC0` leía uno antes de ponerlo y cero después: ese cable
+      entre dos periféricos no lo ve ningún banco de periférico.
+
+      **El modelo del frente analógico vive en `rtl/fpga/`, no en el SoC**, y eso es el ADR: una
+      FPGA no convierte tensiones. El comparador y el S/H que usa son los de verdad —el SAR aproxima
+      igual que con silicio—; lo sintético es de dónde sale la tensión.
 
       La frontera con lo analógico está decidida y escrita en el
       [ADR 0002](adr/0002-frontera-analogica-del-adc.md): **el RTL es el registro de aproximaciones
@@ -1119,7 +1130,7 @@ enumerado** en vez de implícito.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 20—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta —hoy lo hacen 21—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

@@ -87,6 +87,18 @@ module axioma_gpio #(
     input  wire [7:0] dir_ovr_en,
     input  wire [7:0] dir_ovr_val,
 
+    // ---- el bufer de entrada DIGITAL, que DIDR0 apaga ----
+    // Es la tercera cosa que un periferico puede hacerle a un pin, y no se
+    // parece a las otras dos: no toca ni el valor ni la direccion, APAGA EL
+    // CAMINO DE LECTURA. `DIDR0` existe para ahorrar la corriente que un pin
+    // analogico a media tension le hace consumir al bufer digital -que se queda
+    // a medio camino entre sus dos umbrales- y su efecto observable es que
+    // `PINx` lee CERO en ese bit, pase lo que pase en el pad.
+    //
+    // Va como entrada y no como registro propio porque el registro vive en el
+    // ADC, que es de quien son esos seis bits. El puerto solo obedece.
+    input  wire [7:0] din_dis,
+
     // ---- pines ----
     // El pull-up NO lo aplica este módulo: lo DECLARA, y lo aplica la celda de
     // pad —o el modelo de pad del banco—. Es lo que corresponde: en la FPGA lo
@@ -125,7 +137,7 @@ module axioma_gpio #(
             port_q <= 8'h00;
             sync1  <= 8'h00;
         end else begin
-            sync1 <= pad_in & BITS;
+            sync1 <= pad_in & BITS & ~din_dis;
             if (io_we) begin
                 if (hit_ddr)  ddr_q  <= io_wdata & BITS;
                 if (hit_port) port_q <= io_wdata & BITS;

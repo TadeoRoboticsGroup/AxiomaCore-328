@@ -145,12 +145,31 @@ module axioma_ulx3s_top #(
     // borrarlo del SoC: en silicio sí se conecta a la celda del PDK.
     wire unused_pu = &{1'b0, pb_pu, pc_pu, pd_pu};
 
+    // ------------------------------------------- el frente analogico del ADC
+    // UNA FPGA NO CONVIERTE TENSIONES. El SoC saca las cinco senales del ADR
+    // 0002 y aqui cuelga un modelo digital: el comparador y el S/H son los de
+    // verdad —el SAR del chip aproxima igual que con silicio—, y lo sintetico
+    // es de donde sale la tension. Con esto, `analogRead()` en la placa
+    // devuelve un numero deterministo por canal en vez de basura.
+    wire [3:0] adc_canal;
+    wire [1:0] adc_ref;
+    wire       adc_muestrea, adc_cmp;
+    wire [9:0] adc_dac;
+
+    axioma_adc_frente frente (
+        .clk(clk), .rst_n(rst_n_q),
+        .canal(adc_canal), .ref_sel(adc_ref), .muestrea(adc_muestrea),
+        .dac(adc_dac), .cmp(adc_cmp)
+    );
+
     // ---------------------------------------------------------- el chip
     axioma328_soc #(.INIT_HEX(INIT_HEX)) soc (
         .clk(clk), .rst_n(rst_n_q),
         .pb_in(pb_in), .pb_out(pb_out), .pb_oe(pb_oe), .pb_pu(pb_pu),
         .pc_in(pc_in), .pc_out(pc_out), .pc_oe(pc_oe), .pc_pu(pc_pu),
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
+        .adc_canal(adc_canal), .adc_ref(adc_ref),
+        .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

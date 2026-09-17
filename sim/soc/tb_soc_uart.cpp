@@ -465,6 +465,37 @@ int main(int argc, char **argv) {
                    "y 96 5A C3 por PD1\n");
     }
 
+    // EL ADC, DE EXTREMO A EXTREMO Y SALIENDO POR UN PIN. El programa convierte
+    // el canal 3 y escribe el resultado en hexadecimal por el puerto serie, asi
+    // que este numero ha cruzado el chip entero: bus, SAR, frente analogico,
+    // registros con su cerrojo, USART y PD1. El modelo del frente presenta
+    // canal*64+32, o sea 3*64+32 = 224 = 0x0E0.
+    //
+    // Se busca "=0E0" y no "ADC=0E0" porque el eco del byte que el banco manda
+    // por RXD puede caer en medio de la cadena: el orden de dos flujos
+    // independientes no es parte del contrato.
+    if (texto.find("=0E0") == std::string::npos) {
+        printf("  FALLA: el ADC no convirtio el canal 3 a 0x0E0 — el texto fue "
+               "\"%s\"\n", texto.c_str());
+        fails++;
+    } else {
+        printf("  ADC leido del PIN: el canal 3 convierte a 0x0E0 y sale por el "
+               "puerto serie\n");
+    }
+
+    // DIDR0 de extremo a extremo: el registro vive en el ADC y el efecto es del
+    // PUERTO, asi que el cable entre los dos no lo ve ningun banco de
+    // periferico. hello.c enciende PB0 solo si PINC0 leia 1 antes de poner
+    // ADC0D y 0 despues.
+    if (!((dut->portb_oe & 0x01) && (dut->portb & 0x01))) {
+        printf("  FALLA: DIDR0 no apago el bufer de entrada de PC0 — el "
+               "testigo de PB0 no se encendio\n");
+        fails++;
+    } else {
+        printf("  DIDR0 llega del ADC al puerto C: con ADC0D puesto, PINC0 lee "
+               "cero con el pin alto\n");
+    }
+
     // Y el TWI, en SUS pines. Sin esto, SDA y SCL podrian salir intercambiados
     // -o por otros dos pines del puerto C- y la regresion entera pasaria: se
     // inyectaron los dos fallos como mutantes y sobrevivian a todo.

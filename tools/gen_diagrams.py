@@ -115,8 +115,9 @@ def fig_soc(t):
              ("axioma_spi", ["maestro y esclavo · los cuatro modos"], OK),
              ("axioma_extint", ["INT0/1 · PCINT0/1/2"], OK),
              ("axioma_twi", ["maestro y esclavo · arbitraje · I2C"], OK),
+             ("axioma_adc", ["SAR de 10 bits · el DAC y el comparador, fuera"], OK),
              ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
-             ("adc · ac · wdt", ["SAR · comparador · perro guardián"], TODO)]
+             ("ac · wdt", ["comparador analógico · perro guardián"], TODO)]
     FILAS = (len(cells) + 2) // 3
     GY = 510
     GH = 32 + FILAS * 74 - 12 + 14
@@ -273,8 +274,8 @@ def fig_verif(t):
         ("Decodificador", "avr-objdump (binutils)", "0", "discrepancias",
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
-         "300 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "221/221", "detectados",
+         "320 048 instrucciones · 97 de 97 mnemónicos"),
+        ("El propio banco", "prueba de mutación", "223/223", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

@@ -74,6 +74,17 @@ static void usart_print(const char *s)
         usart_putchar(*s++);
 }
 
+/* El resultado del ADC sale por el puerto serie en hexadecimal. Es la unica
+ * forma de que un numero de diez bits que nace dentro del chip llegue a un pin:
+ * bus -> ADC -> SAR -> frente analogico -> registro -> USART -> PD1. */
+static void usart_hex(uint16_t v, uint8_t nibbles)
+{
+    while (nibbles--) {
+        uint8_t n = (uint8_t)((v >> (nibbles * 4)) & 0xF);
+        usart_putchar((char)(n < 10 ? ('0' + n) : ('A' + n - 10)));
+    }
+}
+
 int main(void)
 {
     DDRB = 0xFF;
@@ -244,10 +255,61 @@ int main(void)
         TWCR = 0;
     }
 
+    /* DIDR0 APAGA EL BUFER DE ENTRADA DIGITAL de los pines del ADC, y su efecto
+     * observable es que `PINC` lee CERO en ese bit aunque el pin esté alto.
+     * Existe para ahorrar la corriente que un pin analógico a media tensión le
+     * hace consumir al buffer, que se queda entre sus dos umbrales.
+     *
+     * El registro vive en el ADC pero el efecto es del PUERTO, así que hay un
+     * cable entre los dos que ningún banco de periférico puede comprobar: el
+     * del ADC ve salir `didr_dis` y el del puerto ve entrar una máscara, y
+     * ninguno de los dos ve el SoC. Aquí se comprueba de extremo a extremo, y
+     * el resultado sale por PB0 para que el banco lo lea DEL PIN.
+     *
+     * PC0 se pone como salida en alto: `PINC0` tiene que leer 1. Con `ADC0D`
+     * puesto, el mismo pin tiene que leer 0 sin que nada más cambie. */
+    {
+        uint8_t alto, apagado;
+        DDRC  |= (1 << DDC0);
+        PORTC |= (1 << PC0);
+        __asm__ volatile ("nop");          /* el sincronizador de PINx */
+        alto = PINC & (1 << PINC0);
+        DIDR0 |= (1 << ADC0D);
+        __asm__ volatile ("nop");
+        apagado = PINC & (1 << PINC0);
+        DDRB |= (1 << DDB0);
+        if (alto && !apagado) PORTB |= (1 << PB0);   /* el testigo */
+        DIDR0 = 0;
+        PORTC &= (uint8_t)~(1 << PC0);
+        DDRC  &= (uint8_t)~(1 << DDC0);
+    }
+
     usart_init();
     sei();
 
     usart_print("Hola, AxiomaCore-328\r\n");
+
+    /* UNA CONVERSION DEL ADC, DE EXTREMO A EXTREMO. Es lo que hace
+     * `analogRead(A3)` por dentro, y hasta aqui nada la habia ejercitado a
+     * traves del bus de verdad: el banco del periferico no ve el SoC, y sin un
+     * programa que convierta, los puertos del ADC no llegan a moverse.
+     *
+     * ADCL SE LEE ANTES QUE ADCH, y no es estilo: leer ADCL echa el cerrojo que
+     * impide que una conversion que termine en medio mezcle los dos bytes. Por
+     * eso avr-libc lo hace en ese orden, y por eso `ADC` -la pareja de 16 bits
+     * que define <avr/io.h>- funciona sin mas. */
+    {
+        uint16_t v;
+        ADMUX  = 3;                        /* canal 3, referencia AREF */
+        ADCSRA = (1 << ADEN) | (1 << ADPS2);   /* encender, reloj/16 */
+        ADCSRA |= (1 << ADSC);
+        while (ADCSRA & (1 << ADSC))
+            ;
+        v = ADC;                           /* ADCL y luego ADCH, como manda */
+        usart_print("ADC=");
+        usart_hex(v, 3);
+        usart_print("\r\n");
+    }
 
     for (;;) {
         if (desbordes >= (uint16_t)(OVF_POR_SEGUNDO / 2)) {

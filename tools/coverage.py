@@ -54,6 +54,11 @@ RTL = ("rtl/soc/axioma328_soc.v rtl/core/axioma_core.v rtl/core/axioma_seq.v "
        "rtl/periph/axioma_adc.v "
        "rtl/periph/axioma_irq.v")
 
+# El modelo del frente analogico del ADC no es del dispositivo (ADR 0002) y
+# no se mide su cobertura, pero hace falta para ELABORAR los tops de
+# simulacion: sin el, el SoC tiene cinco puertos colgando.
+FRENTE = " rtl/fpga/axioma_adc_frente.v"
+
 # UNOPTFLAT se silencia SÓLO aquí. La instrumentación de cobertura cambia la
 # planificación interna de verilator y le hace ver un ciclo combinacional que no
 # existe: `yosys ... check -assert` sobre el mismo RTL no encuentra ninguno, y
@@ -98,11 +103,11 @@ def main():
 
     # ---- los tres arneses que ejercitan el RTL ----
     construir("build/vcov", "diffcov", "axioma_sim_top",
-              f"sim/diff/axioma_sim_top.v {RTL} sim/diff/diff.cpp",
+              f"sim/diff/axioma_sim_top.v {RTL}{FRENTE} sim/diff/diff.cpp",
               f'-CFLAGS "-I{simavr_inc} -I{simavr_inc}/avr" '
               f'-LDFLAGS "-L{simavr_lib} -lsimavr -lelf"')
     construir("build/vcovr", "robustc", "axioma_sim_top",
-              f"sim/diff/axioma_sim_top.v {RTL} sim/soc/tb_soc_robust.cpp")
+              f"sim/diff/axioma_sim_top.v {RTL}{FRENTE} sim/soc/tb_soc_robust.cpp")
     construir("build/vcovt", "tb_timer0c", "tb_timer0_top",
               "sim/periph/tb_timer0_top.v rtl/periph/axioma_timer0.v "
               "rtl/periph/axioma_timer8.v rtl/periph/axioma_prescaler.v "
@@ -125,7 +130,7 @@ def main():
     construir("build/vcova", "tb_adcc", "axioma_adc",
               "rtl/periph/axioma_adc.v sim/periph/tb_adc.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
-              f"sim/soc/tb_soc_uart_top.v {RTL} sim/soc/tb_soc_uart.cpp")
+              f"sim/soc/tb_soc_uart_top.v {RTL}{FRENTE} sim/soc/tb_soc_uart.cpp")
 
     # ---- ejecutarlos ----
     env = f"LD_LIBRARY_PATH={simavr_lib}:$LD_LIBRARY_PATH"
@@ -163,8 +168,14 @@ def main():
     for linea in open(COV / "cov.info", errors="ignore"):
         if linea.startswith("SF:"):
             fichero = os.path.basename(linea[3:].strip())
-            if fichero.startswith("tb_") or fichero.startswith("axioma_sim_top"):
-                fichero = None          # bancos de prueba, no son el chip
+            if (fichero.startswith("tb_") or fichero.startswith("axioma_sim_top")
+                    or fichero == "axioma_adc_frente.v"):
+                # Bancos de prueba, no son el chip. Y el modelo del frente
+                # analogico tampoco: el ADR 0002 lo deja FUERA del dispositivo,
+                # asi que medir su cobertura seria medir el banco. Hace falta
+                # para elaborar los tops -el SoC tiene cinco puertos que
+                # conectar- y nada mas.
+                fichero = None
             elif fichero not in tot:
                 tot[fichero] = [0, 0]
         elif linea.startswith("DA:") and fichero:

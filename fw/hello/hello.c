@@ -165,6 +165,53 @@ int main(void)
      * pin que resulta que vale lo mismo. */
     DDRD |= (1 << PD0);
 
+    /* LA USART COMO MAESTRO SPI, que es otro periférico con los mismos
+     * registros. Va aquí, ANTES de encender el puerto serie, porque los dos no
+     * pueden estar a la vez: `UMSEL` elige, y un programa de verdad hace lo
+     * mismo si usa MSPIM para una pantalla y luego suelta el bus.
+     *
+     * `<avr/io.h>` ya trae `UMSEL01`, `UMSEL00`, `UCPHA0` y `UDORD0`, y `UBRR0`
+     * es de 16 bits: esto compila sin tocar nada, que es medio criterio L2.
+     *
+     * EL ORDEN LO MANDA LA HOJA DE DATOS: `UBRR0` a cero ANTES de habilitar el
+     * transmisor, y el divisor de verdad después. Y `DDR_XCK0` a salida es lo
+     * que enciende el modo maestro — sin eso no hay reloj, y aquí ese pin es
+     * PD4.
+     *
+     * Modo 3 —`UCPOL`=1, `UCPHA`=1— y el bit más significativo primero, que es
+     * lo que usa casi todo el mundo en SPI. Está aquí para que el banco lo vea
+     * EN EL PIN: que XCK salga por PD4 y no por otro sitio no lo puede decir el
+     * banco del periférico, que no ve el SoC. */
+    {
+        static const uint8_t trama[3] = { 0x96, 0x5A, 0xC3 };
+        uint8_t i;
+
+        UBRR0  = 0;
+        DDRD  |= (1 << DDD4);                 /* XCK: la salida enciende el maestro */
+        UCSR0C = (1 << UMSEL01) | (1 << UMSEL00) | (1 << UCPHA0) | (1 << UCPOL0);
+        UCSR0B = (1 << TXEN0) | (1 << RXEN0);
+        UBRR0  = 3;                           /* f_XCK = f_CPU/(2*(3+1)) */
+
+        UCSR0A = (1 << TXC0);                 /* limpiarla escribiendo un uno */
+        for (i = 0; i < sizeof(trama); i++) {
+            while (!(UCSR0A & (1 << UDRE0)))
+                ;
+            UDR0 = trama[i];
+        }
+        while (!(UCSR0A & (1 << TXC0)))       /* que salga la última entera */
+            ;
+
+        /* AL APAGAR, EL ORDEN IMPORTA: primero los pines, después el divisor
+         * y el modo EL ÚLTIMO. Al revés queda una ventana de dos instrucciones
+         * en la que `UMSEL` ya dice «asíncrono» y `UBRR0` todavía es el divisor
+         * del SPI, y cualquiera que mire desde fuera —el banco lo hizo— mide un
+         * periodo de bit que no existe. El chip no se entera; quien lo observa,
+         * sí. */
+        UCSR0B = 0;                           /* soltar los pines */
+        UBRR0  = 0;
+        UCSR0C = 0;
+    }
+
     usart_init();
     sei();
 

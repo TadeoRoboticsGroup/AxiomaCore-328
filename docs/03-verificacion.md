@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 202
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 204
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -398,12 +398,12 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,6 %** —2 659 de 2 671 puntos—, con **17 de 22 módulos al 100 %**. Los doce puntos
+Hoy está en **99,6 %** —2 660 de 2 671 puntos—, con **17 de 22 módulos al 100 %**. Los once puntos
 que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
 |--------|-------:|---------|
-| `axioma328_soc` | 6 | líneas de declaración cuyos bits van atados a constante: el TWI no conduce nunca un uno, y el esclavo de SPI sólo fuerza dirección |
+| `axioma328_soc` | 5 | líneas de declaración cuyos bits van atados a constante: el TWI no conduce nunca un uno, y el esclavo de SPI sólo fuerza dirección |
 | `axioma_alu` | 3 | el `default:` de un `case` completo. El decodificador sólo emite operaciones válidas; es la rama defensiva que la síntesis elimina |
 | `axioma_seq` | 1 | `next_warmup`, el ciclo de calentamiento que sólo pone el reset |
 | `axioma_progmem` | 1 | el `$readmemh`, que sólo corre cuando el programa va DENTRO del bitstream; en simulación se carga por la puerta de atrás |
@@ -455,7 +455,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí |
 | **Verificación del núcleo** | las 23 simulaciones, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice |
-| **Mutación** | `make mutation`, los 202 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 204 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

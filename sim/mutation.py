@@ -901,6 +901,18 @@ CATALOG = [
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
 # que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+# ------------------------------------------------- XCK, el reloj de MSPIM
+# EL BANCO DEL PERIFERICO NO VE EL SOC, asi que no puede decir por que pin sale
+# XCK. Estos dos SOLO los caza `sim-hello`, y solo porque hello.c hace una
+# transaccion MSPIM y el banco la decodifica del PIN: XCK en PD4, MOSI en PD1.
+("soc", SOC, "sim-hello", "XCK no se aduenia de PD4: el pin se queda con PORTD",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en,
+                            1'b0, us_txen, 1'b0};""",
+ """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, 1'b0, oc2b_en,
+                            1'b0, us_txen, 1'b0};"""),
+("soc", SOC, "sim-hello", "el modo maestro mira el DDR de otro pin, no el de XCK",
+ "        .xck_pin(pd_in[4]), .xck_es_salida(pd_oe[4]),",
+ "        .xck_pin(pd_in[4]), .xck_es_salida(pd_oe[7]),"),
 ("soc", SOC, "sim-hello", "TXD no llega al pad: PD1 se queda con lo que diga PORTD",
  """    wire [7:0] ovr_d_en  = {1'b0, oc0a_en, oc0b_en, us_xck_ovr, oc2b_en,
                             1'b0, us_txen, 1'b0};""",

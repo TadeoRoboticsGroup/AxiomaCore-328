@@ -34,7 +34,11 @@ module tb_soc_uart_top (
     output wire [7:0]  portd_oe,
 
     output wire [11:0] dbg_ubrr,
-    output wire        dbg_u2x
+    output wire        dbg_u2x,
+    // QUE MODO TIENE LA USART. Hace falta para no confundir el divisor de
+    // MSPIM con el del puerto serie: los dos viven en UBRR0 y el banco mide el
+    // periodo de bit con el que encuentre.
+    output wire [1:0]  dbg_umsel
 );
 
     wire [7:0] pb_out, pb_oe, pb_pu, pc_out, pc_oe, pc_pu, pd_out, pd_oe, pd_pu;
@@ -81,6 +85,7 @@ module tb_soc_uart_top (
     assign portd_oe = pd_oe;
     assign dbg_ubrr = soc.usart.ubrr;
     assign dbg_u2x  = soc.usart.u2x;
+    assign dbg_umsel = soc.usart.umsel;
 
 endmodule
 

@@ -47,15 +47,16 @@ axioma328_soc
 ├── axioma_extint          INT0, INT1 y PCINT0/1/2 · un solo módulo, dos mecanismos
 ├── axioma_adc             SAR de 10 bits · el DAC y el comparador quedan FUERA
 │                          (ADR 0002) · DIDR0 apaga el buffer de entrada de PORTC
-└── axioma_ac              comparador analógico · comparte el mux del ADC (ACME)
-                           DIDR1 apaga el buffer de AIN0 y AIN1 · ACIC a la captura
+├── axioma_ac              comparador analógico · comparte el mux del ADC (ACME)
+│                          DIDR1 apaga el buffer de AIN0 y AIN1 · ACIC a la captura
+└── axioma_wdt             perro guardián · su propio oscilador de 128 kHz, que
+                           entra de fuera · secuencia temporizada para `WDE`
 ```
 
 **Lo que todavía no existe**, y por qué está aquí escrito y no dibujado arriba:
 
 | Módulo | Qué traerá | Fase |
 |--------|-----------|------|
-| `axioma_wdt` | perro guardián · `WDTCSR` · reinicio e interrupción | 3 |
 | `axioma_eeprom` | 1 KB · máquina de estados de `EECR` | 3 |
 | `axioma_clkctrl` | `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` · modos de sueño | 3 |
 

@@ -118,7 +118,7 @@ def fig_soc(t):
              ("axioma_adc", ["SAR de 10 bits · el DAC y el comparador, fuera"], OK),
              ("axioma_eeprom", ["1 KB · máquina de estados de EECR"], TODO),
              ("axioma_ac", ["comparador · entradas por el mux del ADC"], OK),
-             ("wdt", ["perro guardián · oscilador propio"], TODO)]
+             ("axioma_wdt", ["perro guardián · su propio oscilador"], OK)]
     FILAS = (len(cells) + 2) // 3
     GY = 510
     GH = 32 + FILAS * 74 - 12 + 14
@@ -276,7 +276,7 @@ def fig_verif(t):
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
          "340 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "233/233", "detectados",
+        ("El propio banco", "prueba de mutación", "244/244", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

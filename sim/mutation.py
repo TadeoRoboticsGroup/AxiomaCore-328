@@ -56,6 +56,7 @@ SPI     = "rtl/periph/axioma_spi.v"
 TWI     = "rtl/periph/axioma_twi.v"
 ADC     = "rtl/periph/axioma_adc.v"
 AC      = "rtl/periph/axioma_ac.v"
+WDT     = "rtl/periph/axioma_wdt.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -907,6 +908,46 @@ CATALOG = [
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
 # que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+# ============================================================ perro guardian
+# EL MUTANTE QUE HAY QUE TENER es el de la secuencia temporizada: un perro
+# guardian que se pueda apagar con una escritura suelta no sirve para NADA,
+# porque lo que vigila es justamente un programa desbocado.
+("wdt", WDT, "sim-wdt", "WDE se puede cambiar sin la secuencia temporizada",
+ "                if (abierta && !io_wdata[4]) begin",
+ "                if (1'b1) begin"),
+("wdt", WDT, "sim-wdt", "la ventana de WDCE no se cierra nunca",
+ "        else if (abierta)    ventana <= ventana - 3'd1;",
+ "        else if (abierta)    ventana <= ventana;"),
+("wdt", WDT, "sim-wdt", "la ventana dura ocho ciclos en vez de cuatro",
+ "        else if (abre)       ventana <= 3'd4;",
+ "        else if (abre)       ventana <= 3'd7;"),
+("wdt", WDT, "sim-wdt", "WDP3 se lee en el bit 3, con el registro ordenado",
+ "    assign io_rdata = hit ? {wdif, wdie, wdp[3], wdce, wde, wdp[2:0]} : 8'h00;",
+ "    assign io_rdata = hit ? {wdif, wdie, 1'b0, wdce, wde, wdp[2:0]} : 8'h00;"),
+("wdt", WDT, "sim-wdt", "el prescaler toma WDP3 del bit equivocado",
+ "                    wdp <= {io_wdata[5], io_wdata[2:0]};",
+ "                    wdp <= {1'b0, io_wdata[2:0]};"),
+("wdt", WDT, "sim-wdt", "el periodo sale un ciclo largo",
+ "    wire [20:0] limite = (21'd2048 << wdp_ef) - 21'd1;",
+ "    wire [20:0] limite = (21'd2048 << wdp_ef);"),
+("wdt", WDT, "sim-wdt", "el periodo base son 1K ciclos y no 2K",
+ "    wire [20:0] limite = (21'd2048 << wdp_ef) - 21'd1;",
+ "    wire [20:0] limite = (21'd1024 << wdp_ef) - 21'd1;"),
+("wdt", WDT, "sim-wdt", "WDR no rearma la cuenta",
+ "        end else if (wdr || !corriendo) begin",
+ "        end else if (!corriendo) begin"),
+("wdt", WDT, "sim-wdt", "con los dos modos no se limpia WDIE: nunca reinicia",
+ "            if (vence && wdie && wde) wdie <= 1'b0;",
+ "            if (1'b0) wdie <= 1'b0;"),
+("wdt", WDT, "sim-wdt", "con WDIE puesto tambien reinicia, sin dar tiempo a la ISR",
+ """                if (wdie) wdif    <= 1'b1;
+                else if (wde) reset_q <= 1'b1;""",
+ """                if (wdie) wdif    <= 1'b1;
+                if (wde) reset_q <= 1'b1;"""),
+("wdt", WDT, "sim-wdt", "apagado del todo, el perro sigue contando",
+ "    wire corriendo = wde | wdie;",
+ "    wire corriendo = 1'b1;"),
+
 # ======================================================= comparador analogico
 ("ac", AC, "sim-ac", "ACO no se sincroniza: el registro ve el comparador crudo",
  "        else        aco_sync <= {aco_sync[0], ac_salida};",

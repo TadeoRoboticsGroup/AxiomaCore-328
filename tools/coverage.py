@@ -52,6 +52,7 @@ RTL = ("rtl/soc/axioma328_soc.v rtl/core/axioma_core.v rtl/core/axioma_seq.v "
        "rtl/periph/axioma_usart.v rtl/periph/axioma_extint.v "
        "rtl/periph/axioma_spi.v rtl/periph/axioma_twi.v "
        "rtl/periph/axioma_adc.v rtl/periph/axioma_ac.v "
+       "rtl/periph/axioma_wdt.v "
        "rtl/periph/axioma_irq.v")
 
 # El modelo del frente analogico del ADC no es del dispositivo (ADR 0002) y
@@ -131,6 +132,8 @@ def main():
               "rtl/periph/axioma_adc.v sim/periph/tb_adc.cpp")
     construir("build/vcovac", "tb_acc", "axioma_ac",
               "rtl/periph/axioma_ac.v sim/periph/tb_ac.cpp")
+    construir("build/vcovw", "tb_wdtc", "axioma_wdt",
+              "rtl/periph/axioma_wdt.v sim/periph/tb_wdt.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
               f"sim/soc/tb_soc_uart_top.v {RTL}{FRENTE} sim/soc/tb_soc_uart.cpp")
 
@@ -153,6 +156,7 @@ def main():
     sh("AXIOMA_COV=build/cov/twi.dat ./build/vcovt/tb_twic"); n += 1
     sh("AXIOMA_COV=build/cov/adc.dat ./build/vcova/tb_adcc"); n += 1
     sh("AXIOMA_COV=build/cov/ac.dat ./build/vcovac/tb_acc"); n += 1
+    sh("AXIOMA_COV=build/cov/wdt.dat ./build/vcovw/tb_wdtc"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")
 

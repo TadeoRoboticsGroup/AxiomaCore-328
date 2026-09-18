@@ -1072,7 +1072,24 @@ enumerado** en vez de implícito.
       con la salida alta hace caer `ACO`, y esa caída es un flanco que el chip **sí** cuenta.
       `sim/diff/tests/ac_irq.S` dispara el vector 23 moviendo la entrada negativa por `ADMUX`, que
       es para lo que existe `ACME`.
-- [ ] `wdt.v`: el perro guardián, con su oscilador propio y la secuencia temporizada.
+- [~] **`wdt.v`: el perro guardián.** **El módulo está escrito y verificado; falta integrarlo en el
+      SoC.** 43 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura, 100 LUT4.
+
+      **Lo que de verdad hay que implementar bien es la secuencia temporizada**, no la cuenta: un
+      perro guardián que se pueda apagar con una escritura suelta no sirve para nada, porque lo que
+      vigila es justamente un programa desbocado. `WDCE` y `WDE` a uno **a la vez**, y el valor
+      dentro de los **cuatro ciclos** siguientes; fuera de esa ventana, las escrituras a `WDE` y al
+      prescaler se ignoran. `WDIE` **no** está protegido: lo protegido es lo que puede desactivar la
+      vigilancia.
+
+      **Su reloj no es el del sistema** —128 kHz propios—, y ésa es su razón de ser: si dependiera
+      del principal, un fallo que parase ese reloj pararía también al vigilante. El oscilador entra
+      como un pulso, por el mismo criterio del [ADR 0002](adr/0002-frontera-analogica-del-adc.md).
+
+      La mutación cerró **dos huecos del banco**: el pulso de reinicio dura un ciclo y había que
+      mirarlo **dentro** del avance —la misma lección que `dbg_irq_entry` en el arnés diferencial—,
+      y el contador tiene que estar **quieto** con el perro apagado, no sólo callado: si sigue
+      corriendo, al encenderlo el primer vencimiento llega antes de tiempo.
 - [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos
       —uno por pin y con dirección de flanco, otro por puerto y sólo «algo cambió»— pero comparten
       el sincronizador y la disciplina de banderas, así que separarlos duplicaría lo único

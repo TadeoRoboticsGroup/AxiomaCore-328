@@ -78,6 +78,7 @@ help:
 	@echo "  make sim-twi          TWI/I2C: maestro, esclavo y arbitraje"
 	@echo "  make sim-adc          ADC: aproximacion sucesiva de 10 bits"
 	@echo "  make sim-ac           comparador analogico: flancos y captura"
+	@echo "  make sim-wdt          perro guardian: secuencia temporizada y modos"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -298,6 +299,16 @@ sim-twi:
 # puede comprobar que el SAR converge -las diez decisiones- y no solo si el
 # numero final salio bien.
 # --- comparador analogico: la salida se mueve a mano, lo demas es logica ---
+# --- perro guardian: su oscilador entra de fuera, como el comparador del ADC ---
+.PHONY: sim-wdt
+sim-wdt:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vwdt -o tb_wdt \
+	  --top-module axioma_wdt \
+	  rtl/periph/axioma_wdt.v sim/periph/tb_wdt.cpp >/dev/null
+	@echo -e "$(BOLD)Perro guardian: la secuencia temporizada y los tres modos$(NC)"
+	@./$(BUILD)/vwdt/tb_wdt
+
 .PHONY: sim-ac
 sim-ac:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \

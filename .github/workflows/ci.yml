@@ -263,6 +263,14 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-ac
 
+      # El perro guardian. Lo que de verdad se verifica aqui es la SECUENCIA
+      # TEMPORIZADA: uno que se pueda apagar con una escritura suelta no sirve
+      # para nada, porque lo que vigila es un programa desbocado.
+      - name: Perro guardian
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-wdt
+
       - name: Interrupciones externas contra la hoja de datos
         run: |
           source ~/eda/oss-cad-suite/environment

@@ -54,6 +54,7 @@ module axioma_core (
     // Observación, para el arnés de co-simulación
     output wire [13:0] dbg_pc,
     output wire [15:0] dbg_ir,
+    output wire        wdr_pulso,
     output wire        dbg_retire,
     output wire        dbg_illegal,
     output wire        dbg_irq_entry,
@@ -187,7 +188,8 @@ module axioma_core (
         .sp(sp_w),
         .dbg_pc(dbg_pc), .dbg_ir(dbg_ir), .dbg_retire(dbg_retire),
         .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry)
-    );
+    ,
+        .wdr_pulso(wdr_pulso));
 
     axioma_alu alu (
         .op(alu_op_w), .a(alu_a_w), .b(alu_b_w),

@@ -108,7 +108,13 @@ module axioma_seq (
     output wire        dbg_retire,       // se retiró una instrucción este ciclo
     output wire        dbg_illegal,      // codificación no válida en ejecución
     output wire        dbg_irq_entry     // lo retirado fue una ENTRADA A ISR
-);
+,
+
+    // ---- WDR, para el perro guardian ----
+    // La instruccion no hace nada en el nucleo -es un NOP de un ciclo-, pero
+    // fuera SI: rearma la cuenta del vigilante. Sale como un pulso de un ciclo
+    // en el momento en que la instruccion se retira.
+    output wire        wdr_pulso);
 
 `include "axioma_alu_ops.vh"
 `include "axioma_decode_ops.vh"
@@ -877,6 +883,8 @@ module axioma_seq (
         end
     end
 
+
+    assign wdr_pulso = retire && (d_class == OPC_WDR);
 
 endmodule
 

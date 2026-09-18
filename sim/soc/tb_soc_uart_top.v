@@ -76,6 +76,24 @@ module tb_soc_uart_top (
     wire [9:0] adc_dac;
     wire       ac_apagado, ac_bandgap, ac_neg_mux, ac_salida;
 
+    // ------------------------------- el oscilador del perro guardian
+    // 128 kHz no son logica: en el chip es una celda RC y aqui se divide del
+    // reloj de sistema. El divisor es GRANDE a proposito -un perro guardian que
+    // muerde en microsegundos no es un perro guardian-, pero en simulacion se
+    // deja corto para que un banco pueda verlo vencer sin esperar un siglo.
+    reg [6:0] wdt_div;
+    wire      wdt_osc_tick = (wdt_div == 7'd0);
+    always @(posedge clk or negedge rst_n)
+        if (!rst_n) wdt_div <= 7'd97;
+        else        wdt_div <= wdt_osc_tick ? 7'd97 : wdt_div - 7'd1;
+
+    // EL REINICIO DEL PERRO SALE DEL SOC y aqui NO se cierra la cadena, a
+    // proposito: el reset lo manda el banco, y un reinicio a media co-simulacion
+    // rompería el contraste —simavr no modela el perro guardian y no se
+    // reiniciaría con él—. En el top de la placa sí entra en la cadena.
+    wire wdt_reset;
+    wire unused_wdt_rst = &{1'b0, wdt_reset};
+
     axioma_adc_frente frente (
         .clk(clk), .rst_n(rst_n),
         .canal(adc_canal), .ref_sel(adc_ref), .muestrea(adc_muestrea),
@@ -93,6 +111,7 @@ module tb_soc_uart_top (
         .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
         .ac_neg_mux(ac_neg_mux), .ac_salida(ac_salida),
+        .wdt_osc_tick(wdt_osc_tick), .wdt_reset(wdt_reset),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

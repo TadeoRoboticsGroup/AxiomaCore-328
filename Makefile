@@ -416,7 +416,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_timer8.v rtl/periph/axioma_usart.v \
             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
             rtl/periph/axioma_twi.v rtl/periph/axioma_adc.v \
-            rtl/periph/axioma_ac.v \
+            rtl/periph/axioma_ac.v rtl/periph/axioma_wdt.v \
             rtl/fpga/axioma_adc_frente.v \
             rtl/periph/axioma_irq.v
 

@@ -91,10 +91,17 @@ module axioma_ulx3s_top #(
     /* verilator lint_off PROCASSINIT */
     reg [7:0] rst_cnt = 8'h00;
     reg       rst_n_q = 1'b0;
+    // El reinicio del perro guardian sale del SoC y lo cierra este top.
+    wire      wdt_reset;
     /* verilator lint_on PROCASSINIT */
 
+    // EL PERRO GUARDIAN ENTRA EN LA CADENA DE RESET, que es lo que hace su
+    // reinicio en el chip: el SoC dice «hay que reiniciar» y el top lo cierra,
+    // igual que con el boton y con el enganche del PLL. Se reinicia con la
+    // misma cuenta que al arrancar, asi que el chip sale del reinicio en el
+    // mismo estado en los tres casos.
     always @(posedge clk) begin
-        if (!pll_locked || btn_reset) begin
+        if (!pll_locked || btn_reset || wdt_reset) begin
             rst_cnt <= 8'h00;
             rst_n_q <= 1'b0;
         end else if (!rst_cnt[7]) begin
@@ -157,6 +164,18 @@ module axioma_ulx3s_top #(
     wire [9:0] adc_dac;
     wire       ac_apagado, ac_bandgap, ac_neg_mux, ac_salida;
 
+    // ------------------------------- el oscilador del perro guardian
+    // 128 kHz no son logica: en el chip es una celda RC y aqui se divide del
+    // reloj de sistema. El divisor es GRANDE a proposito -un perro guardian que
+    // muerde en microsegundos no es un perro guardian-, pero en simulacion se
+    // deja corto para que un banco pueda verlo vencer sin esperar un siglo.
+    reg [6:0] wdt_div;
+    wire      wdt_osc_tick = (wdt_div == 7'd0);
+    always @(posedge clk or negedge rst_n_q)
+        if (!rst_n_q) wdt_div <= 7'd97;
+        else        wdt_div <= wdt_osc_tick ? 7'd97 : wdt_div - 7'd1;
+
+
     axioma_adc_frente frente (
         .clk(clk), .rst_n(rst_n_q),
         .canal(adc_canal), .ref_sel(adc_ref), .muestrea(adc_muestrea),
@@ -175,6 +194,7 @@ module axioma_ulx3s_top #(
         .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
         .ac_neg_mux(ac_neg_mux), .ac_salida(ac_salida),
+        .wdt_osc_tick(wdt_osc_tick), .wdt_reset(wdt_reset),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

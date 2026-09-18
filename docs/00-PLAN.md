@@ -915,7 +915,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **3 de los 25 vectores de interrupción no tienen fuente.** Faltan watchdog, EEPROM y `SPM_READY` — el del ADC y el del comparador analógico ya disparan desde el 17-sep | Fase 3, salvo `SPM_READY`, que es de la 4 |
+| 7 | **2 de los 25 vectores de interrupción no tienen fuente.** Faltan EEPROM y `SPM_READY` | Fase 3, salvo `SPM_READY`, que es de la 4 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -1072,8 +1072,7 @@ enumerado** en vez de implícito.
       con la salida alta hace caer `ACO`, y esa caída es un flanco que el chip **sí** cuenta.
       `sim/diff/tests/ac_irq.S` dispara el vector 23 moviendo la entrada negativa por `ADMUX`, que
       es para lo que existe `ACME`.
-- [~] **`wdt.v`: el perro guardián.** **El módulo está escrito y verificado; falta integrarlo en el
-      SoC.** 43 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura, 100 LUT4.
+- [x] **`wdt.v`: el perro guardián, y dentro del SoC.** Con su vector 6 disparando. 43 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura, 100 LUT4.
 
       **Lo que de verdad hay que implementar bien es la secuencia temporizada**, no la cuenta: un
       perro guardián que se pueda apagar con una escritura suelta no sirve para nada, porque lo que
@@ -1163,7 +1162,7 @@ enumerado** en vez de implícito.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 22—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta —hoy lo hacen 23—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

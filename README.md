@@ -40,7 +40,7 @@ independiente y qué no. Ése es el criterio con el que se mide este proyecto.
 
 Cada cifra de esta tabla sale de ejecutar `make`, no de escribirla a mano. Dos son derivadas y
 conviene decirlo: las de `progmem` y `dmem` son el desglose de las 34 049 comprobaciones que
-imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciocho programas dirigidos.
+imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los diecinueve programas dirigidos.
 
 | Bloque | Estado | Evidencia |
 |--------|--------|-----------|
@@ -63,16 +63,16 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciocho p
 | `rtl/periph/axioma_twi.v` | **Verificado** | **5 957 comprobaciones** contra un **bus de colector abierto** con un maestro y un esclavo I2C escritos desde la hoja de datos: los 26 códigos de estado de las tablas 21-2 a 21-6, las 128 direcciones de esclavo una por una, `TWAMR` contrastada contra su fórmula sobre las 128, la llamada general, el **arbitraje** —perder, no perder con los ceros propios, y perder siendo además el llamado, que da 0x68 y no 0x38—, el **estiramiento de reloj**, el error de bus y el periodo de `SCL` medido contra `f_CPU/(16+2·TWBR·4^TWPS)` en ocho combinaciones |
 | `rtl/periph/axioma_adc.v` | **Verificado** | **1 561 comprobaciones** contra un **comparador escrito desde la hoja de datos**, que es lo que el [ADR 0002](docs/adr/0002-frontera-analogica-del-adc.md) compra al dejar el DAC y el comparador FUERA del RTL: se comprueba que el SAR **converge** —las diez decisiones, en orden de peso— y no sólo que el número final salga. Los **1 024 códigos** uno por uno; la duración medida **entre transiciones del DAC**, que son lo único con registro uniforme: **13 ciclos de ADC** una conversión normal y **25 la primera**; el instante del `S/H` a 1,5 y 13,5 ciclos, comprobado con la entrada moviéndose; el cerrojo de `ADCL`/`ADCH`; `ADLAR`; y el prescaler, con su `ADPS`=0 y `ADPS`=1 que dividen los dos por 2. **Y de extremo a extremo:** `hello.c` convierte el canal 3 y escribe el resultado por el puerto serie, así que el número cruza el chip entero —bus, SAR, frente analógico, registros con su cerrojo, USART y PD1— y el banco lo lee **del pin** |
 | `rtl/periph/axioma_ac.v` | **Verificado** | **2 045 comprobaciones**. La comparación es analógica y llega hecha; lo que se verifica es lo que un comparador de tensión no sabe hacer solo: que `ACO` llegue **sincronizada** —«1 - 2 clock cycles», dice la hoja de datos—, los tres modos de `ACIS` con el reservado tratado como el chip lo trata, la **tabla 22-1** de la entrada negativa —el multiplexor del ADC sólo la alimenta con `ACME` puesto **y el ADC apagado**—, `DIDR1`, y que apagar el comparador **deje la interrupción de la que avisa el manual**, que es un fallo de compatibilidad que encontró la mutación |
-| `rtl/periph/axioma_wdt.v` | **Verificado**, aún **sin integrar en el SoC** | **43 comprobaciones** contra el capítulo 11 de la hoja de datos. Lo que de verdad se verifica es la **secuencia temporizada** —`WDCE` y `WDE` a uno a la vez, y el valor dentro de los cuatro ciclos siguientes—, porque un perro guardián que se pueda apagar con una escritura suelta no sirve para nada: lo que vigila es justamente un programa desbocado. Más los periodos de la tabla 11-1 —2K ciclos del oscilador por su potencia de dos—, el **orden raro de los bits** de `WDTCSR` —`WDP3` en el bit 5, con `WDCE` y `WDE` en medio—, `WDR`, y los tres modos de la tabla 11-2, incluido el que **interrumpe y después reinicia** limpiando `WDIE` para darle a la ISR un periodo entero |
+| `rtl/periph/axioma_wdt.v` | **Verificado** | **43 comprobaciones** contra el capítulo 11 de la hoja de datos. Lo que de verdad se verifica es la **secuencia temporizada** —`WDCE` y `WDE` a uno a la vez, y el valor dentro de los cuatro ciclos siguientes—, porque un perro guardián que se pueda apagar con una escritura suelta no sirve para nada: lo que vigila es justamente un programa desbocado. Más los periodos de la tabla 11-1 —2K ciclos del oscilador por su potencia de dos—, el **orden raro de los bits** de `WDTCSR` —`WDP3` en el bit 5, con `WDCE` y `WDE` en medio—, `WDR`, y los tres modos de la tabla 11-2, incluido el que **interrumpe y después reinicia** limpiando `WDIE` para darle a la ISR un periodo entero |
 | `rtl/periph/axioma_extint.v` | **Verificado** | **2 501 159 comprobaciones** contra un modelo de la hoja de datos, más un programa de co-simulación contra `simavr`: los cuatro modos de `ISCn`, el de **nivel bajo** —que no deja bandera y sostiene la petición—, que la bandera se ponga con el vector deshabilitado, y que `PCMSKn` filtre la bandera mientras `PCICR` sólo filtra el salto |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
 | `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 287 KiB para la ULX3S 25F. `nextpnr` mide **Fmax 18,13 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,45× |
 | `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, **decodifica también una transacción de la USART en modo SPI maestro** —`XCK` en PD4 con 48 flancos exactos y los bytes por PD1— y **una del TWI** —el START, la dirección `0xA0` y el STOP sobre `SDA`=PC4 y `SCL`=PC5—, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
-| `rtl/core/axioma_seq.v` | **Verificado** | 18 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
+| `rtl/core/axioma_seq.v` | **Verificado** | 19 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
 | `rtl/core/axioma_core.v` | **Verificado** | Ídem. Es el módulo que une todo |
-| Tabla de ciclos (nivel L3) | **Verificada** | 340 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
+| Tabla de ciclos (nivel L3) | **Verificada** | 360 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
 | Entrada a interrupción | **Verificada** | 1 796 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
 | ADC, EEPROM, watchdog, comparador analógico | Pendientes | Fase 3 |
@@ -80,14 +80,14 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los dieciocho p
 
 ```
 regresión   32/32 objetivos en verde
-mutación   244/244 fallos inyectados, 244 detectados
-cobertura   99,6 % del RTL, fusionando todas las fuentes
-            20 de 25 módulos al 100 %; los 12 puntos restantes, adjudicados:
+mutación   246/246 fallos inyectados, 246 detectados
+cobertura   99,5 % del RTL, fusionando todas las fuentes
+            20 de 25 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 7 961 LUT4 y 1 304 FF en el ECP5
+síntesis    sin latches · el SoC entero: 7 597 LUT4 y 1 337 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
@@ -214,11 +214,11 @@ make lint synth-check regmap-check lpf check-docs mutation-check \
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 244 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 246 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
-**dieciocho programas**: tres de aritmética, control de flujo y memoria; cuatro dirigidos que
+**diecinueve programas**: tres de aritmética, control de flujo y memoria; cuatro dirigidos que
 completan el conjunto de instrucciones —bits y espacio de I/O, las 16 ramas condicionales, `LPM` en
 sus tres formas, y el control del sistema—; uno de puertos de E/S; uno que escribe por la USART sin
 interrupciones; y nueve que entran en la rutina de interrupción de verdad, desde los tres
@@ -353,7 +353,7 @@ Criterio de aceptación de la fase 1, sin ambigüedad, y su estado:
 
 | Requisito | Estado |
 |-----------|--------|
-| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 18 programas dirigidos |
+| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 19 programas dirigidos |
 | 10⁶ instrucciones aleatorias sin divergencia | 10⁶, 0 divergencias |
 | ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
 | Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |

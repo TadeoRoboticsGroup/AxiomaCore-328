@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 244
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 246
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -245,7 +245,7 @@ exactamente uno: si costara dos, sería un fallo.
 Se lee también `avr->cycle` y se compara. Pero **no es el oráculo**: el comentario de
 `avr_run_one` en `sim_core.c` avisa de que su cuenta de ciclos «might not be entirely accurate».
 Las discrepancias se informan aparte, con el mnemónico y el número de veces, para adjudicarlas a
-mano contra el manual. A día de hoy no hay ninguna: sobre las 340 048 instrucciones dirigidas y
+mano contra el manual. A día de hoy no hay ninguna: sobre las 360 048 instrucciones dirigidas y
 el millón de instrucciones aleatorias, simavr y el manual coinciden en todo lo ejecutado.
 
 ### Encontró un fallo real: MOVW
@@ -268,7 +268,7 @@ la comprobación de ciclos se ha apagado.
 «0 desviaciones» no dice nada de lo que ningún programa ejecutó. `sim/perf/cycle_coverage.py` une
 lo que el arnés ha comprobado de verdad y lo contrasta con la tabla.
 
-Estado actual: **97 de 97 mnemónicos**, sobre 340 048 instrucciones y 0 desviaciones. Lo cerró la
+Estado actual: **97 de 97 mnemónicos**, sobre 360 048 instrucciones y 0 desviaciones. Lo cerró la
 suite dirigida (`sim/diff/tests/isa_*.S`). `SPM` es la única exclusión, y es deliberada.
 
 ### El arnés tampoco comparaba la memoria
@@ -398,7 +398,7 @@ ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alg
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
 `make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 35 ejecuciones instrumentadas
-—el arnés diferencial con sus dieciocho programas y los diez aleatorios, el banco propio de cada
+—el arnés diferencial con sus diecinueve programas y los diez aleatorios, el banco propio de cada
 periférico, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
 funcionalidad la cubre **su** banco.
@@ -474,7 +474,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí |
 | **Verificación del núcleo** | las 23 simulaciones, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice |
-| **Mutación** | `make mutation`, los 244 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 246 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

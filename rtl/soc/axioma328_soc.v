@@ -77,6 +77,14 @@ module axioma328_soc #(
     output wire        ac_neg_mux,
     input  wire        ac_salida,
 
+    // ---- el oscilador del perro guardian, que tampoco vive aqui ----
+    // 128 kHz de RC no son logica, por el mismo criterio del ADR 0002: entra
+    // como un pulso y quien instancia el SoC decide de donde sale. Y el
+    // reinicio que produce SALE, en vez de morderse la cola aqui dentro: es el
+    // top quien cierra la cadena de reset, igual que hace con `rst_n`.
+    input  wire        wdt_osc_tick,
+    output wire        wdt_reset,
+
     // ---------------------------------------------------- observación
     // No existen en el 328P. En la placa se quedan sin conectar y la síntesis
     // las descarta; en simulación son lo que mira el arnés diferencial.
@@ -424,6 +432,23 @@ module axioma328_soc #(
         .irq_adc(ad_irq), .ack_adc(irq_ack_v[21])
     );
 
+    // ------------------------------------------------------ perro guardian
+    // Su reloj es propio, asi que el oscilador entra de fuera. `WDR` llega del
+    // secuenciador como un pulso: la instruccion es un NOP para el nucleo y un
+    // rearme para el vigilante.
+    wire [7:0] wd_rd;
+    wire       wd_sel, wd_irq;
+
+    axioma_wdt wdt (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(wd_rd), .io_sel(wd_sel),
+        .osc_tick(wdt_osc_tick),
+        .wdr(core_wdr),
+        .wdt_reset(wdt_reset),
+        .irq_wdt(wd_irq), .ack_wdt(irq_ack_v[6])
+    );
+
     // ------------------------------------------------- comparador analogico
     // Comparte el multiplexor del ADC -tabla 22-1- y puede llevar su salida a
     // la captura del Timer1 en lugar del pin ICP1. Las dos cosas las cablea el
@@ -473,10 +498,10 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd;
+                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
                     | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel
-                    | ad_sel | ac_sel;
+                    | ad_sel | ac_sel | wd_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -486,6 +511,7 @@ module axioma328_soc #(
     wire [25:0] irq_ack_v;
     wire        core_irq_req, core_irq_ack;
     wire [4:0]  core_irq_vector;
+    wire        core_wdr;
 
     assign irq_src = { 1'b0,          // 25      SPM_READY, sin periférico
                        tw_irq,        // 24      TWI
@@ -506,7 +532,7 @@ module axioma328_soc #(
                        t2_ovf,        // 9       TIMER2_OVF
                        t2_compb,      // 8       TIMER2_COMPB
                        t2_compa,      // 7       TIMER2_COMPA
-                       1'b0,          // 6       WDT, sin periférico
+                       wd_irq,        // 6       WDT
                        ei_pc2,        // 5       PCINT2
                        ei_pc1,        // 4       PCINT1
                        ei_pc0,        // 3       PCINT0
@@ -558,7 +584,8 @@ module axioma328_soc #(
         .dbg_illegal(dbg_illegal), .dbg_irq_entry(dbg_irq_entry),
         .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
         .dbg_reg_addr(dbg_reg_addr), .dbg_reg_data(dbg_reg_data)
-    );
+    ,
+        .wdr_pulso(core_wdr));
 
 endmodule
 

@@ -985,6 +985,13 @@ CATALOG = [
 ("soc", SOC, "sim-diff", "ACIC no lleva el comparador a la captura del Timer1",
  "        .icp1_pin(ac_a_captura ? ac_o : pb_in[0]),",
  "        .icp1_pin(pb_in[0]),"),
+# ------------------------------------------- el perro guardian en el SoC
+("soc", SOC, "sim-diff", "el perro guardian dispara el vector de PCINT2",
+ "                       wd_irq,        // 6       WDT",
+ "                       1'b0,          // 6       WDT"),
+("soc", SOC, "sim-diff", "WDR no llega del nucleo al perro: no se puede rearmar",
+ "        .wdr(core_wdr),",
+ "        .wdr(1'b0),"),
 # ------------------------------------------------- el ADC dentro del SoC
 # Lo que el banco del periferico NO puede ver: donde esta su vector y si su
 # DIDR0 llega al puerto. Los dos se cazan en el SoC y en el pin.

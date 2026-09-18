@@ -200,7 +200,7 @@ todo—. Se pueden encadenar en una sola línea, que es como los ejecuta la CI.
 Aparte, y en un trabajo propio de la CI porque tarda unos 9 minutos:
 
 ```bash
-make mutation      # inyecta 244 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 246 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

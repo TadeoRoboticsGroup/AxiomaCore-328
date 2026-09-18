@@ -85,6 +85,14 @@ module axioma_adc (
     // ---- el bufer de entrada digital, que DIDR0 apaga ----
     output wire [7:0] didr_dis,
 
+    // ---- lo que el COMPARADOR ANALOGICO necesita de aqui ----
+    // `ACME` vive en `ADCSRB`, que es un registro de este modulo, pero a quien
+    // le sirve es al comparador: con el puesto y el ADC apagado, la entrada
+    // negativa del comparador sale de ESTE multiplexor. La tabla 22-1 lo decide
+    // con los dos bits, asi que los dos salen de aqui.
+    output wire       adc_acme,
+    output wire       adc_encendido,
+
     // ---- interrupción ----
     output wire       irq_adc,      // vector 21
     input  wire       ack_adc
@@ -310,6 +318,9 @@ module axioma_adc (
             if (ack_adc) adif <= 1'b0;
         end
     end
+
+    assign adc_acme      = acme;
+    assign adc_encendido = aden;
 
     assign irq_adc = adif & adie;
 

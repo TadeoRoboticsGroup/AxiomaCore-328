@@ -256,6 +256,13 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-adc
 
+      # El comparador analogico: simavr NO LO MODELA EN ABSOLUTO, asi que el
+      # oraculo es la hoja de datos y nada mas.
+      - name: Comparador analogico
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-ac
+
       - name: Interrupciones externas contra la hoja de datos
         run: |
           source ~/eda/oss-cad-suite/environment

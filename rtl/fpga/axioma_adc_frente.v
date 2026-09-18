@@ -39,7 +39,17 @@ module axioma_adc_frente (
     input  wire [1:0] ref_sel,
     input  wire       muestrea,
     input  wire [9:0] dac,
-    output wire       cmp
+    output wire       cmp,
+
+    // ---- el comparador analogico, que comparte este mismo frente ----
+    // Su entrada positiva es AIN0 o la referencia interna; la negativa es AIN1
+    // o el canal que elija ADMUX. Aqui las dos salen de la misma tabla de
+    // constantes: lo que se modela es POR DONDE entran, que es lo unico que el
+    // RTL decide.
+    input  wire       ac_apagado,
+    input  wire       ac_bandgap,
+    input  wire       ac_neg_mux,
+    output wire       ac_salida
 );
 
     // Una constante por canal, escalonada: canal 0 = 32, canal 1 = 96, ... y el
@@ -61,6 +71,17 @@ module axioma_adc_frente (
     end
 
     assign cmp = (retenida >= dac);
+
+    // AIN0 es PD6 y AIN1 es PD7: en esta tabla, los canales 6 y 7. La referencia
+    // interna de 1,1 V vale un quinto de AVCC con la escala de 10 bits, o sea
+    // unos 205 codigos. Con el comparador apagado la salida se va a cero, que es
+    // lo que hace un comparador sin alimentar.
+    wire [9:0] v_ain0 = {4'd6, 6'd32};
+    wire [9:0] v_ain1 = {4'd7, 6'd32};
+    wire [9:0] v_pos  = ac_bandgap ? 10'd205 : v_ain0;
+    wire [9:0] v_neg  = ac_neg_mux ? v_canal : v_ain1;
+
+    assign ac_salida = ~ac_apagado & (v_pos > v_neg);
 
 endmodule
 

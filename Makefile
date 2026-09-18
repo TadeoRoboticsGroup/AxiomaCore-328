@@ -77,6 +77,7 @@ help:
 	@echo "  make sim-spi          SPI: los cuatro modos, maestro y esclavo"
 	@echo "  make sim-twi          TWI/I2C: maestro, esclavo y arbitraje"
 	@echo "  make sim-adc          ADC: aproximacion sucesiva de 10 bits"
+	@echo "  make sim-ac           comparador analogico: flancos y captura"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -296,6 +297,16 @@ sim-twi:
 # El DAC y el comparador viven FUERA del RTL (ADR 0002), y por eso el banco
 # puede comprobar que el SAR converge -las diez decisiones- y no solo si el
 # numero final salio bien.
+# --- comparador analogico: la salida se mueve a mano, lo demas es logica ---
+.PHONY: sim-ac
+sim-ac:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vac -o tb_ac \
+	  --top-module axioma_ac \
+	  rtl/periph/axioma_ac.v sim/periph/tb_ac.cpp >/dev/null
+	@echo -e "$(BOLD)Comparador analogico: entradas, flancos y captura$(NC)"
+	@./$(BUILD)/vac/tb_ac
+
 .PHONY: sim-adc
 sim-adc:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
@@ -394,6 +405,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_timer8.v rtl/periph/axioma_usart.v \
             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
             rtl/periph/axioma_twi.v rtl/periph/axioma_adc.v \
+            rtl/periph/axioma_ac.v \
             rtl/fpga/axioma_adc_frente.v \
             rtl/periph/axioma_irq.v
 

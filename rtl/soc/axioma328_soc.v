@@ -70,6 +70,12 @@ module axioma328_soc #(
     output wire        adc_muestrea,
     output wire [9:0]  adc_dac,
     input  wire        adc_cmp,
+    // Y las del comparador analogico, que se corta por el mismo sitio: la
+    // comparacion es analogica y llega hecha.
+    output wire        ac_apagado,
+    output wire        ac_bandgap,
+    output wire        ac_neg_mux,
+    input  wire        ac_salida,
 
     // ---------------------------------------------------- observación
     // No existen en el 328P. En la placa se quedan sin conectar y la síntesis
@@ -241,7 +247,8 @@ module axioma328_soc #(
         .io_rdata(gd_rd), .io_sel(gd_sel),
         .ovr_en(ovr_d_en), .ovr_val(ovr_d_val),
         .dir_ovr_en(dir_d_en), .dir_ovr_val(dir_d_val),
-        .din_dis(8'h00),
+        // DIDR1 apaga el bufer de entrada de AIN0 y AIN1, que son PD6 y PD7.
+        .din_dis(ac_didr),
         .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
     );
 
@@ -301,7 +308,10 @@ module axioma328_soc #(
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
         .tick_256(tick_256), .tick_1024(tick_1024),
         .t1_pin(pd_in[5]),                       // T1 es PD5
-        .icp1_pin(pb_in[0]),                     // ICP1 es PB0
+        // ICP1 es PB0, salvo que `ACIC` traiga la salida del comparador
+        // analogico. Es lo que permite medir el tiempo entre dos cruces de
+        // umbral sin que el programa tenga que mirar.
+        .icp1_pin(ac_a_captura ? ac_o : pb_in[0]),
         .oc1a(oc1a), .oc1a_en(oc1a_en), .oc1b(oc1b), .oc1b_en(oc1b_en),
         .irq_capt(t1_capt), .irq_compa(t1_compa),
         .irq_compb(t1_compb), .irq_ovf(t1_ovf),
@@ -401,7 +411,7 @@ module axioma328_soc #(
     // `DIDR0` sale de aquí hacia el puerto C: son los seis bits que apagan el
     // bufer de entrada digital de ADC0..ADC5, o sea de PC0 a PC5.
     wire [7:0] ad_rd, adc_didr;
-    wire       ad_sel, ad_irq;
+    wire       ad_sel, ad_irq, adc_acme, adc_encendido;
 
     axioma_adc adc (
         .clk(clk), .rst_n(rst_n),
@@ -410,7 +420,27 @@ module axioma328_soc #(
         .adc_canal(adc_canal), .adc_ref(adc_ref),
         .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         .didr_dis(adc_didr),
+        .adc_acme(adc_acme), .adc_encendido(adc_encendido),
         .irq_adc(ad_irq), .ack_adc(irq_ack_v[21])
+    );
+
+    // ------------------------------------------------- comparador analogico
+    // Comparte el multiplexor del ADC -tabla 22-1- y puede llevar su salida a
+    // la captura del Timer1 en lugar del pin ICP1. Las dos cosas las cablea el
+    // SoC, que es quien tiene los dos extremos.
+    wire [7:0] ac_rd, ac_didr;
+    wire       ac_sel, ac_irq, ac_a_captura, ac_o;
+
+    axioma_ac ac (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ac_rd), .io_sel(ac_sel),
+        .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
+        .ac_neg_mux(ac_neg_mux), .ac_salida(ac_salida),
+        .adc_acme(adc_acme), .adc_encendido(adc_encendido),
+        .didr_dis(ac_didr),
+        .ac_a_captura(ac_a_captura), .ac_o(ac_o),
+        .irq_ac(ac_irq), .ack_ac(irq_ack_v[23])
     );
 
     // ---------------------------------------------- interrupciones externas
@@ -443,10 +473,10 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd;
+                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
                     | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel
-                    | ad_sel;
+                    | ad_sel | ac_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -459,7 +489,8 @@ module axioma328_soc #(
 
     assign irq_src = { 1'b0,          // 25      SPM_READY, sin periférico
                        tw_irq,        // 24      TWI
-                       2'b0,          // 23..22  comparador y EEPROM
+                       ac_irq,        // 23      comparador analogico
+                       1'b0,          // 22      EEPROM
                        ad_irq,        // 21      ADC
                        us_txc,        // 20      USART_TX
                        us_udre,       // 19      USART_UDRE

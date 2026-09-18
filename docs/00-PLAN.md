@@ -915,7 +915,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **4 de los 25 vectores de interrupción no tienen fuente.** Faltan watchdog, EEPROM, comparador analógico y `SPM_READY` — el del ADC ya dispara desde el 17-sep | Fase 3, salvo `SPM_READY`, que es de la 4 |
+| 7 | **3 de los 25 vectores de interrupción no tienen fuente.** Faltan watchdog, EEPROM y `SPM_READY` — el del ADC y el del comparador analógico ya disparan desde el 17-sep | Fase 3, salvo `SPM_READY`, que es de la 4 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -1056,7 +1056,23 @@ enumerado** en vez de implícito.
       **simavr no sirve de oráculo, y aquí menos que nunca:** `avr_adc.c` programa la interrupción a
       `prescale * 11` ciclos donde el manual dice **13** —y **25** la primera conversión— y entrega
       el valor de golpe desde una IRQ en milivoltios. No hay aproximación sucesiva en ninguna parte.
-- [ ] `ac.v` (comparador analógico) y `wdt.v` (perro guardián).
+- [x] **`ac.v`: el comparador analógico.** Se corta por el mismo sitio que el ADC —la comparación
+      es analógica y llega hecha (ADR 0002)—, y lo que queda dentro es lo que un comparador de
+      tensión no sabe hacer solo: **elegir sus entradas**, sincronizar su salida, decidir qué flanco
+      interrumpe y llevarla a la captura del Timer1.
+
+      **Las dos entradas no son dos pines fijos**, y ahí está toda la lógica: la positiva es `AIN0`
+      o la referencia interna de 1,1 V según `ACBG`; la negativa es `AIN1` o **el canal que elija
+      `ADMUX`** si `ACME` está puesto **y el ADC apagado** —la tabla 22-1, literal—. Ese `ACME` vive
+      en un registro del ADC, así que el SoC lo cablea entre los dos periféricos.
+
+      2 045 comprobaciones, 8 mutantes, 47 LUT4. **Y la mutación encontró un fallo de
+      compatibilidad**: el RTL suprimía la interrupción al apagar el comparador, y la hoja de datos
+      avisa de lo contrario —«otherwise an interrupt can occur when the bit is changed»—. Apagarlo
+      con la salida alta hace caer `ACO`, y esa caída es un flanco que el chip **sí** cuenta.
+      `sim/diff/tests/ac_irq.S` dispara el vector 23 moviendo la entrada negativa por `ADMUX`, que
+      es para lo que existe `ACME`.
+- [ ] `wdt.v`: el perro guardián, con su oscilador propio y la secuencia temporizada.
 - [x] **`extint.v`: INT0, INT1 y los tres PCINT en un solo módulo.** Son dos mecanismos distintos
       —uno por pin y con dirección de flanco, otro por puerto y sólo «algo cambió»— pero comparten
       el sincronizador y la disciplina de banderas, así que separarlos duplicaría lo único
@@ -1130,7 +1146,7 @@ enumerado** en vez de implícito.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 21—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta —hoy lo hacen 22—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

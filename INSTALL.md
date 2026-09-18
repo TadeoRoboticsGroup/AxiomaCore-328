@@ -185,7 +185,7 @@ make sim-robust    # SPM y opcode ilegal: que nada se cuelgue
 
 # --- periféricos, cada uno contra su hoja de datos ---
 make sim-gpio sim-timer0 sim-timer1 sim-timer2
-make sim-usart sim-spi sim-twi sim-adc sim-extint sim-irq
+make sim-usart sim-spi sim-twi sim-adc sim-ac sim-extint sim-irq
 
 # --- el dispositivo entero ---
 make sim-soc       # las 224 direcciones de I/O por el bus real
@@ -194,13 +194,13 @@ make sim-hello     # blink, serie, SPI y los seis PWM leídos DEL PIN
 make coverage      # cobertura del RTL fusionando todas las fuentes; es PUERTA
 ```
 
-**Los 30 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
+**Los 31 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
 todo—. Se pueden encadenar en una sola línea, que es como los ejecuta la CI.
 
 Aparte, y en un trabajo propio de la CI porque tarda unos 9 minutos:
 
 ```bash
-make mutation      # inyecta 223 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 233 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

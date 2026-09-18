@@ -55,6 +55,7 @@ EXTINT  = "rtl/periph/axioma_extint.v"
 SPI     = "rtl/periph/axioma_spi.v"
 TWI     = "rtl/periph/axioma_twi.v"
 ADC     = "rtl/periph/axioma_adc.v"
+AC      = "rtl/periph/axioma_ac.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -415,9 +416,12 @@ CATALOG = [
 # cada vez que el campo cambia -paso al meter el TWI, que partio el `5'b0` de
 # arriba en tres trozos-, y la propia mutacion lo dice: «patron no encontrado».
 ("soc", SOC, "sim-diff", "el mapa de vectores se desplaza un bit",
- """                       2'b0,          // 23..22  comparador y EEPROM
+ """                       ac_irq,        // 23      comparador analogico
+                       1'b0,          // 22      EEPROM
                        ad_irq,        // 21      ADC""",
- """                       4'b0,          // 23..21  comparador, EEPROM, ADC"""),
+ """                       ac_irq,        // 23      comparador analogico
+                       2'b0,          // 22      EEPROM
+                       ad_irq,        // 21      ADC"""),
 # ------------------------------------------------------- USART0 y el bus
 # El mutante del bus es el mas importante del catalogo: reproduce un fallo que
 # estuvo escondido desde la fase 1 y que rompia TODA lectura de periferico con
@@ -903,14 +907,50 @@ CATALOG = [
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
 # que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+# ======================================================= comparador analogico
+("ac", AC, "sim-ac", "ACO no se sincroniza: el registro ve el comparador crudo",
+ "        else        aco_sync <= {aco_sync[0], ac_salida};",
+ "        else        aco_sync <= {ac_salida, ac_salida};"),
+("ac", AC, "sim-ac", "ACIS ignora el modo: siempre interrumpen los dos flancos",
+ """    wire dispara = (acis == 2'b10) ? baja :
+                   (acis == 2'b11) ? sube : (sube | baja);""",
+ """    wire dispara = (sube | baja);"""),
+("ac", AC, "sim-ac", "los modos de flanco de ACIS estan cambiados",
+ """    wire dispara = (acis == 2'b10) ? baja :
+                   (acis == 2'b11) ? sube : (sube | baja);""",
+ """    wire dispara = (acis == 2'b10) ? sube :
+                   (acis == 2'b11) ? baja : (sube | baja);"""),
+("ac", AC, "sim-ac", "apagar el comparador NO deja la interrupcion que avisa la hoja de datos",
+ "            if (dispara)                          aci <= 1'b1;",
+ "            if (dispara && !acd)                  aci <= 1'b1;"),
+("ac", AC, "sim-ac", "ACD no apaga la salida que lee el programa",
+ "    wire      aco = aco_sync[1] & ~acd;",
+ "    wire      aco = aco_sync[1];"),
+("ac", AC, "sim-ac", "ACI se limpia escribiendo un cero",
+ "            if (io_we && hit_acsr && io_wdata[4]) aci <= 1'b0;",
+ "            if (io_we && hit_acsr) aci <= io_wdata[4];"),
+("ac", AC, "sim-ac", "el multiplexor alimenta al comparador con el ADC encendido",
+ "    assign ac_neg_mux   = adc_acme & ~adc_encendido;",
+ "    assign ac_neg_mux   = adc_acme;"),
+("ac", AC, "sim-ac", "DIDR1 apaga el bufer de los pines equivocados",
+ "    assign didr_dis     = {didr1[1], didr1[0], 6'b0};",
+ "    assign didr_dis     = {6'b0, didr1[1], didr1[0]};"),
+# ------------------------------------------- el comparador dentro del SoC
+("soc", SOC, "sim-diff", "el comparador dispara el vector de la EEPROM",
+ """                       ac_irq,        // 23      comparador analogico
+                       1'b0,          // 22      EEPROM""",
+ """                       1'b0,          // 23      comparador analogico
+                       ac_irq,        // 22      EEPROM"""),
+("soc", SOC, "sim-diff", "ACIC no lleva el comparador a la captura del Timer1",
+ "        .icp1_pin(ac_a_captura ? ac_o : pb_in[0]),",
+ "        .icp1_pin(pb_in[0]),"),
 # ------------------------------------------------- el ADC dentro del SoC
 # Lo que el banco del periferico NO puede ver: donde esta su vector y si su
 # DIDR0 llega al puerto. Los dos se cazan en el SoC y en el pin.
 ("soc", SOC, "sim-diff", "el ADC dispara el vector del comparador analogico",
- """                       2'b0,          // 23..22  comparador y EEPROM
+ """                       1'b0,          // 22      EEPROM
                        ad_irq,        // 21      ADC""",
- """                       1'b0,          // 23      comparador
-                       ad_irq,        // 22      EEPROM
+ """                       ad_irq,        // 22      EEPROM
                        1'b0,          // 21      ADC"""),
 ("soc", SOC, "sim-hello", "DIDR0 no llega del ADC al puerto C",
  "        .din_dis(adc_didr),",

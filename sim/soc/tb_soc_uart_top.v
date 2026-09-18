@@ -74,11 +74,14 @@ module tb_soc_uart_top (
     wire [1:0] adc_ref;
     wire       adc_muestrea, adc_cmp;
     wire [9:0] adc_dac;
+    wire       ac_apagado, ac_bandgap, ac_neg_mux, ac_salida;
 
     axioma_adc_frente frente (
         .clk(clk), .rst_n(rst_n),
         .canal(adc_canal), .ref_sel(adc_ref), .muestrea(adc_muestrea),
-        .dac(adc_dac), .cmp(adc_cmp)
+        .dac(adc_dac), .cmp(adc_cmp),
+        .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
+        .ac_neg_mux(ac_neg_mux), .ac_salida(ac_salida)
     );
 
     axioma328_soc soc (
@@ -88,6 +91,8 @@ module tb_soc_uart_top (
         .pd_in(pd_in), .pd_out(pd_out), .pd_oe(pd_oe), .pd_pu(pd_pu),
         .adc_canal(adc_canal), .adc_ref(adc_ref),
         .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
+        .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
+        .ac_neg_mux(ac_neg_mux), .ac_salida(ac_salida),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

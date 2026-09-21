@@ -57,6 +57,7 @@ TWI     = "rtl/periph/axioma_twi.v"
 ADC     = "rtl/periph/axioma_adc.v"
 AC      = "rtl/periph/axioma_ac.v"
 WDT     = "rtl/periph/axioma_wdt.v"
+EEP     = "rtl/periph/axioma_eeprom.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -908,6 +909,54 @@ CATALOG = [
 # Los tres se ven SOLO en el pin, y solo porque `hello.c` deja PD0 como salida
 # a proposito antes de encender la USART: un pin encaminado y un pin que resulta
 # que vale lo mismo son indistinguibles si nadie mira la DIRECCION.
+# ================================================================== EEPROM
+# LA SECUENCIA TEMPORIZADA, otra vez: una escritura perdida en la EEPROM no se
+# nota hasta el siguiente arranque, y para entonces el dato bueno ya no esta.
+("eeprom", EEP, "sim-eeprom", "EEPE arranca sin la secuencia temporizada",
+ "    wire arranca = io_we && hit_cr && io_wdata[1] && abierta && !eepe;",
+ "    wire arranca = io_we && hit_cr && io_wdata[1] && !eepe;"),
+("eeprom", EEP, "sim-eeprom", "la ventana de EEMPE dura ocho ciclos",
+ "        else if (io_we && hit_cr && io_wdata[2]) ventana <= 3'd4;",
+ "        else if (io_we && hit_cr && io_wdata[2]) ventana <= 3'd7;"),
+("eeprom", EEP, "sim-eeprom", "una grabacion en marcha no bloquea la siguiente",
+ "    wire arranca = io_we && hit_cr && io_wdata[1] && abierta && !eepe;",
+ "    wire arranca = io_we && hit_cr && io_wdata[1] && abierta;"),
+# LA FISICA DE LA CELDA. Tratarla como RAM hace funcionar aqui codigo que en
+# silicio no funciona, y no da ningun error.
+("eeprom", EEP, "sim-eeprom", "la celda se trata como RAM: escribir sube bits",
+ """    wire [7:0] dato_nuevo = (eepm == 2'b01) ? 8'hFF :                  // borrar
+                            (eepm == 2'b10) ? (mem_q & eedr) :         // escribir
+                                              eedr;                    // las dos""",
+ """    wire [7:0] dato_nuevo = (eepm == 2'b01) ? 8'hFF :                  // borrar
+                                              eedr;                    // las dos"""),
+("eeprom", EEP, "sim-eeprom", "borrar escribe el dato en vez de dejar 0xFF",
+ """    wire [7:0] dato_nuevo = (eepm == 2'b01) ? 8'hFF :                  // borrar
+                            (eepm == 2'b10) ? (mem_q & eedr) :         // escribir
+                                              eedr;                    // las dos""",
+ """    wire [7:0] dato_nuevo = (eepm == 2'b10) ? (mem_q & eedr) :         // escribir
+                                              eedr;                    // las dos"""),
+# LOS TIEMPOS de la tabla 8-1.
+("eeprom", EEP, "sim-eeprom", "borrar y escribir tarda lo mismo que una sola",
+ "    wire [15:0] duracion = (eepm == 2'b00) ? T_BORRA_ESCRIBE : T_SIMPLE;",
+ "    wire [15:0] duracion = T_SIMPLE;"),
+("eeprom", EEP, "sim-eeprom", "la grabacion dura un ciclo de mas",
+ "            if (resto == 16'd1) eepe  <= 1'b0;",
+ "            if (resto == 16'd0) eepe  <= 1'b0;"),
+# EE_READY ES UN NIVEL, no una bandera.
+("eeprom", EEP, "sim-eeprom", "EE_READY solo pide mientras EERIE, sin mirar EEPE",
+ "    assign irq_ee = eerie & ~eepe;",
+ "    assign irq_ee = eerie;"),
+# EEDR y EEAR.
+("eeprom", EEP, "sim-eeprom", "EEDR pierde lo que le escribio el programa",
+ "            if (io_we && hit_dr)  eedr      <= io_wdata;",
+ "            if (1'b0)             eedr      <= io_wdata;"),
+("eeprom", EEP, "sim-eeprom", "EERE no deja el byte leido en EEDR",
+ "            if (io_we && hit_cr && io_wdata[0] && !eepe) eedr <= mem_q;",
+ "            if (1'b0) eedr <= mem_q;"),
+("eeprom", EEP, "sim-eeprom", "EEARH se queda sin el bit 9: media EEPROM inalcanzable",
+ "            if (io_we && hit_arh) eear[9:8] <= io_wdata[1:0];",
+ "            if (io_we && hit_arh) eear[9:8] <= {1'b0, io_wdata[0]};"),
+
 # ============================================================ perro guardian
 # EL MUTANTE QUE HAY QUE TENER es el de la secuencia temporizada: un perro
 # guardian que se pueda apagar con una escritura suelta no sirve para NADA,

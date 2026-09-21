@@ -49,15 +49,16 @@ axioma328_soc
 │                          (ADR 0002) · DIDR0 apaga el buffer de entrada de PORTC
 ├── axioma_ac              comparador analógico · comparte el mux del ADC (ACME)
 │                          DIDR1 apaga el buffer de AIN0 y AIN1 · ACIC a la captura
-└── axioma_wdt             perro guardián · su propio oscilador de 128 kHz, que
-                           entra de fuera · secuencia temporizada para `WDE`
+├── axioma_wdt             perro guardián · su propio oscilador de 128 kHz, que
+│                          entra de fuera · secuencia temporizada para `WDE`
+└── axioma_eeprom          1 KB en una BRAM · secuencia temporizada para `EEPE`
+                           la celda baja bits y no los sube · EE_READY es NIVEL
 ```
 
 **Lo que todavía no existe**, y por qué está aquí escrito y no dibujado arriba:
 
 | Módulo | Qué traerá | Fase |
 |--------|-----------|------|
-| `axioma_eeprom` | 1 KB · máquina de estados de `EECR` | 3 |
 | `axioma_clkctrl` | `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` · modos de sueño | 3 |
 
 ---

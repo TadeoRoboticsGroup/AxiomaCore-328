@@ -1157,7 +1157,26 @@ enumerado** en vez de implícito.
       empezaba en `UBRR=3` y `UBRR=0` es `f_CPU/2`—, un mutante superviviente resultó **equivalente**
       y se quitaron tres líneas muertas, y la cobertura destapó que el segundo nivel del búfer no lo
       pisaba nadie en MSPIM.
-- [ ] `eeprom.v` + máquina de estados de `EECR`.
+- [~] **`eeprom.v`: 1 KB con su máquina de `EECR`.** **El módulo está escrito y verificado; falta
+      integrarlo en el SoC.** 49 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura,
+      101 LUT4 y **una sola BRAM**.
+
+      **Tres cosas, por orden de lo que duele si falla.** La **secuencia temporizada** —`EEMPE` y,
+      dentro de cuatro ciclos, `EEPE`—, que existe porque una escritura perdida en la EEPROM no se
+      nota hasta el siguiente arranque. **La física de la celda**: borrar la pone a `0xFF` y
+      escribir sin borrar sólo puede **apagar** unos; tratarla como RAM haría funcionar aquí código
+      que en silicio no funciona. Y **el tiempo**: 3,4 ms borrando y escribiendo, 1,8 ms haciendo
+      sólo una de las dos, contados con el oscilador interno —que entra de fuera, por el criterio
+      del [ADR 0002](adr/0002-frontera-analogica-del-adc.md)—.
+
+      **`EE_READY` es de NIVEL, no de bandera** —«the interrupt is constantly triggered when EEPE is
+      cleared»—, así que este módulo no tiene `ack`: la ISR tiene que quitar `EERIE` o lanzar otra
+      escritura. Inventarle una bandera habría sido más cómodo y menos compatible.
+
+      **Y la síntesis cazó un fallo antes del commit**: la lectura de la celda era combinacional, y
+      con eso yosys no infiere memoria —«replacing memory with list of registers»: 1 024 bytes
+      convertidos en **8 192 biestables**, más que todo el resto del chip—. Con la lectura
+      registrada, la EEPROM entera cabe en **una BRAM**.
 - [ ] `clkctrl.v`: CLKPR, PRR, modos de sueño, `SMCR`.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 

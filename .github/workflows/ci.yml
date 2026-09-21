@@ -271,6 +271,14 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-wdt
 
+      # La EEPROM. Lo que se verifica no es que guarde bytes: es la SECUENCIA
+      # TEMPORIZADA -una escritura perdida no se nota hasta el siguiente
+      # arranque- y la FISICA DE LA CELDA, que baja bits y no los sube.
+      - name: EEPROM
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-eeprom
+
       - name: Interrupciones externas contra la hoja de datos
         run: |
           source ~/eda/oss-cad-suite/environment

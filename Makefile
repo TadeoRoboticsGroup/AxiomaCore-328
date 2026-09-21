@@ -79,6 +79,7 @@ help:
 	@echo "  make sim-adc          ADC: aproximacion sucesiva de 10 bits"
 	@echo "  make sim-ac           comparador analogico: flancos y captura"
 	@echo "  make sim-wdt          perro guardian: secuencia temporizada y modos"
+	@echo "  make sim-eeprom       EEPROM: 1 KB, tiempos y fisica de la celda"
 	@echo "  make sim-extint       INT0, INT1 y los tres PCINT vs hoja de datos"
 	@echo "  make sim-irq          controlador de interrupciones, exhaustivo"
 	@echo "  make sim-soc          mapa de I/O del SoC: 224 direcciones, sin colisiones"
@@ -299,6 +300,16 @@ sim-twi:
 # puede comprobar que el SAR converge -las diez decisiones- y no solo si el
 # numero final salio bien.
 # --- comparador analogico: la salida se mueve a mano, lo demas es logica ---
+# --- EEPROM: 1 KB, con su secuencia temporizada y la fisica de la celda ---
+.PHONY: sim-eeprom
+sim-eeprom:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/veep -o tb_eeprom \
+	  --top-module axioma_eeprom \
+	  rtl/periph/axioma_eeprom.v sim/periph/tb_eeprom.cpp >/dev/null
+	@echo -e "$(BOLD)EEPROM: secuencia temporizada, tiempos y fisica de la celda$(NC)"
+	@./$(BUILD)/veep/tb_eeprom
+
 # --- perro guardian: su oscilador entra de fuera, como el comparador del ADC ---
 .PHONY: sim-wdt
 sim-wdt:
@@ -417,6 +428,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
             rtl/periph/axioma_twi.v rtl/periph/axioma_adc.v \
             rtl/periph/axioma_ac.v rtl/periph/axioma_wdt.v \
+            rtl/periph/axioma_eeprom.v \
             rtl/fpga/axioma_adc_frente.v \
             rtl/periph/axioma_irq.v
 

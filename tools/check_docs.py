@@ -28,6 +28,7 @@ import glob
 import os
 import re
 import sys
+from pathlib import Path
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOPES = ("rtl/", "sim/", "tools/", "fw/", "docs/", "board/", "asic/", "sw/",
@@ -82,6 +83,72 @@ def main():
         print(f"  añádela a PERMITIDAS en tools/check_docs.py con su motivo.{FIN}")
         return 1
     print(f"  {VERDE}todas existen{FIN}")
+    return deudas_citadas()
+
+
+# --------------------------------------------------------------------------
+#  LAS DEUDAS QUE CITA EL CODIGO TIENEN QUE EXISTIR EN EL REGISTRO
+#
+#  POR QUE ESTA PUERTA. El 17-sep-2026 se cerro D13, cuya leccion era que una
+#  deuda escrita SOLO en un comentario del RTL no la ve nadie: «lo peor de ella
+#  es donde estaba escrita». Cuatro dias despues, un comentario de
+#  axioma_eeprom.v decia «es la deuda D15, declarada en el registro» — y el
+#  registro no la tenia. La leccion estaba escrita y se repitio igual.
+#
+#  Asi que ahora se comprueba. Un comentario que diga «deuda Dn» obliga a que
+#  exista la fila `| Dn |` en docs/06-deuda-tecnica.md. Cuesta un segundo, y es
+#  la diferencia entre una deuda declarada —que es una decision— y una deuda
+#  olvidada, que es una sorpresa en la oblea.
+#
+#  Se busca la CITA y no el numero: `D0` y `D13` son tambien los nombres de dos
+#  pines de Arduino en el top de la placa y en el generador de constraints, y
+#  buscar `\bD[0-9]+\b` a secas los daria por deudas.
+#
+#  Y SE BUSCA EN LOS DOS SENTIDOS, porque el castellano admite los dos ordenes:
+#  «la deuda D14» y «D1 de la deuda tecnica». La primera version de esta puerta
+#  solo miraba el primero y se dejaba una cita de tb_gpio.cpp — una puerta con
+#  un punto ciego da una respuesta tranquilizadora, que es peor que ninguna.
+FUENTES = ("rtl", "sim", "fw", "sw")
+EXT = (".v", ".vh", ".cpp", ".c", ".h", ".S", ".py")
+CITA = re.compile(r"deuda[^\n]{0,30}?\bD(\d+)\b"
+                  r"|\bD(\d+)\b[^\n]{0,30}?deuda", re.IGNORECASE)
+
+
+def deudas_citadas():
+    registro = Path("docs/06-deuda-tecnica.md")
+    if not registro.exists():
+        print(f"  {ROJO}falta docs/06-deuda-tecnica.md{FIN}")
+        return 1
+    texto = registro.read_text(encoding="utf-8")
+    declaradas = set(re.findall(r"^\|\s*D(\d+)\s*\|", texto, re.M))
+
+    citas = {}
+    for raiz in FUENTES:
+        for f in Path(raiz).rglob("*"):
+            if f.suffix not in EXT or not f.is_file() or "legacy" in f.parts:
+                continue
+            try:
+                src = f.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for n, linea in enumerate(src.splitlines(), 1):
+                for par in CITA.findall(linea):
+                    d = par[0] or par[1]
+                    citas.setdefault(d, (str(f), n))
+
+    huerfanas = {d: donde for d, donde in citas.items() if d not in declaradas}
+    print(f"\n{NEGRITA}Las deudas que cita el codigo{FIN}")
+    print(f"  {len(citas)} citadas en el RTL y los bancos, "
+          f"{len(declaradas)} declaradas en el registro")
+    if huerfanas:
+        print(f"\n  {ROJO}{len(huerfanas)} citadas y SIN declarar:{FIN}")
+        for d, (f, n) in sorted(huerfanas.items(), key=lambda x: int(x[0])):
+            print(f"    D{d}  citada en {f}:{n}")
+        print(f"\n  {GRIS}Una deuda que solo vive en un comentario no la ve nadie:")
+        print(f"  es la leccion de D13. Declarala en docs/06-deuda-tecnica.md,")
+        print(f"  con que la desbloquea, EN ESTE MISMO COMMIT.{FIN}")
+        return 1
+    print(f"  {VERDE}todas las citadas estan declaradas{FIN}")
     return 0
 
 

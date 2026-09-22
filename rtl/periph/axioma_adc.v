@@ -56,8 +56,8 @@
 // aproximación sucesiva en ninguna parte. El oráculo es el banco propio, con un
 // comparador escrito desde la hoja de datos.
 //
-// FUERA DE ALCANCE, y declarado en el registro de deuda: el DISPARO AUTOMÁTICO
-// (`ADATE` con `ADTS`). Sus bits se almacenan y se leen de vuelta, y el resto
+// FUERA DE ALCANCE, y declarado en el registro de deuda como D14: el DISPARO
+// AUTOMÁTICO (`ADATE` con `ADTS`). Sus bits se almacenan y se leen de vuelta, y el resto
 // del módulo está escrito para que añadirlo sea una condición más en el
 // arranque de la conversión.
 

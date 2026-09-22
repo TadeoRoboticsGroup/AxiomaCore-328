@@ -393,6 +393,16 @@ la repita.
 
 1. Cuando algo se construye a medias **a propósito**, entra aquí en el mismo commit, con el motivo
    y con lo que lo desbloquea. No vale «ya lo pondré».
+
+   **Y desde el 22-sep-2026 hay una puerta que lo comprueba.** `make check-docs` busca en el RTL y
+   en los bancos cualquier comentario que cite una deuda —«la deuda D14», «D1 de la deuda
+   técnica»— y **exige que exista su fila en esta tabla**. Si no está, falla y dice el fichero y la
+   línea.
+
+   No es una precaución teórica: la lección de D13 era precisamente que una deuda escrita **sólo**
+   en un comentario del RTL no la ve nadie, y **cuatro días después de escribirla** un comentario
+   de `axioma_eeprom.v` decía «es la deuda D15, declarada en el registro» con el registro sin D15.
+   La lección estaba escrita y se repitió igual. Lo que no falla es lo que se comprueba.
 2. Antes de abrir un frente nuevo se revisa esta lista y se cierra lo que se pueda cerrar.
 3. Lo que no se pueda, se justifica. Una deuda justificada y escrita es una decisión; una deuda
    olvidada es una sorpresa en la oblea.

@@ -915,7 +915,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **2 de los 25 vectores de interrupción no tienen fuente.** Faltan EEPROM y `SPM_READY` | Fase 3, salvo `SPM_READY`, que es de la 4 |
+| 7 | **1 de los 25 vectores de interrupción no tiene fuente**: `SPM_READY`, y es de la fase 4. Los otros 24 disparan desde un programa | Fase 3, salvo `SPM_READY`, que es de la 4 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -1157,8 +1157,8 @@ enumerado** en vez de implícito.
       empezaba en `UBRR=3` y `UBRR=0` es `f_CPU/2`—, un mutante superviviente resultó **equivalente**
       y se quitaron tres líneas muertas, y la cobertura destapó que el segundo nivel del búfer no lo
       pisaba nadie en MSPIM.
-- [~] **`eeprom.v`: 1 KB con su máquina de `EECR`.** **El módulo está escrito y verificado; falta
-      integrarlo en el SoC.** 49 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura,
+- [x] **`eeprom.v`: 1 KB con su máquina de `EECR`, y dentro del SoC.** Con el **vector 22**
+      disparando, y con él **sólo `SPM_READY` se queda sin fuente** — y ése es de la fase 4. 49 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura,
       101 LUT4 y **una sola BRAM**.
 
       **Tres cosas, por orden de lo que duele si falla.** La **secuencia temporizada** —`EEMPE` y,
@@ -1181,7 +1181,7 @@ enumerado** en vez de implícito.
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 23—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta —hoy lo hacen 24—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

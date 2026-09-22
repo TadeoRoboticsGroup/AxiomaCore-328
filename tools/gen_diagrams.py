@@ -276,7 +276,7 @@ def fig_verif(t):
          "65 536 opcodes × 11 comprobaciones"),
         ("Ciclos — nivel L3", "tabla del manual del ISA", "0", "desviaciones",
          "360 048 instrucciones · 97 de 97 mnemónicos"),
-        ("El propio banco", "prueba de mutación", "257/257", "detectados",
+        ("El propio banco", "prueba de mutación", "259/259", "detectados",
          "fallos inyectados a propósito en el RTL"),
     ]
     cw, ch = (IN_W - 12) / 2, 128

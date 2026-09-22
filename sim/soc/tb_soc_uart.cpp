@@ -465,6 +465,18 @@ int main(int argc, char **argv) {
                    "y 96 5A C3 por PD1\n");
     }
 
+    // LA EEPROM, DE EXTREMO A EXTREMO. El programa graba 0x5A en la direccion
+    // 0x123, espera a que la grabacion termine y lo lee de vuelta. Si el
+    // oscilador RC no llegara al periferico, la grabacion no acabaria y saldria
+    // 0xFF —la celda virgen—: un fallo que se lee.
+    if (texto.find("EE=5A") == std::string::npos) {
+        printf("  FALLA: la EEPROM no devolvio 0x5A — el texto fue \"%s\"\n",
+               texto.c_str());
+        fails++;
+    } else {
+        printf("  EEPROM leida del PIN: 0x5A grabado y releido en 0x123\n");
+    }
+
     // EL ADC, DE EXTREMO A EXTREMO Y SALIENDO POR UN PIN. El programa convierte
     // el canal 3 y escribe el resultado en hexadecimal por el puerto serie, asi
     // que este numero ha cruzado el chip entero: bus, SAR, frente analogico,

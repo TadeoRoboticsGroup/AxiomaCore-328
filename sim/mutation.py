@@ -419,10 +419,10 @@ CATALOG = [
 # arriba en tres trozos-, y la propia mutacion lo dice: «patron no encontrado».
 ("soc", SOC, "sim-diff", "el mapa de vectores se desplaza un bit",
  """                       ac_irq,        // 23      comparador analogico
-                       1'b0,          // 22      EEPROM
+                       ee_irq,        // 22      EE_READY
                        ad_irq,        // 21      ADC""",
  """                       ac_irq,        // 23      comparador analogico
-                       2'b0,          // 22      EEPROM
+                       {1'b0, ee_irq}, // 22     EE_READY
                        ad_irq,        // 21      ADC"""),
 # ------------------------------------------------------- USART0 y el bus
 # El mutante del bus es el mas importante del catalogo: reproduce un fallo que
@@ -1028,12 +1028,21 @@ CATALOG = [
 # ------------------------------------------- el comparador dentro del SoC
 ("soc", SOC, "sim-diff", "el comparador dispara el vector de la EEPROM",
  """                       ac_irq,        // 23      comparador analogico
-                       1'b0,          // 22      EEPROM""",
- """                       1'b0,          // 23      comparador analogico
-                       ac_irq,        // 22      EEPROM"""),
+                       ee_irq,        // 22      EE_READY""",
+ """                       ee_irq,        // 23      comparador analogico
+                       ac_irq,        // 22      EE_READY"""),
 ("soc", SOC, "sim-diff", "ACIC no lleva el comparador a la captura del Timer1",
  "        .icp1_pin(ac_a_captura ? ac_o : pb_in[0]),",
  "        .icp1_pin(pb_in[0]),"),
+# ------------------------------------------------ la EEPROM en el SoC
+("soc", SOC, "sim-diff", "la EEPROM dispara el vector del ADC",
+ """                       ee_irq,        // 22      EE_READY
+                       ad_irq,        // 21      ADC""",
+ """                       1'b0,          // 22      EE_READY
+                       ee_irq,        // 21      ADC"""),
+("soc", SOC, "sim-hello", "el oscilador RC no llega a la EEPROM: no graba nunca",
+ "        .osc_tick(osc_rc_tick),\n        .irq_ee(ee_irq)",
+ "        .osc_tick(1'b0),\n        .irq_ee(ee_irq)"),
 # ------------------------------------------- el perro guardian en el SoC
 ("soc", SOC, "sim-diff", "el perro guardian dispara el vector de PCINT2",
  "                       wd_irq,        // 6       WDT",
@@ -1044,11 +1053,11 @@ CATALOG = [
 # ------------------------------------------------- el ADC dentro del SoC
 # Lo que el banco del periferico NO puede ver: donde esta su vector y si su
 # DIDR0 llega al puerto. Los dos se cazan en el SoC y en el pin.
-("soc", SOC, "sim-diff", "el ADC dispara el vector del comparador analogico",
- """                       1'b0,          // 22      EEPROM
+("soc", SOC, "sim-diff", "el ADC dispara el vector de la EEPROM",
+ """                       ee_irq,        // 22      EE_READY
                        ad_irq,        // 21      ADC""",
- """                       ad_irq,        // 22      EEPROM
-                       1'b0,          // 21      ADC"""),
+ """                       ad_irq,        // 22      EE_READY
+                       ee_irq,        // 21      ADC"""),
 ("soc", SOC, "sim-hello", "DIDR0 no llega del ADC al puerto C",
  "        .din_dis(adc_didr),",
  "        .din_dis(8'h00),"),

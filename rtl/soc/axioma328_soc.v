@@ -77,12 +77,18 @@ module axioma328_soc #(
     output wire        ac_neg_mux,
     input  wire        ac_salida,
 
-    // ---- el oscilador del perro guardian, que tampoco vive aqui ----
+    // ---- el oscilador RC interno, que tampoco vive aqui ----
     // 128 kHz de RC no son logica, por el mismo criterio del ADR 0002: entra
-    // como un pulso y quien instancia el SoC decide de donde sale. Y el
-    // reinicio que produce SALE, en vez de morderse la cola aqui dentro: es el
+    // como un pulso y quien instancia el SoC decide de donde sale.
+    //
+    // LO COMPARTEN EL PERRO GUARDIAN Y LA EEPROM, y no es una economia del
+    // diseno: en el chip es el mismo oscilador. De ahi que el perro muerda en
+    // milisegundos y que una grabacion de EEPROM tarde 3,4 ms — los dos numeros
+    // salen de la misma fuente, y si esa fuente deriva, derivan los dos juntos.
+    //
+    // El reinicio del perro SALE, en vez de morderse la cola aqui dentro: es el
     // top quien cierra la cadena de reset, igual que hace con `rst_n`.
-    input  wire        wdt_osc_tick,
+    input  wire        osc_rc_tick,
     output wire        wdt_reset,
 
     // ---------------------------------------------------- observación
@@ -432,6 +438,25 @@ module axioma328_soc #(
         .irq_adc(ad_irq), .ack_adc(irq_ack_v[21])
     );
 
+    // ---------------------------------------------------------- EEPROM
+    // 1 KB con su secuencia temporizada. Comparte el oscilador RC con el perro
+    // guardian, que es lo que hace el chip.
+    //
+    // NO TIENE `ack`, y no es un olvido: `EE_READY` es de NIVEL —«the interrupt
+    // is constantly triggered when EEPE is cleared»—, asi que no hay bandera
+    // que limpiar al atender el vector. La ISR tiene que quitar `EERIE` o
+    // lanzar otra escritura.
+    wire [7:0] ee_rd;
+    wire       ee_sel, ee_irq;
+
+    axioma_eeprom eeprom (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ee_rd), .io_sel(ee_sel),
+        .osc_tick(osc_rc_tick),
+        .irq_ee(ee_irq)
+    );
+
     // ------------------------------------------------------ perro guardian
     // Su reloj es propio, asi que el oscilador entra de fuera. `WDR` llega del
     // secuenciador como un pulso: la instruccion es un NOP para el nucleo y un
@@ -443,7 +468,7 @@ module axioma328_soc #(
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(wd_rd), .io_sel(wd_sel),
-        .osc_tick(wdt_osc_tick),
+        .osc_tick(osc_rc_tick),
         .wdr(core_wdr),
         .wdt_reset(wdt_reset),
         .irq_wdt(wd_irq), .ack_wdt(irq_ack_v[6])
@@ -498,10 +523,10 @@ module axioma328_soc #(
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
     assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
-                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd;
+                    | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd | ee_rd;
     assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
                     | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel
-                    | ad_sel | ac_sel | wd_sel;
+                    | ad_sel | ac_sel | wd_sel | ee_sel;
 
     // ------------------------------------------- controlador de interrupciones
     // LOS ANCHOS DE ESTA CONCATENACIÓN SON EL MAPA DE VECTORES: 9 + 3 + 14 = 26.
@@ -516,7 +541,7 @@ module axioma328_soc #(
     assign irq_src = { 1'b0,          // 25      SPM_READY, sin periférico
                        tw_irq,        // 24      TWI
                        ac_irq,        // 23      comparador analogico
-                       1'b0,          // 22      EEPROM
+                       ee_irq,        // 22      EE_READY
                        ad_irq,        // 21      ADC
                        us_txc,        // 20      USART_TX
                        us_udre,       // 19      USART_UDRE

@@ -289,6 +289,42 @@ int main(void)
 
     usart_print("Hola, AxiomaCore-328\r\n");
 
+    /* LA EEPROM, DE EXTREMO A EXTREMO. Escribe un byte, espera a que la
+     * grabacion termine y lo lee de vuelta, y el resultado sale por el puerto
+     * serie: el unico sitio donde se ve que los cuatro registros llegan por el
+     * bus de verdad y que el oscilador RC llega al periferico.
+     *
+     * LA ESPERA VA ACOTADA a proposito. Si la grabacion no terminara nunca
+     * —porque el oscilador no llegue—, un `while (EECR & (1<<EEPE));` colgaria
+     * el programa y el banco se quedaria sin decir nada. Asi sale un valor
+     * equivocado, que es un fallo que se lee.
+     *
+     * Y LA SECUENCIA VA SEGUIDA: `EEMPE` y, en las cuatro instrucciones
+     * siguientes, `EEPE`. Meter algo en medio la rompe. */
+    {
+        uint16_t espera;
+        EEARH = 0x01;                      /* direccion 0x123 */
+        EEARL = 0x23;
+        EEDR  = 0x5A;
+        EECR  = (1 << EEMPE);
+        EECR  = (1 << EEPE);
+        for (espera = 0; espera < 60000; espera++)
+            if (!(EECR & (1 << EEPE)))
+                break;
+        EEARH = 0x01;
+        EEARL = 0x23;
+        /* ENSUCIAR `EEDR` ANTES DE LEER, y no es paranoia: `EEDR` es el MISMO
+         * registro que se uso para escribir, asi que leerlo sin mas devolveria
+         * 0x5A aunque la lectura no hubiera hecho nada. El mutante que corta el
+         * oscilador —y con el la grabacion— sobrevivia exactamente por eso: el
+         * banco se estaba leyendo a si mismo. */
+        EEDR  = 0x00;
+        EECR  = (1 << EERE);
+        usart_print("EE=");
+        usart_hex(EEDR, 2);
+        usart_print("\r\n");
+    }
+
     /* UNA CONVERSION DEL ADC, DE EXTREMO A EXTREMO. Es lo que hace
      * `analogRead(A3)` por dentro, y hasta aqui nada la habia ejercitado a
      * traves del bus de verdad: el banco del periferico no ve el SoC, y sin un

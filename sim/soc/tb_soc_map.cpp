@@ -89,6 +89,8 @@ static const Esperado MAPA[] = {
     // Ojo con el hueco: 0x7D no existe -DIDR0 esta en 0x7E, no pegado a ADMUX-.
     // Comparador analogico: ACSR esta en la I/O baja -0x50 de datos, 0x30 de
     // I/O, al alcance de IN/OUT- y DIDR1 en la extendida, junto a los del ADC.
+    {0x1F, "eeprom", "EECR"},   {0x20, "eeprom", "EEDR"},
+    {0x21, "eeprom", "EEARL"},  {0x22, "eeprom", "EEARH"},
     {0x40, "wdt",    "WDTCSR"},
     {0x30, "ac",     "ACSR"},   {0x5F, "ac",     "DIDR1"},
     {0x58, "adc",    "ADCL"},   {0x59, "adc",    "ADCH"},   {0x5A, "adc", "ADCSRA"},
@@ -147,6 +149,7 @@ int main(int argc, char **argv) {
                 {"spi",    dut->sel_spi},   {"twi",    dut->sel_twi},
                 {"adc",    dut->sel_adc},   {"ac",     dut->sel_ac},
                 {"wdt",    dut->sel_wdt},
+                {"eeprom", dut->sel_eeprom},
             };
             int n = 0;
             for (auto &q : quien)

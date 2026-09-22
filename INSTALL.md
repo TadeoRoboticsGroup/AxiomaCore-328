@@ -194,13 +194,13 @@ make sim-hello     # blink, serie, SPI y los seis PWM leídos DEL PIN
 make coverage      # cobertura del RTL fusionando todas las fuentes; es PUERTA
 ```
 
-**Los 33 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
+**Los 33 objetivos deben pasar** (`make check-all` los corre todos), y tardan unos **5 minutos** en total —`synth-check` es casi
 todo—. Se pueden encadenar en una sola línea, que es como los ejecuta la CI.
 
 Aparte, y en un trabajo propio de la CI porque tarda unos 9 minutos:
 
 ```bash
-make mutation      # inyecta 257 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 259 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

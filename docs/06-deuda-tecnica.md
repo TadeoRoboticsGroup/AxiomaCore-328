@@ -88,7 +88,7 @@ Está en el plan, con su fase y su criterio de aceptación. Se lista aquí sólo
 confunda con lo de arriba.
 
 - **Fase 3:** ADC, comparador analógico, watchdog, EEPROM, `clkctrl`.
-  Hoy **2 de los 25 vectores de interrupción** no tienen fuente, y la cuenta ya no se puede
+  Hoy **1 de los 25 vectores de interrupción** no tienen fuente, y la cuenta ya no se puede
   quedar atrás en silencio: la comprueba `make check-docs` contra el cableado de `irq_src`
   del SoC. Llegó a haber tres cifras distintas —10, 7 y 9— para la misma cosa.
 - **Fase 4:** bootloader STK500v1, `SPM` completo, paquete de Arduino.

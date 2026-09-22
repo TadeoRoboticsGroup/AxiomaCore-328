@@ -92,6 +92,7 @@ help:
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
 	@echo "  make cycles-table     regenera la tabla de ciclos del contrato L3"
 	@echo "  make sim-core         todas las anteriores"
+	@echo "  make check-all        LA REGRESION ENTERA, y la lista vive ahi"
 	@echo "  make sim-random       10^6 instrucciones aleatorias vs simavr"
 	@echo "  make mutation         prueba de mutación de TODO el RTL (~8 min)"
 	@echo "  make mutation-check   los patrones del catálogo siguen en el RTL (1 s)"
@@ -566,6 +567,40 @@ sim-random: $(BUILD)/vdiff/Vaxioma_sim_top $(PERF_DIR)/cycles.bin
 	@echo -e "$(BOLD)Regresión de instrucciones aleatorias$(NC)"
 	@$(PYTHON) sim/random/gen_random.py --out $(RAND_DIR) --n $(RAND_N) 	   --len $(RAND_LEN) --seed $(RAND_SEED)
 	@ok=0; ko=0; tot=0; 	for f in $(RAND_DIR)/rnd*.S; do 	  n=$$(basename $$f .S); 	  $(AVR_AS) -o $(RAND_DIR)/$$n.elf $$f || { echo "no ensambla: $$f"; exit 1; }; 	  avr-objcopy -O binary $(RAND_DIR)/$$n.elf $(RAND_DIR)/$$n.bin; 	  printf "  %-8s " "$$n"; 	  if out=$$(LD_LIBRARY_PATH=$(SIMAVR_LIB):$$LD_LIBRARY_PATH 	            ./$(BUILD)/vdiff/diff $(RAND_DIR)/$$n.bin $(RAND_RUN) 	            $(PERF_DIR)/cycles.bin $(RAND_DIR)/$$n.cov 2>&1); then 	    echo "$$out" | tail -3 | head -1; ok=$$((ok+1)); 	    tot=$$((tot+$(RAND_RUN))); 	  else echo -e "$(RED)FALLA$(NC)"; echo "$$out" | tail -16; ko=$$((ko+1)); fi; 	done; 	echo ""; 	echo -e "  $$ok programas, $$ko con divergencias, $$tot instrucciones ejecutadas"; 	$(PYTHON) sim/perf/cycle_coverage.py $(DEC_DIR)/objdump.npz $(RAND_DIR)/*.cov; 	test $$ko -eq 0
+
+# ------------------------------------------------- la regresion entera
+# LA LISTA DE LO QUE TIENE QUE PASAR VIVE AQUI Y EN NINGUN OTRO SITIO. Estaba
+# copiada en el README, en INSTALL.md y en el flujo de la CI, y tres copias de
+# una lista son tres cifras que se desincronizan: ya paso con la cuenta de
+# objetivos. Ahora los tres citan este objetivo.
+#
+# No se paran en el primer fallo a proposito: si algo se rompe, interesa saber
+# QUE MAS se rompio, no solo lo primero.
+REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
+             sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
+             sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
+             sim-adc sim-ac sim-wdt sim-eeprom sim-extint sim-irq \
+             sim-soc sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-diff sim-random coverage
+
+.PHONY: check-all
+check-all:
+	@ok=0; ko=0; malos=""; \
+	for t in $(REGRESION); do \
+	  if $(MAKE) --no-print-directory $$t >$(BUILD)/check-$$t.log 2>&1; then \
+	    ok=$$((ok+1)); \
+	  else \
+	    echo -e "  $(RED)FALLA$(NC) $$t   $(DIM)($(BUILD)/check-$$t.log)$(NC)"; \
+	    ko=$$((ko+1)); malos="$$malos $$t"; \
+	  fi; \
+	done; \
+	echo ""; \
+	if [ $$ko -eq 0 ]; then \
+	  echo -e "  $(GREEN)$$ok/$$ok objetivos en verde$(NC)"; \
+	else \
+	  echo -e "  $(RED)$$ok en verde, $$ko en rojo:$$malos$(NC)"; \
+	fi; \
+	test $$ko -eq 0
 
 .PHONY: mutation
 mutation:

@@ -169,11 +169,11 @@ module axioma_ulx3s_top #(
     // reloj de sistema. El divisor es GRANDE a proposito -un perro guardian que
     // muerde en microsegundos no es un perro guardian-, pero en simulacion se
     // deja corto para que un banco pueda verlo vencer sin esperar un siglo.
-    reg [6:0] wdt_div;
-    wire      wdt_osc_tick = (wdt_div == 7'd0);
+    reg [6:0] osc_rc_div;
+    wire      osc_rc_tick = (osc_rc_div == 7'd0);
     always @(posedge clk or negedge rst_n_q)
-        if (!rst_n_q) wdt_div <= 7'd97;
-        else        wdt_div <= wdt_osc_tick ? 7'd97 : wdt_div - 7'd1;
+        if (!rst_n_q) osc_rc_div <= 7'd97;
+        else        osc_rc_div <= osc_rc_tick ? 7'd97 : osc_rc_div - 7'd1;
 
 
     axioma_adc_frente frente (
@@ -194,7 +194,7 @@ module axioma_ulx3s_top #(
         .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
         .ac_neg_mux(ac_neg_mux), .ac_salida(ac_salida),
-        .wdt_osc_tick(wdt_osc_tick), .wdt_reset(wdt_reset),
+        .osc_rc_tick(osc_rc_tick), .wdt_reset(wdt_reset),
         /* verilator lint_off PINCONNECTEMPTY */
         .dbg_pc(), .dbg_ir(), .dbg_retire(), .dbg_illegal(), .dbg_irq_entry(),
         .dbg_irq_vector(), .dbg_sp(), .dbg_sreg(), .dbg_reg_data(),

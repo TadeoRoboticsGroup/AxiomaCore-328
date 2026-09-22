@@ -28,6 +28,7 @@ hace todo lo que su nombre promete.
 | D10 | **El Timer2 asíncrono no tiene dominio de reloj propio.** Cuenta los flancos de `TOSC1` sincronizados, viviendo en el reloj del sistema. La cuenta y las banderas salen bien; lo que no existe son los cinco bits de ocupado de `ASSR` —`TCN2UB` y compañía—, que se leen siempre a cero | Abierta · **fase 5** |
 | D12 | **La USART no tenía el modo SPI maestro (`UMSEL` = 11).** Sus bits se almacenaban y se leían de vuelta, y nada más | **CERRADA** 16-sep — ver abajo |
 | D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
+| D15 | **Leer la EEPROM no para el núcleo cuatro ciclos.** La hoja de datos dice «the CPU is halted for four clock cycles before the next instruction is executed»; aquí `EERE` devuelve el byte y el programa sigue. Rompe el nivel **L3** en las instrucciones que siguen a una lectura de EEPROM | Abierta · **fase 5** |
 | D14 | **El ADC no tiene disparo automático (`ADATE` con `ADTS`).** Sólo hace conversiones sueltas, que es lo que usa `analogRead()`. Sus bits se almacenan y se leen de vuelta | Abierta · **fase 3** |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
@@ -227,6 +228,35 @@ transacciones aleatorias de semilla fija. Ocho mutantes nuevos, todos muertos.
   noveno bit. Lo destapó el barrido aleatorio: los casos dirigidos tenían el bit 8 a cero y pasaban
   sin probar nada. La hoja de datos lo dice con esas palabras, y el RTL ya lo hacía bien; era el
   banco el que leía al revés.
+
+### D15 — leer la EEPROM no para el núcleo  ·  nace el 21-sep-2026
+
+**Qué dice la hoja de datos:** «when the EEPROM is read, the CPU is halted for four clock cycles
+before the next instruction is executed». Cuatro ciclos, cada vez que un programa hace `EERE`.
+
+**Qué hace este RTL:** devolver el byte y seguir. El dato es correcto; lo que no es correcto es
+**cuánto tarda el programa**.
+
+**Por qué importa, y por qué no es cosmético.** Este proyecto tiene un contrato de nivel **L3** —la
+misma cuenta de ciclos que el chip— y de él dependen `_delay_ms()`, `micros()`, `SoftwareSerial` y
+cualquier protocolo bit-bangeado. Una rutina que lea varios bytes de EEPROM dentro de un bucle
+temporizado va **cuatro ciclos por byte más rápida** que en el chip. No se nota leyendo una
+calibración al arrancar; se nota en un bucle que además mueve un pin.
+
+**Por qué se deja fuera ahora, por escrito.** Parar el núcleo **no es cosa de este periférico**:
+hace falta una señal de espera que llegue a `axioma_seq` y congele la etapa de retiro, y hoy el
+secuenciador no tiene ninguna. Es exactamente el mismo mecanismo que pedirá la **cola de
+prebúsqueda** de la [adenda 2 del ADR 0001](adr/0001-memorias-en-flanco-de-bajada.md), que es de la
+fase 5. Meter una espera ad-hoc para un solo periférico obligaría a rehacerla cuando llegue la
+general.
+
+**Qué la desbloquea:** esa señal de espera en el secuenciador. Cuando exista, esto son dos líneas:
+`EERE` la levanta cuatro ciclos.
+
+**Cómo se comprobará:** con un programa dirigido en el diferencial. simavr **sí** modela la parada,
+así que el contraste de ciclos la cazaría sola — hoy no la caza porque ningún programa del
+diferencial lee la EEPROM con `EERE`, y eso también queda dicho aquí para que no parezca que pasa
+por estar bien.
 
 ### D14 — el ADC sin disparo automático  ·  nace el 17-sep-2026
 

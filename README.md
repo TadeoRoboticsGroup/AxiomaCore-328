@@ -67,16 +67,17 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | `rtl/periph/axioma_eeprom.v` | **Verificado** | **49 comprobaciones** contra el capítulo 8. Tres cosas, por orden de lo que duele si falla: la **secuencia temporizada** —`EEMPE` y, dentro de cuatro ciclos, `EEPE`—, porque una escritura perdida en la EEPROM no se nota hasta el siguiente arranque y para entonces el dato bueno ya no está; **la física de la celda**, que borra a `0xFF` y al escribir sin borrar sólo puede **apagar** unos —tratarla como RAM haría funcionar aquí código que en silicio no funciona—; y **el tiempo**, 3,4 ms borrando y escribiendo y 1,8 ms haciendo sólo una de las dos, medido en ciclos del oscilador. Más `EE_READY`, que es de **nivel** y no de bandera, y las diez líneas de dirección una por una. **1 KB en una sola BRAM** |
 | `rtl/periph/axioma_extint.v` | **Verificado** | **2 501 159 comprobaciones** contra un modelo de la hoja de datos, más un programa de co-simulación contra `simavr`: los cuatro modos de `ISCn`, el de **nivel bajo** —que no deja bandera y sostiene la petición—, que la bandera se ponga con el vector deshabilitado, y que `PCMSKn` filtre la bandera mientras `PCICR` sólo filtra el salto |
 | `rtl/periph/axioma_gpior.v` | **Verificado** | `GPIOR0/1/2`, tres bytes de almacenamiento del 328P. Diferencial contra `simavr` y barrido del mapa |
-| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 287 KiB para la ULX3S 25F. `nextpnr` mide **Fmax 18,13 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,45× |
+| `rtl/fpga/ecp5/axioma_ulx3s_top.v` | **Sintetiza y cierra timing** | Bitstream de 301 KiB para la ULX3S 25F. `nextpnr` mide **Fmax 18,88 MHz** tras el rutado, bajo restricción exigente; se corre a 12,5 MHz, con un margen de 1,51× |
 | `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, **decodifica también una transacción de la USART en modo SPI maestro** —`XCK` en PD4 con 48 flancos exactos y los bytes por PD1— y **una del TWI** —el START, la dirección `0xA0` y el STOP sobre `SDA`=PC4 y `SCL`=PC5—, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
-| `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las 224 direcciones del espacio de I/O barridas por el bus real: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
+| `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las **221 direcciones** del espacio de I/O barridas por el bus real —las 224 del mapa menos las tres que el núcleo intercepta, `SPL`, `SPH` y `SREG`—: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
 | `rtl/core/axioma_seq.v` | **Verificado** | 20 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
 | `rtl/core/axioma_core.v` | **Verificado** | Ídem. Es el módulo que une todo |
-| Tabla de ciclos (nivel L3) | **Verificada** | 360 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
+| Tabla de ciclos (nivel L3) | **Verificada** | 380 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
-| Entrada a interrupción | **Verificada** | 1 796 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
-| ADC, EEPROM, watchdog, comparador analógico | Pendientes | Fase 3 |
+| Entrada a interrupción | **Verificada** | 2 510 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
+| `rtl/periph/axioma_wdt.v`, `axioma_eeprom.v`, `axioma_adc.v`, `axioma_ac.v` | **Verificados** | Sus filas están arriba. Los cuatro entraron entre el 17 y el 21 de septiembre |
+| Control de reloj (`CLKPR`, `PRR`, `SMCR`) | Pendiente | Fase 3 — es el último de los diez |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
@@ -92,8 +93,8 @@ síntesis    sin latches · el SoC entero: 8 158 LUT4 y 1 379 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
-bitstream   287 KiB · 33,0 % de las LUT y 58,9 % de la BRAM de la ULX3S 25F
-            Fmax 18,13 MHz medida tras el rutado, y se corre a 12,5 MHz
+bitstream   301 KiB · 36,6 % de las LUT y 60,7 % de la BRAM de la ULX3S 25F
+            Fmax 18,88 MHz medida tras el rutado, y se corre a 12,5 MHz
             cada periférico nuevo baja un poco el Fmax; el objetivo de la fase 5
             son 32 MHz, y para eso hace falta sacar el dato de escritura de la
             SRAM del camino combinacional
@@ -115,18 +116,18 @@ cuenta se hace con esos pesos, no a ojo:
 | 0 · fundación | 1 | 100 % | 1,00 |
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
-| 3 · periféricos | 5 | 55 % — cinco de sus diez dentro, más las tres deudas de la USART | 2,75 |
+| 3 · periféricos | 5 | 85 % — **nueve de sus diez** dentro; falta el control de reloj | 4,25 |
 | 4 · Arduino | 3 | 0 % | 0,00 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **9,55** |
+| | **17** | | **11,05** |
 
-Salen **~56 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
-un 35 % y un 42 %, y **~38 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+Salen **~65 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 41 % y un 48 %, y **~44 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
-Los cinco periféricos de la fase 3 que faltan son el **ADC**, el **comparador analógico**, el
-**watchdog**, la **EEPROM** y el **control de reloj**; y con ellos los cinco vectores de
-interrupción que siguen sin fuente.
+De los diez periféricos de la fase 3 **falta uno**: el **control de reloj** —`CLKPR`, `PRR`,
+`SMCR` y los modos de sueño—. Y de los 25 vectores de interrupción **sólo `SPM_READY` sigue sin
+fuente**, que es de la fase 4.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -351,7 +352,7 @@ make check-tools
 | 0 | Fundación: estructura, licencias, generador del mapa de registros, CI | **Hecha** |
 | **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **Hecha** — criterio de aceptación cumplido |
 | 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | **Cumplida en simulación** — falta enchufar la placa |
-| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **En marcha** — cinco de sus diez dentro |
+| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **En marcha** — nueve de sus diez dentro |
 | 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | Pendiente |
 | 5 | Endurecimiento: cierre de timing, portes a iCE40 y Gowin, regresión nocturna | Pendiente |
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
@@ -373,9 +374,16 @@ SoC completo y **decodifica el pin**: el texto por el puerto serie, el LED parpa
 transacción SPI y los seis canales PWM medidos a la vez. El bitstream se genera, cierra timing y
 lleva el programa dentro. **Lo único que falta es enchufar la placa** (`make prog-ulx3s`).
 
-La **fase 3** está en marcha, con **cinco de sus diez periféricos** dentro —Timer1, Timer2, las
-interrupciones externas, el SPI y el TWI— y las deudas D3, D12 y D13 de la USART cerradas. Quedan
-el ADC, el comparador analógico, el watchdog, la EEPROM y el control de reloj.
+La **fase 3** está en marcha, con **nueve de sus diez periféricos** dentro —Timer1, Timer2, las
+interrupciones externas, el SPI, el TWI, el ADC, el comparador analógico, el perro guardián y la
+EEPROM— y las deudas D3, D12 y D13 de la USART cerradas. **Falta el control de reloj**, y con él
+la fase. De los 25 vectores de interrupción, **24 disparan desde un programa**: sólo queda
+`SPM_READY`, que es de la fase 4.
+
+Los dos últimos periféricos trajeron algo que el proyecto no tenía: **lógica que no es digital de
+punta a punta**. El ADC y el comparador analógico se cortan por donde lo hace la hoja de datos —el
+[ADR 0002](docs/adr/0002-frontera-analogica-del-adc.md) lo razona—, de modo que lo que se sintetiza
+es el registro de aproximaciones sucesivas y lo que queda fuera es el DAC y el comparador.
 
 ---
 

@@ -33,10 +33,22 @@ make prog-ulx3s          # openFPGALoader, carga volátil en SRAM
 make flash-ulx3s         # openFPGALoader, escritura permanente en la flash SPI
 ```
 
-## Presupuesto de recursos
+## Recursos, ya medidos
 
-| Recurso | Estimado | Disponible en 25F | Margen |
-|---------|----------|-------------------|--------|
-| LUT4 | 3 000 – 5 000 | 24 288 | Muy holgado |
-| EBR (memoria) | ~280 Kbit | 1008 Kbit | Holgado |
-| Fmax objetivo | ≥ 32 MHz | — | A verificar en la fase 5 |
+La tabla de abajo era un **presupuesto** —3 000 a 5 000 LUT4— hasta que hubo bitstream. Ahora son
+medidas de `nextpnr` tras el rutado, y la estimación se quedó corta por casi el doble: el precio de
+los diez periféricos y del contrato de ciclos.
+
+| Recurso | Medido (21-sep-2026) | Disponible en 25F | Ocupación |
+|---------|----------------------|-------------------|-----------|
+| LUT4 | **8 886** | 24 288 | 36,6 % |
+| Biestables | **1 396** | 24 288 | 5,7 % |
+| EBR (memoria) | **34 bloques** — 32 KB de programa, 2 KB de SRAM y 1 KB de EEPROM | 56 | 60,7 % |
+| Bitstream | **301 KiB** | — | — |
+| Fmax medida | **18,88 MHz**, y se corre a 12,5 (margen 1,51×) | — | — |
+| Fmax objetivo | ≥ 32 MHz | — | Fase 5 |
+
+**El Fmax baja con cada periférico** —era 20,23 MHz antes del ADC— y eso está en el README al lado
+del número. Subirlo es trabajo de la fase 5: lo que manda hoy no es la profundidad lógica sino el
+**rutado**, y el siguiente paso identificado es sacar el dato de escritura de la SRAM del camino
+combinacional, lo que obliga a separar los buses de datos de SRAM y de I/O.

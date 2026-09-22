@@ -245,7 +245,7 @@ exactamente uno: si costara dos, sería un fallo.
 Se lee también `avr->cycle` y se compara. Pero **no es el oráculo**: el comentario de
 `avr_run_one` en `sim_core.c` avisa de que su cuenta de ciclos «might not be entirely accurate».
 Las discrepancias se informan aparte, con el mnemónico y el número de veces, para adjudicarlas a
-mano contra el manual. A día de hoy no hay ninguna: sobre las 360 048 instrucciones dirigidas y
+mano contra el manual. A día de hoy no hay ninguna: sobre las 380 048 instrucciones dirigidas y
 el millón de instrucciones aleatorias, simavr y el manual coinciden en todo lo ejecutado.
 
 ### Encontró un fallo real: MOVW
@@ -268,7 +268,7 @@ la comprobación de ciclos se ha apagado.
 «0 desviaciones» no dice nada de lo que ningún programa ejecutó. `sim/perf/cycle_coverage.py` une
 lo que el arnés ha comprobado de verdad y lo contrasta con la tabla.
 
-Estado actual: **97 de 97 mnemónicos**, sobre 360 048 instrucciones y 0 desviaciones. Lo cerró la
+Estado actual: **97 de 97 mnemónicos**, sobre 380 048 instrucciones y 0 desviaciones. Lo cerró la
 suite dirigida (`sim/diff/tests/isa_*.S`). `SPM` es la única exclusión, y es deliberada.
 
 ### El arnés tampoco comparaba la memoria
@@ -417,12 +417,12 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,6 %** —2 867 de 2 879 puntos—, con **19 de 24 módulos al 100 %**. Los doce puntos
-que faltan **no son alcanzables** y están adjudicados uno a uno:
+Hoy está en **99,5 %** —3 003 de 3 017 puntos—, con **21 de 26 módulos al 100 %**. Los catorce
+puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
 |--------|-------:|---------|
-| `axioma328_soc` | 6 | líneas de declaración cuyos bits van atados a constante: el TWI no conduce nunca un uno, el esclavo de SPI sólo fuerza dirección, y el comparador analógico no mueve las suyas en simulación |
+| `axioma328_soc` | 8 | líneas de declaración cuyos bits van atados a constante: el TWI no conduce nunca un uno, el esclavo de SPI sólo fuerza dirección, y el frente analógico del comparador no mueve las suyas en simulación |
 | `axioma_alu` | 3 | el `default:` de un `case` completo. El decodificador sólo emite operaciones válidas; es la rama defensiva que la síntesis elimina |
 | `axioma_seq` | 1 | `next_warmup`, el ciclo de calentamiento que sólo pone el reset |
 | `axioma_progmem` | 1 | el `$readmemh`, que sólo corre cuando el programa va DENTRO del bitstream; en simulación se carga por la puerta de atrás |
@@ -473,7 +473,7 @@ TRES trabajos separados a propósito:
 | Trabajo | Qué ejecuta | Por qué va aparte |
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí |
-| **Verificación del núcleo** | las 23 simulaciones, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice |
+| **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
 | **Mutación** | `make mutation`, los 259 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad

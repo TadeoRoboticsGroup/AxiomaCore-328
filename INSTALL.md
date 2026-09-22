@@ -163,41 +163,21 @@ make check-tools
 Debe listar **12 herramientas disponibles, 0 pendientes**. Y después, la regresión completa:
 
 ```bash
-# --- puertas: rápidas, y casi todos los fallos tontos caen aquí ---
-make lint          # análisis estático de todo el RTL
-make synth-check   # yosys: ni un latch, y el área de cada módulo
-make regmap-check  # el mapa de registros coincide con avr-libc
-make lpf           # constraints de la ULX3S reproducibles
-make check-docs    # las rutas citadas en los .md existen, y la cuenta de vectores
-make mutation-check # los patrones del catálogo de mutación siguen en el RTL
-
-# --- núcleo ---
-make sim-alu       # 22 282 240 vectores exhaustivos
-make sim-sreg      # registro de estado
-make sim-regfile   # 800 064 comprobaciones aleatorias
-make sim-mem       # memorias de programa y datos
-make sim-dbus      # el fabric del espacio de datos, 65 536 direcciones
-make sim-decode    # 65 536 opcodes contra avr-objdump
-make sim-simavr    # contraste contra simavr
-make sim-diff      # co-simulación diferencial, con la tabla de ciclos
-make sim-random    # 10^6 instrucciones aleatorias
-make sim-robust    # SPM y opcode ilegal: que nada se cuelgue
-
-# --- periféricos, cada uno contra su hoja de datos ---
-make sim-gpio sim-timer0 sim-timer1 sim-timer2
-make sim-usart sim-spi sim-twi sim-adc sim-ac sim-wdt sim-eeprom sim-extint sim-irq
-
-# --- el dispositivo entero ---
-make sim-soc       # las 224 direcciones de I/O por el bus real
-make sim-fw        # blink.c compilado con avr-gcc, contra simavr
-make sim-hello     # blink, serie, SPI y los seis PWM leídos DEL PIN
-make coverage      # cobertura del RTL fusionando todas las fuentes; es PUERTA
+make check-all
 ```
 
-**Los 33 objetivos deben pasar** (`make check-all` los corre todos), y tardan unos **5 minutos** en total —`synth-check` es casi
-todo—. Se pueden encadenar en una sola línea, que es como los ejecuta la CI.
+**Los 33 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
+todo—. **La lista de lo que tiene que pasar vive en el `Makefile`, en la variable `REGRESION`, y en
+ningún otro sitio**: estaba copiada aquí, en el README y en el flujo de la CI, y tres copias de una
+lista son tres cifras que se desincronizan.
 
-Aparte, y en un trabajo propio de la CI porque tarda unos 9 minutos:
+`make check-all` **no se para en el primer fallo**: si algo se rompe interesa saber qué más se
+rompió, y cada objetivo deja su registro en `build/check-<objetivo>.log`.
+
+Si prefieres correrlos sueltos, `make help` los lista todos con una línea de qué hace cada uno.
+
+La prueba de mutación va **aparte**, en un trabajo propio de la CI, porque tarda unos diez minutos
+y **modifica el RTL mientras corre**:
 
 ```bash
 make mutation      # inyecta 259 fallos y comprueba que la regresión los caza

@@ -59,7 +59,7 @@ axioma328_soc
 
 | Módulo | Qué traerá | Fase |
 |--------|-----------|------|
-| `axioma_clkctrl` | `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` · modos de sueño | 3 |
+| `axioma_clkctrl` | `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` · modos de sueño | 3 — **el último de los diez** |
 
 ---
 

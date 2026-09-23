@@ -441,6 +441,15 @@ sim-soc:
 	@echo -e "$(BOLD)Mapa de I/O del SoC, barrido entero$(NC)"
 	@./$(BUILD)/vsoc/tb_soc_map
 
+# --- control de reloj, consumo y sueno ---
+.PHONY: sim-clkctrl
+sim-clkctrl:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vclk -o tb_clkctrl \
+	  rtl/periph/axioma_clkctrl.v sim/periph/tb_clkctrl.cpp >/dev/null
+	@echo -e "$(BOLD)Control de reloj contra la hoja de datos$(NC)"
+	@./$(BUILD)/vclk/tb_clkctrl
+
 # --- el disparo automatico del ADC, fuente por fuente ---
 .PHONY: sim-trig
 sim-trig:
@@ -588,7 +597,7 @@ sim-random: $(BUILD)/vdiff/Vaxioma_sim_top $(PERF_DIR)/cycles.bin
 REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
-             sim-adc sim-ac sim-wdt sim-eeprom sim-extint sim-irq \
+             sim-adc sim-ac sim-wdt sim-eeprom sim-clkctrl sim-extint sim-irq \
              sim-soc sim-trig sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 

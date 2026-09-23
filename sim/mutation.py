@@ -58,6 +58,7 @@ ADC     = "rtl/periph/axioma_adc.v"
 AC      = "rtl/periph/axioma_ac.v"
 WDT     = "rtl/periph/axioma_wdt.v"
 EEP     = "rtl/periph/axioma_eeprom.v"
+CLKC    = "rtl/periph/axioma_clkctrl.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -1197,6 +1198,60 @@ CATALOG = [
 ("adc", AC, "sim-trig", "el comparador exporta la bandera ya enmascarada",
  "    assign flag_aci = aci;",
  "    assign flag_aci = aci & acie;"),
+
+# --- control de reloj, consumo y sueno ---
+# Los dos primeros son el fallo que el banco encontro al escribirlo: se habia
+# copiado la secuencia del perro guardian, que NO es esta.
+("clkctrl", CLKC, "sim-clkctrl", "la secuencia de CLKPCE es la del perro guardian",
+ "    wire abre_clk  = io_we && hit_clkpr && (io_wdata == 8'h80);",
+ "    wire abre_clk  = io_we && hit_clkpr && io_wdata[7];"),
+("clkctrl", CLKC, "sim-clkctrl", "CLKPCE no se cae al escribir CLKPS",
+ "            clkpce <= abre_clk  | (abierta_clk  && !cierra_clk  && vent_clk  != 3'd1);",
+ "            clkpce <= abre_clk  | (abierta_clk  && vent_clk  != 3'd1);"),
+("clkctrl", CLKC, "sim-clkctrl", "la ventana de CLKPCE dura la mitad",
+ "            else if (abierta_clk)  vent_clk  <= vent_clk - 3'd1;",
+ "            else if (abierta_clk)  vent_clk  <= vent_clk - 3'd2;"),
+("clkctrl", CLKC, "sim-clkctrl", "los CLKPS reservados no se recortan",
+ "    wire [3:0] clkps_ef = (clkps > 4'd8) ? 4'd8 : clkps;",
+ "    wire [3:0] clkps_ef = clkps;"),
+("clkctrl", CLKC, "sim-clkctrl", "el divisor cuenta un ciclo de mas",
+ "    wire [8:0] limite   = (9'd1 << clkps_ef) - 9'd1;",
+ "    wire [8:0] limite   = (9'd1 << clkps_ef);"),
+("clkctrl", CLKC, "sim-clkctrl", "la habilitacion es un nivel y no un pulso",
+ "    wire      ce_base = (divisor == 9'd0);",
+ "    wire      ce_base = (divisor <= limite[8:1]);"),
+("clkctrl", CLKC, "sim-clkctrl", "Idle tambien para los perifericos",
+ "    assign ce_io  = ce_base & ~(durmiendo & ~idle);",
+ "    assign ce_io  = ce_base & ~durmiendo;"),
+("clkctrl", CLKC, "sim-clkctrl", "el sueño no para ningun reloj de periferico",
+ "    assign ce_io  = ce_base & ~(durmiendo & ~idle);",
+ "    assign ce_io  = ce_base;"),
+("clkctrl", CLKC, "sim-clkctrl", "el sueño no para el nucleo",
+ "    assign ce_cpu = ce_base & ~durmiendo;",
+ "    assign ce_cpu = ce_base;"),
+("clkctrl", CLKC, "sim-clkctrl", "SLEEP duerme aunque SE este a cero",
+ "            else if (sleep_pulso && se)     durmiendo <= 1'b1;",
+ "            else if (sleep_pulso)           durmiendo <= 1'b1;"),
+("clkctrl", CLKC, "sim-clkctrl", "dormirse gana a despertar en el mismo ciclo",
+ "            if (irq_pendiente)              durmiendo <= 1'b0;\n"
+ "            else if (sleep_pulso && se)     durmiendo <= 1'b1;",
+ "            if (sleep_pulso && se)          durmiendo <= 1'b1;\n"
+ "            else if (irq_pendiente)         durmiendo <= 1'b0;"),
+("clkctrl", CLKC, "sim-clkctrl", "el modo reservado 100 se trata como power-down",
+ "    wire idle = (sm == 3'b000) || (sm == 3'b100) || (sm == 3'b101);",
+ "    wire idle = (sm == 3'b000);"),
+("clkctrl", CLKC, "sim-clkctrl", "MCUSR se limpia escribiendo uno, como el resto",
+ "            if (io_we && hit_mcusr) mcusr_q <= mcusr_q & io_wdata[3:0];",
+ "            if (io_we && hit_mcusr) mcusr_q <= mcusr_q & ~io_wdata[3:0];"),
+("clkctrl", CLKC, "sim-clkctrl", "el perro guardian no deja rastro en MCUSR",
+ "            if (wdt_reset) mcusr_q[3] <= 1'b1;",
+ "            if (1'b0)      mcusr_q[3] <= 1'b1;"),
+("clkctrl", CLKC, "sim-clkctrl", "PORF no esta puesto al arrancar",
+ "            mcusr_q <= 4'b0001;",
+ "            mcusr_q <= 4'b0000;"),
+("clkctrl", CLKC, "sim-clkctrl", "IVSEL se escribe sin su ventana",
+ "                if (cierra_ivce) ivsel_q <= io_wdata[1];",
+ "                ivsel_q <= io_wdata[1];"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

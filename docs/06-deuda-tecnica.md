@@ -30,8 +30,27 @@ hace todo lo que su nombre promete.
 | D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
 | D15 | **Leer la EEPROM no para el núcleo cuatro ciclos.** La hoja de datos dice «the CPU is halted for four clock cycles before the next instruction is executed»; aquí `EERE` devuelve el byte y el programa sigue. Rompe el nivel **L3** en las instrucciones que siguen a una lectura de EEPROM | Abierta · **fase 5** |
 | D14 | **El ADC no tenía disparo automático (`ADATE` con `ADTS`).** Sólo hacía conversiones sueltas. Sus bits se almacenaban y se leían de vuelta | **CERRADA** 22-sep — ver abajo |
+| D16 | **`IVSEL` no mueve la tabla de vectores.** El registro y su secuencia temporizada (`IVCE`) están hechos y verificados, y `ivsel` sale de `axioma_clkctrl`, pero el SoC no lo conecta: no hay sección de arranque hasta la fase 4 | Abierta · **fase 4** |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
+
+### D16 — `IVSEL` sin sitio a donde apuntar  ·  nace el 23-sep-2026
+
+**Qué hay:** el registro `MCUCR` con su bit `IVSEL` y **la cuarta secuencia temporizada del chip**,
+la de `IVCE`: escribir `IVCE` a uno, y dentro de los cuatro ciclos siguientes escribir `IVSEL` con
+`IVCE` a cero. Está implementada y verificada en `sim/periph/tb_clkctrl.cpp`, incluida la regla de
+que escribir `IVSEL` cierra la ventana en el acto.
+
+**Qué falta:** que sirva de algo. `IVSEL` mueve la tabla de vectores de interrupción al principio de
+la **sección de arranque**, y este chip no tiene sección de arranque: la escritura por páginas de la
+Flash y `SPMCSR` son la deuda **D2**, de la fase 4. Mover los vectores a una dirección donde no hay
+gestor de arranque sería peor que no moverlos.
+
+**Por qué se declara en vez de no escribirlo.** Porque el registro **sí** tiene que leerse de
+vuelta: un gestor de arranque que compruebe si ya está en modo arranque lee `MCUCR`, y un programa
+que ejecute la secuencia tiene que ver `IVCE` subir y caer. Lo que no puede es fingir el efecto.
+
+**Qué la desbloquea:** D2. Las dos son la misma pieza vista por dos sitios, y se cierran juntas.
 
 ### D10 — por qué está abierta y qué la desbloquea
 

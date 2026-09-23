@@ -30,6 +30,11 @@ module tb_soc_clk_top (
 
     output wire [7:0]  pb_out_v,     // lo que el programa saca por el puerto B
     output wire [7:0]  pd_out_v,     // y por el D, donde sale OC0A (PD6)
+
+    // Los tres buses de pull-up, para ver llegar `PUD` a los tres puertos.
+    output wire [7:0]  pb_pu_v,
+    output wire [7:0]  pc_pu_v,
+    output wire [7:0]  pd_pu_v,
     output wire        osc_tick_v,   // el oscilador de 128 kHz, que no se divide
     output wire        wdt_reset_v   // y lo que el perro guardian hace con el
 );
@@ -41,6 +46,9 @@ module tb_soc_clk_top (
 
     assign pb_out_v = pb_out;
     assign pd_out_v = pd_out;
+    assign pb_pu_v  = pb_pu;
+    assign pc_pu_v  = pc_pu;
+    assign pd_pu_v  = pd_pu;
 
     wire [3:0] adc_canal;
     wire [1:0] adc_ref;

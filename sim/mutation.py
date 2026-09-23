@@ -196,12 +196,13 @@ CATALOG = [
                       hit_ddr  ? ddr_q  :
                       hit_port ? sync1  : 8'h00;"""),
 ("gpio", GPIO, "sim-gpio", "no se declara el pull-up: un pin de entrada leeria 0",
- "assign pad_pullup = ~pad_oe & port_q;", "assign pad_pullup = 8'h00;"),
+ "assign pad_pullup = ~pad_oe & port_q & {8{~pud}};", "assign pad_pullup = 8'h00;"),
 # El pull-up mira la direccion EFECTIVA, la de despues de la anulacion: un SS de
 # esclavo forzado a entrada con su PORTB2 a uno lleva pull-up, y es lo que evita
 # que un esclavo sin maestro se quede seleccionado por ruido.
 ("gpio", GPIO, "sim-gpio", "el pull-up mira DDRx y no la direccion ya anulada",
- "assign pad_pullup = ~pad_oe & port_q;", "assign pad_pullup = ~ddr_q & port_q;"),
+ "assign pad_pullup = ~pad_oe & port_q & {8{~pud}};",
+ "assign pad_pullup = ~ddr_q & port_q & {8{~pud}};"),
 
 # ------------------------------------------------------ bus de datos
 ("dbus", DBUS, "sim-dbus", "la SRAM no traduce la dirección: no resta la base",
@@ -1310,6 +1311,36 @@ CATALOG = [
 ("clkctrl", SEQ, "sim-sleep", "cualquier instruccion de un ciclo duerme al chip",
  "    assign sleep_pulso = retire && (d_class == OPC_SLEEP);",
  "    assign sleep_pulso = retire && (d_class == OPC_NOP);"),
+
+# --- PUD: el apagado global de los pull-up ---
+# Los dos primeros son la diferencia entre leer la hoja de datos y leerla bien:
+# `PUD` va POR ENCIMA de DDxn y PORTxn, no es una condicion mas.
+("gpio", GPIO, "sim-gpio", "PUD no apaga los pull-up",
+ "    assign pad_pullup = ~pad_oe & port_q & {8{~pud}};",
+ "    assign pad_pullup = ~pad_oe & port_q;"),
+("gpio", GPIO, "sim-gpio", "PUD apaga los pull-up solo si PORTx esta a cero",
+ "    assign pad_pullup = ~pad_oe & port_q & {8{~pud}};",
+ "    assign pad_pullup = ~pad_oe & (port_q | {8{pud}});"),
+("gpio", GPIO, "sim-gpio", "PUD ademas fuerza el pin a entrada",
+ "    assign pad_oe  = (ddr_q & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en);",
+ "    assign pad_oe  = ((ddr_q & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en)) & {8{~pud}};"),
+# EL CABLE DE `PUD` ES UN CABLE DEL SoC, y por tanto no lo verifica ningun banco
+# de modulo: en `axioma_gpio` el `pud` es un puerto y da igual quien lo mueva.
+# Tres puertos son tres oportunidades de olvidarse de uno, asi que hay un
+# mutante por cable, y el ultimo mira el caso contrario —atarlo a uno apagaria
+# los tres y sin la prueba negativa pareceria que «apaga bien»—.
+("gpio", SOC, "sim-pud", "PUD no llega al puerto B",
+ "        .pud(ck_pud), .pad_pullup(pb_pu)",
+ "        .pud(1'b0), .pad_pullup(pb_pu)"),
+("gpio", SOC, "sim-pud", "PUD no llega al puerto C",
+ "        .pud(ck_pud), .pad_pullup(pc_pu)",
+ "        .pud(1'b0), .pad_pullup(pc_pu)"),
+("gpio", SOC, "sim-pud", "PUD no llega al puerto D",
+ "        .pud(ck_pud), .pad_pullup(pd_pu)",
+ "        .pud(1'b0), .pad_pullup(pd_pu)"),
+("gpio", SOC, "sim-pud", "el puerto B esta siempre sin pull-up",
+ "        .pud(ck_pud), .pad_pullup(pb_pu)",
+ "        .pud(1'b1), .pad_pullup(pb_pu)"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

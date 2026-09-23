@@ -110,6 +110,15 @@ module axioma_gpio #(
     input  wire [7:0] pad_in,
     output wire [7:0] pad_out,
     output wire [7:0] pad_oe,
+    // `PUD`, de `MCUCR`: APAGA TODOS LOS PULL-UP DEL CHIP de golpe. Vive en el
+    // control de reloj porque es global, no de un puerto, y llega aqui como una
+    // entrada mas. La hoja de datos lo pone por encima de todo lo demas —«when
+    // this bit is written to one, the pull-ups in the I/O ports are disabled
+    // even if the DDxn and PORTxn registers are configured to enable the
+    // pull-ups»—, o sea que NO es una condicion mas en la ecuacion: es la que
+    // manda. Existe para poder medir el consumo de un pin sin desconfigurarlo.
+    input  wire       pud,
+
     output wire [7:0] pad_pullup
 );
 
@@ -164,7 +173,10 @@ module axioma_gpio #(
     // dirección EFECTIVA, la de después de la anulación: un `SS` de esclavo
     // forzado a entrada con su `PORTB2` a uno lleva pull-up, y es lo que evita
     // que un esclavo sin maestro se quede seleccionado por ruido.
-    assign pad_pullup = ~pad_oe & port_q;
+    // `PUD` va el ULTIMO y con una `and` aparte, no metido en la ecuacion de
+    // arriba: asi se lee lo que la hoja de datos dice, que es que apaga los
+    // pull-up AUNQUE `DDxn` y `PORTxn` pidan lo contrario.
+    assign pad_pullup = ~pad_oe & port_q & {8{~pud}};
 
 endmodule
 

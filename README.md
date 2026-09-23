@@ -81,8 +81,8 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   37/37 objetivos en verde
-mutación   296/296 fallos inyectados, 296 detectados
+regresión   38/38 objetivos en verde
+mutación   303/303 fallos inyectados, 303 detectados
 cobertura   99,6 % del RTL, fusionando todas las fuentes
             22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
@@ -218,14 +218,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 296 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 303 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 296 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 303 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son

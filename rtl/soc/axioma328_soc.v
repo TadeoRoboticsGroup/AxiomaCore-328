@@ -282,7 +282,8 @@ module axioma328_soc #(
         .ovr_en(ovr_b_en), .ovr_val(ovr_b_val),
         .dir_ovr_en(dir_b_en), .dir_ovr_val(8'h00),
         .din_dis(8'h00),
-        .pad_in(pb_in), .pad_out(pb_out), .pad_oe(pb_oe), .pad_pullup(pb_pu)
+        .pad_in(pb_in), .pad_out(pb_out), .pad_oe(pb_oe),
+        .pud(ck_pud), .pad_pullup(pb_pu)
     );
     // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
     axioma_gpio #(.IO_PIN(8'h06), .BITS(8'h7F)) gpio_c (
@@ -296,7 +297,8 @@ module axioma328_soc #(
         // mismo con AIN0 y AIN1 en PD6 y PD7, es del comparador analogico y
         // todavia no existe.
         .din_dis(adc_didr),
-        .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
+        .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe),
+        .pud(ck_pud), .pad_pullup(pc_pu)
     );
     axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
         .clk(clk), .rst_n(rst_n), .ce(ce_io),
@@ -306,7 +308,8 @@ module axioma328_soc #(
         .dir_ovr_en(dir_d_en), .dir_ovr_val(dir_d_val),
         // DIDR1 apaga el bufer de entrada de AIN0 y AIN1, que son PD6 y PD7.
         .din_dis(ac_didr),
-        .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe), .pad_pullup(pd_pu)
+        .pad_in(pd_in), .pad_out(pd_out), .pad_oe(pd_oe),
+        .pud(ck_pud), .pad_pullup(pd_pu)
     );
 
     // ------------------------------------------------ registros de propósito general
@@ -621,7 +624,10 @@ module axioma328_soc #(
     // `IVSEL` sale del modulo con su secuencia temporizada hecha, pero no hay
     // seccion de arranque a donde mover los vectores hasta la fase 4: es la
     // deuda D16. `PUD` y `dormido` se cablean en el paso siguiente.
-    wire unused_clkctrl = &{1'b0, ck_ivsel, ck_pud, ck_dormido, prr};
+    // `PUD` ya va a los tres puertos. `IVSEL` no tiene a donde apuntar hasta la
+    // fase 4 (deuda D16) y `dormido` no lo mira nadie todavia: es observacion,
+    // y quien quiera verlo lo tiene en el pin de depuracion del SoC.
+    wire unused_clkctrl = &{1'b0, ck_ivsel, ck_dormido, prr};
 
     assign io_rdata = ck_rd | gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
                     | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd | ee_rd;

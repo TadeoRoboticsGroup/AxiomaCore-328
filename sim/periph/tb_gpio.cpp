@@ -59,12 +59,17 @@ struct Model {
     // `DDOE` del diagrama de pin de la hoja de datos. La usa el SPI —tabla
     // 18-1—, no los canales de comparación.
     uint8_t ovr_en = 0, ovr_val = 0;
+    // `PUD` de `MCUCR`: apaga TODOS los pull-up del chip. En el modelo va
+    // exactamente donde va en la hoja de datos —por encima de `DDxn` y
+    // `PORTxn`, no como una condicion mas—, para que el banco falle si el RTL
+    // lo mete dentro de la ecuacion en vez de encima.
+    uint8_t pud = 0;
     uint8_t dir_ovr_en = 0, dir_ovr_val = 0;
     uint8_t salida() const { return (uint8_t)((port & ~ovr_en) | (ovr_val & ovr_en)); }
     uint8_t oe() const {
         return (uint8_t)((ddr & ~dir_ovr_en) | (dir_ovr_val & dir_ovr_en));
     }
-    uint8_t pull() const { return (uint8_t)(~oe() & port & 0xFF); }
+    uint8_t pull() const { return pud ? 0 : (uint8_t)(~oe() & port & 0xFF); }
     uint8_t pad() const {
         return (uint8_t)((salida() & oe()) | (pull() & ~oe()));
     }
@@ -103,7 +108,7 @@ int main(int argc, char **argv) {
     // su propio banco. Aqui vale 1 siempre, que es el caso por defecto del chip.
     dut->ce = 1;
     dut->io_addr = 0; dut->io_re = 0; dut->io_we = 0; dut->io_wdata = 0;
-    dut->pad_in = 0; dut->ovr_en = 0; dut->ovr_val = 0;
+    dut->pad_in = 0; dut->ovr_en = 0; dut->ovr_val = 0; dut->pud = 0;
     dut->dir_ovr_en = 0; dut->dir_ovr_val = 0; dut->eval();
     tick();
     dut->rst_n = 1; dut->eval();
@@ -132,6 +137,13 @@ int main(int argc, char **argv) {
             dut->ovr_en     = m.ovr_en;      dut->ovr_val     = m.ovr_val;
             dut->dir_ovr_en = m.dir_ovr_en;  dut->dir_ovr_val = m.dir_ovr_val;
         }
+
+        // `PUD` se mueve tambien aqui, y con otra periodicidad que las
+        // anulaciones a proposito: asi cae en todas las combinaciones de
+        // direccion y de `PORTx` en vez de en un puñado. Apagado casi siempre,
+        // que es como esta en un programa normal.
+        if ((rng() % 53) == 0) { m.pud = (uint8_t)(rng() % 4 == 0);
+                                 dut->pud = m.pud; }
 
         // El pad se realimenta como en el SoC: es lo que hace que un pin de
         // salida se lea a sí mismo y uno de entrada con pull-up lea 1.
@@ -261,6 +273,43 @@ int main(int argc, char **argv) {
         dut->dir_ovr_en = 0; dut->dir_ovr_val = 0;
         m.dir_ovr_en = 0;    m.dir_ovr_val = 0;
         escribir(A_DDR, 0xFF);
+    }
+
+    // ------------------------------------------------------ PUD, dirigido
+    // `PUD` vive en `MCUCR` y apaga TODOS los pull-up del chip de golpe. La
+    // hoja de datos lo pone por encima de los dos registros del puerto —«the
+    // pull-ups in the I/O ports are disabled EVEN IF the DDxn and PORTxn
+    // registers are configured to enable the pull-ups»—, asi que lo que hay que
+    // comprobar no es que apague: es que apague CUANDO LOS OTROS DOS PIDEN LO
+    // CONTRARIO. Un RTL que lo metiera como una condicion mas de la ecuacion
+    // pasaria una prueba escrita de cualquier otra forma.
+    {
+        m.pud = 0; dut->pud = 0;
+        escribir(A_DDR,  0x00);           // todo entrada
+        escribir(A_PORT, 0xFF);           // y todo con pull-up pedido
+        dut->pad_in = m.pad(); dut->eval();
+        // Contra el modelo y no contra 0xFF: este banco se corre con las dos
+        // mascaras de puerto del chip, y el C solo tiene siete pines.
+        const uint8_t con_pullup = m.pull();
+        chk("con DDRx=0 y PORTx=1 hay pull-up", dut->pad_pullup, con_pullup, 0);
+        chk("y son todos los pines que el puerto tiene", con_pullup, BITS, 0);
+
+        m.pud = 1; dut->pud = 1; dut->eval();
+        chk("PUD los apaga aunque PORTx siga a uno", dut->pad_pullup, 0x00, 0);
+        chk("y PORTx se sigue leyendo a uno", dut->io_rdata, m.read(A_PORT), 0);
+
+        // Y NO TOCA NADA MAS. `PUD` apaga pull-ups; no cambia la direccion ni
+        // lo que sale por un pin de salida. Si lo tocara, un programa que
+        // midiera consumo apagandolos se encontraria las salidas movidas.
+        escribir(A_DDR,  0xF0);
+        escribir(A_PORT, 0xAA);
+        dut->pad_in = m.pad(); dut->eval();
+        chk("PUD no cambia la direccion", dut->pad_oe,  m.oe(),     0);
+        chk("PUD no cambia lo que sale",  dut->pad_out, m.salida(), 0);
+        chk("y en las entradas no queda pull-up", dut->pad_pullup, 0x00, 0);
+
+        m.pud = 0; dut->pud = 0; dut->eval();
+        chk("al quitar PUD vuelven solos", dut->pad_pullup, m.pull(), 0);
     }
 
 

@@ -668,6 +668,12 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
 
 .PHONY: check-all
 check-all:
+	@# `build/` lo crean los objetivos al compilar, pero los REGISTROS de esta
+	@# regresion se escriben ANTES de que ninguno corra. En un arbol recien
+	@# clonado eso hacia fallar los cuarenta y dos a la vez con «No such file or
+	@# directory», que es un estreno pesimo para quien acaba de clonar. Lo
+	@# encontro la verificacion desde un clon limpio, no el uso diario.
+	@mkdir -p $(BUILD)
 	@ok=0; ko=0; malos=""; \
 	for t in $(REGRESION); do \
 	  if $(MAKE) --no-print-directory $$t >$(BUILD)/check-$$t.log 2>&1; then \

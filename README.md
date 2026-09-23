@@ -4,8 +4,13 @@
 
 **Microcontrolador de 8 bits, libre y abierto, compatible a nivel binario con el ATmega328P.**
 
-Diseñado íntegramente con herramientas libres, verificado contra oráculos independientes,
-validado en FPGA y preparado para tape-out en un PDK abierto.
+Diseñado íntegramente con herramientas libres y verificado contra oráculos independientes.
+**Sintetiza y cierra timing en FPGA**; falta enchufar la placa. El tape-out en un PDK abierto es
+la fase 6 y no ha empezado.
+
+*Este encabezado decía «validado en FPGA y preparado para tape-out». No era cierto —el bitstream se
+genera y cierra timing, pero nunca ha corrido en una placa— y contradecía la regla que este mismo
+documento fija: si no hay un comando que lo demuestre, no se afirma.*
 
 [![CI](https://github.com/TadeoRoboticsGroup/AxiomaCore-328/actions/workflows/ci.yml/badge.svg)](https://github.com/TadeoRoboticsGroup/AxiomaCore-328/actions/workflows/ci.yml)
 [![Licencia](https://img.shields.io/badge/Licencia-Apache--2.0-blue)](LICENSE)
@@ -32,7 +37,10 @@ De esa interfaz hay hoy **una implementación**: memoria inferida, que vale para
 síntesis mapea a BRAM; la de Sky130 es de la fase 6.
 
 Los colores del diagrama no son decorativos: marcan qué está contrastado contra un oráculo
-independiente y qué no. Ése es el criterio con el que se mide este proyecto.
+independiente y qué no. Ése es el criterio con el que se mide este proyecto — y desde que entró el
+control de reloj **no queda ningún bloque pendiente en la figura**, así que la leyenda ya sólo
+tiene una fila. Lo que falta del chip no es un bloque sin hacer: es el gestor de arranque de la
+fase 4 y el silicio de la 6.
 
 ---
 

@@ -160,7 +160,7 @@ def fig_soc(t):
           ["16K × 16 bits · 32 KB · puerto IF y puerto LPM/SPM",
            "memoria inferida: simulación y BRAM · Sky130 en la fase 6"], OK)
     block(c, 492, RY, 174, RH, "axioma_clkctrl",
-          ["CLKPR · PRR", "SMCR"], TODO, title_size=12.5)
+          ["CLKPR · PRR · SMCR", "sueño · MCUCR · MCUSR"], OK, title_size=12.5)
     block(c, 678, RY, 174, RH, "axioma_irq",
           ["26 vectores", "irq_req / irq_ack"], OK, title_size=12.5)
 
@@ -206,10 +206,15 @@ def fig_soc(t):
            "PB[7:0]    PC[6:0]    PD[7:0]    ADC[7:0]    XTAL    RESET",
            11, colour=t["muted"], mono=True, align="centerm")
 
-    # La leyenda sólo lista los estados que la figura USA. Ahora mismo no hay
-    # ningún bloque a medio verificar; el día que lo haya, PARTIAL vuelve aquí.
-    legend(c, M, LEG_Y, [(OK, "verificado contra un oráculo independiente"),
-                       (TODO, "pendiente — fase 3 en adelante")])
+    # La leyenda sólo lista los estados que la figura USA, y desde que el
+    # control de reloj entró NO QUEDA NINGUNO PENDIENTE: todos los bloques
+    # dibujados están contrastados contra un oráculo independiente. Listar
+    # «pendiente» cuando no hay nada pendiente es decorar, que es justo lo que
+    # el README promete que esta figura no hace.
+    #
+    # El día que vuelva a haber un bloque a medias, PARTIAL o TODO vuelven aquí
+    # con él.
+    legend(c, M, LEG_Y, [(OK, "verificado contra un oráculo independiente")])
     return c
 
 

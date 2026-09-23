@@ -452,6 +452,21 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### Y una puerta que sólo se ve desde fuera: clonar y ejecutar
+
+Todas las puertas de arriba corren en **este** árbol, que lleva meses de `build/` acumulado,
+variables de entorno puestas y ficheros generados de una ejecución anterior. Eso las hace ciegas a
+una clase entera de fallo: **lo que le pasa a quien clona el repositorio y ejecuta el comando**.
+
+No es hipotético. Al verificar el estado publicado desde un clon limpio, `make check-all` falló
+**los cuarenta y dos objetivos a la vez** con «No such file or directory»: la regresión escribe el
+registro de cada objetivo en `build/` **antes** de que ningún objetivo haya corrido, y en un árbol
+recién clonado ese directorio todavía no existe. Los objetivos lo crean al compilar; la regresión lo
+necesitaba antes.
+
+No rompía nada del chip, y por eso ninguna puerta lo veía. Pero es el primer comando que ejecuta un
+tercero, y fallaba entero.
+
 ### El barrido de direcciones I2C, con un esclavo de verdad
 
 La tercera cláusula del criterio de aceptación, y está bien elegida porque es la prueba que más

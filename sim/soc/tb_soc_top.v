@@ -46,6 +46,7 @@ module tb_soc_top (
     output wire        sel_wdt,
     output wire        sel_eeprom,
     output wire        sel_clkctrl,
+    output wire        sel_spm,
 
     output wire [7:0]  io_rdata
 );
@@ -137,6 +138,7 @@ module tb_soc_top (
     assign sel_wdt    = soc.wd_sel;
     assign sel_eeprom = soc.ee_sel;
     assign sel_clkctrl= soc.ck_sel;
+    assign sel_spm    = soc.sm_sel;
 
 endmodule
 

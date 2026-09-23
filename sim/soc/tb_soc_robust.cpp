@@ -48,6 +48,14 @@ static const uint16_t SPM   = 0x95E8;
 static const uint16_t SPM_ZP= 0x95F8;
 static const uint16_t ELPM  = 0x95D8;   // no existe en el 328P: ilegal
 static const uint16_t RJMP_AQUI = 0xCFFF;
+static uint16_t RJMP(int d)        { return 0xC000 | (d & 0x0FFF); }
+static uint16_t SBRC(int r, int b) { return 0xFC00 | ((r & 0x1F) << 4) | (b & 7); }
+// `STS` y `LDS` ocupan DOS palabras. Dentro de una lista de inicializacion eso
+// se resuelve con una macro que se expande a las dos entradas, que es mas
+// legible que repartir la direccion suelta por el programa.
+#define STS_(dir, r) (uint16_t)(0x9200 | ((r) << 4)), (uint16_t)(dir)
+#define LDS_(r, dir) (uint16_t)(0x9000 | ((r) << 4)), (uint16_t)(dir)
+static const uint16_t SPMCSR = 0x0057;
 static const uint16_t NOP   = 0x0000;
 
 static void cargar(const std::vector<uint16_t> &p) {
@@ -70,33 +78,61 @@ int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     dut = new Vaxioma_sim_top;
 
-    // ================================================== 1. SPM y SPM Z+
-    printf("  SPM: escribir la palabra R1:R0 y releerla con LPM\n");
+    // ============================== 1. SPM: la secuencia de un gestor
+    // Esto YA NO es «escribir una palabra». Desde la fase 4, `SPM` es una
+    // PETICION y lo que hace depende de lo que haya en `SPMCSR`, asi que el
+    // programa de aqui es literalmente lo que hace un gestor de arranque:
+    //
+    //   llenar el bufer temporal palabra a palabra, con `SPM Z+`;
+    //   borrar la pagina y ESPERAR a que `SPMEN` se caiga;
+    //   volcar el bufer y esperar otra vez;
+    //   y releer con `LPM` para ver si quedo lo que se pedia.
+    //
+    // La espera es `boot_spm_busy_wait()` escrito a mano: `LDS` de `SPMCSR`,
+    // `SBRC` del bit 0 y volver. Si `SPMEN` se cayera antes de tiempo, el
+    // programa seguiria con la pagina a medio escribir, y la relectura lo diria.
+    //
+    // La pagina es la de Z = 0x0200 —la numero 4, palabras 0x100 a 0x13F—, bien
+    // lejos del propio programa: un gestor que se borre la pagina que esta
+    // ejecutando se lleva lo que se merece, aqui y en el chip.
+    printf("  SPM: llenar el bufer, borrar la pagina, volcarla y releer\n");
     {
-        // Z = 0x0200 en bytes, que es la palabra 0x0100.
         std::vector<uint16_t> p = {
-            LDI(16, 0xEF), MOV(0, 16),          // R0 = 0xEF  (byte bajo)
-            LDI(16, 0xBE), MOV(1, 16),          // R1 = 0xBE  (byte alto)
+            LDI(16, 0xEF), MOV(0, 16),
+            LDI(16, 0xBE), MOV(1, 16),
             LDI(30, 0x00), LDI(31, 0x02),       // Z = 0x0200
-            SPM,                                 // mem[0x0100] = 0xBEEF
-            LDI(16, 0x0D), MOV(0, 16),          // R0 = 0x0D
-            LDI(16, 0xF0), MOV(1, 16),          // R1 = 0xF0
-            SPM_ZP,                              // mem[0x0100] = 0xF00D, Z += 2
-            // releer las dos palabras con LPM
-            LDI(30, 0x00), LDI(31, 0x02),       // Z = 0x0200
-            LPM(20), ADIWZ(1), LPM(21),         // r20 = byte bajo, r21 = alto
+            LDI(16, 0x01), STS_(SPMCSR, 16),    // SPMEN
+            SPM_ZP,                              // bufer[0] = 0xBEEF, Z += 2
+            LDI(16, 0x0D), MOV(0, 16),
+            LDI(16, 0xF0), MOV(1, 16),
+            LDI(16, 0x01), STS_(SPMCSR, 16),
+            SPM,                                 // bufer[1] = 0xF00D
+            LDI(30, 0x00), LDI(31, 0x02),
+            LDI(16, 0x03), STS_(SPMCSR, 16),    // PGERS | SPMEN
+            SPM,
+            LDS_(17, SPMCSR), SBRC(17, 0), RJMP(-4),
+            LDI(16, 0x05), STS_(SPMCSR, 16),    // PGWRT | SPMEN
+            SPM,
+            LDS_(17, SPMCSR), SBRC(17, 0), RJMP(-4),
+            LDI(30, 0x00), LDI(31, 0x02),
+            LPM(20), ADIWZ(1), LPM(21), ADIWZ(1),
+            LPM(22), ADIWZ(1), LPM(23), ADIWZ(1),
+            LPM(24),
             RJMP_AQUI
         };
         cargar(p);
-        for (int i = 0; i < 400; i++) tick();
+        // Dos operaciones de pagina a 576 tics de oscilador, y un tic cada 98
+        // ciclos: ~113 000. Se deja margen.
+        for (int i = 0; i < 200000; i++) tick();
 
-        chk("byte bajo releido", reg(20), 0x0D);
-        chk("byte alto releido", reg(21), 0xF0);
-        // SPM Z+ tiene que haber avanzado Z DOS bytes, es decir, una palabra.
-        // Aquí Z se recargó después, así que lo que se comprueba es que la
-        // segunda escritura fue a la MISMA palabra: si Z no se hubiera
-        // recargado, daría igual; si el post-incremento no existiera, tampoco.
-        // Por eso el avance se comprueba aparte, abajo.
+        chk("palabra 0, byte bajo", reg(20), 0xEF);
+        chk("palabra 0, byte alto", reg(21), 0xBE);
+        chk("palabra 1, byte bajo", reg(22), 0x0D);
+        chk("palabra 1, byte alto", reg(23), 0xF0);
+        // Y LA TERCERA TIENE QUE ESTAR BORRADA: es lo que comprueba que el
+        // bufer se limpia tras volcarlo, y de paso que el borrado llego a las
+        // 64 palabras y no solo a las dos que se escribieron.
+        chk("palabra 2, borrada", reg(24), 0xFF);
     }
 
     // ------------------------- el post-incremento de SPM Z+, por separado
@@ -104,6 +140,7 @@ int main(int argc, char **argv) {
     {
         std::vector<uint16_t> p = {
             LDI(30, 0x40), LDI(31, 0x01),       // Z = 0x0140
+            LDI(16, 0x01), STS_(SPMCSR, 16),    // sin SPMCSR, SPM no hace nada
             SPM_ZP,
             RJMP_AQUI
         };

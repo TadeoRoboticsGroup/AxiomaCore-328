@@ -18,7 +18,7 @@ hace todo lo que su nombre promete.
 | # | Qué | Estado |
 |---|-----|--------|
 | D1 | **Los cuatro pines de comparación no llegan al pad.** `OC0A`, `OC0B`, `OC1A` y `OC1B` se generan y están verificados en sus bancos, pero en el SoC salen a `()`. Sin ellos no hay `analogWrite()`, que es de lo primero que usa cualquiera | **CERRADA** — ver abajo |
-| D2 | **`SPM` no es el del 328P.** Sin `SPMCSR` y sin granularidad de página: lo que hay es la escritura de una palabra, y está verificada. Un bootloader real no funcionará | Abierta · **fase 4** |
+| D2 | **`SPM` no era el del 328P.** Sin `SPMCSR` y sin granularidad de página: sólo la escritura de una palabra. Un bootloader real no habría funcionado | **CERRADA** 24-sep — ver abajo |
 | D3 | **USART: modo síncrono y `MPCM`.** Sus bits se almacenaban y se leían de vuelta, pero no cambiaban el comportamiento | **CERRADA** 14-sep — ver abajo |
 | D4 | **Modos de onda reservados.** `WGM` 4 y 6 del Timer0 y 13 del Timer1 no los define nadie: aquí cuentan como el modo normal | **Justificada**: ningún programa puede depender de un modo reservado. Declarado en el RTL |
 | D5 | **El pull-up no es dinámico en la FPGA.** El SoC lo declara por pin como el chip, pero en el ECP5 el modo de pull-up es un atributo estático del bloque de E/S | **Justificada** para FPGA · en silicio se conecta a la celda del PDK |
@@ -32,8 +32,86 @@ hace todo lo que su nombre promete.
 | D14 | **El ADC no tenía disparo automático (`ADATE` con `ADTS`).** Sólo hacía conversiones sueltas. Sus bits se almacenaban y se leían de vuelta | **CERRADA** 22-sep — ver abajo |
 | D16 | **`IVSEL` no mueve la tabla de vectores.** El registro y su secuencia temporizada (`IVCE`) están hechos y verificados, y `ivsel` sale de `axioma_clkctrl`, pero el SoC no lo conecta: no hay sección de arranque hasta la fase 4 | Abierta · **fase 4** |
 | D17 | **La interrupción externa de nivel bajo no despierta de `Power-down`.** El chip la detecta de forma **asíncrona** y por eso sirve para despertar con el reloj parado; aquí se mira sobre el pin ya sincronizado, y ese sincronizador se para con `clk_I/O` | Abierta · **fase 5** |
+| D18 | **`BLBSET` y `SIGRD` de `SPMCSR` no hacen nada.** Los bits de cerrojo del gestor de arranque y la fila de firma se almacenan y se leen de vuelta. No son lógica: son celdas de un PDK | **Justificada** en FPGA · fase 6 en silicio |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
+
+### D2 — el `SPM` de verdad, cerrada  ·  nace el 12-sep-2026, cerrada el 24-sep-2026
+
+**Lo que había** era la escritura de **una palabra**: `SPM` cogía R1:R0 y lo metía en la Flash en la
+dirección de Z. Funcionaba, estaba verificado, y **no servía para nada**, porque ningún gestor de
+arranque escribe palabras sueltas: la Flash no se puede escribir así. Una celda sólo sabe **bajar**
+bits; para volver a subirlos hay que **borrar**, y el borrado es por **páginas**.
+
+**Lo que hay ahora** vive en `rtl/periph/axioma_spm.v`, y el cambio de fondo es que **el núcleo ya
+no escribe la Flash**. `SPM` pasa de ser una escritura a ser una **petición**: el secuenciador saca
+un pulso con Z y R1:R0, y lo que ocurra lo decide `SPMCSR`. Quien escribe es el periférico, que es
+quien sabe de páginas, de búfer temporal y de los 4,5 ms de la celda.
+
+Las **tres operaciones**, cada una pedida escribiendo `SPMCSR` y ejecutando `SPM` dentro de los
+cuatro ciclos siguientes —**la quinta secuencia temporizada del chip, y la única cuyo segundo paso
+no es una escritura sino una instrucción**—:
+
+| `SPMCSR` | qué hace |
+|---|---|
+| `SPMEN` solo | guarda R1:R0 en el **búfer temporal**, en la palabra que dice Z[6:1]. No toca la Flash |
+| `PGERS`+`SPMEN` | **borra** la página de Z[14:7]: sus 64 palabras a `0xFFFF` |
+| `PGWRT`+`SPMEN` | **vuelca** el búfer en esa página, y el búfer queda limpio detrás |
+
+**Tres cosas que no son obvias:**
+
+1. **El búfer se limpia solo tras volcarlo**, y lo dice la hoja de datos. Un gestor que escriba dos
+   páginas seguidas llenando sólo media segunda espera que la otra media salga a `0xFFFF`, no con
+   los restos de la primera.
+2. **`SPMEN` lo baja el hardware al terminar**, no al empezar. Es exactamente lo que espera
+   `boot_spm_busy_wait()`, que es `while (SPMCSR & (1<<SPMEN));`. Si se cayera antes, el gestor
+   seguiría con la página a medio escribir.
+3. **El tiempo no sale del reloj del sistema**, igual que en la EEPROM: son 4,5 ms de física de la
+   celda. Entra como pulsos del oscilador —576 a 128 kHz— y es parametrizable.
+
+**Y con esto llegó el vector 25.** `SPM_READY` es de **nivel**, como `EE_READY`: vale mientras
+`SPMEN` esté a cero. Era el último de los 25 sin fuente, así que al cerrar esta deuda se cerró
+también la última cláusula del criterio de aceptación de la fase 3.
+
+**Cómo se verifica.** `make sim-spm` (28 comprobaciones) contra el capítulo 26, porque **el arnés
+diferencial no sirve aquí**: un programa que se reescribe la Flash cambia el código que los dos
+lados están ejecutando y el contraste deja de significar nada. Y `make sim-robust` corre **la
+secuencia entera de un gestor de arranque** sobre el SoC: llenar el búfer con `SPM Z+`, borrar,
+esperar a `SPMEN` con `LDS`/`SBRC`/`RJMP`, volcar, esperar otra vez y releer con `LPM` —incluida
+una tercera palabra que tiene que salir **borrada**, que es lo que comprueba de una vez que el búfer
+se limpió y que el borrado llegó a las 64 palabras y no sólo a las dos escritas—.
+
+**Dos mutantes supervivientes dejaron su marca**, como siempre: uno quitó una guarda que era código
+muerto —el `SPM` que arranca la operación ya cierra la ventana, así que `!ocupado` no podía actuar
+nunca— y el otro destapó que **ningún caso del banco escribía `SPMEN` sin ejecutar `SPM` detrás**,
+que es justo cuando la hoja de datos dice que se cae a los cuatro ciclos.
+
+**Lo que sigue sin estar** son `BLBSET` y `SIGRD`, que no son lógica sino celdas de un PDK: es la
+deuda **D18**, justificada.
+
+### D18 — los cerrojos de arranque y la fila de firma  ·  nace el 24-sep-2026
+
+**Qué hay:** `SPMCSR` entero, con sus ocho bits leyéndose y escribiéndose donde toca, y las tres
+operaciones que de verdad programan la Flash —llenar el búfer, borrar la página, escribirla—.
+
+**Qué falta:** que `BLBSET` y `SIGRD` hagan algo.
+
+- **`BLBSET`** escribe los **bits de cerrojo** del gestor de arranque: los que impiden que el
+  programa de aplicación se sobreescriba el gestor, o que alguien lea la Flash por el puerto de
+  programación. Son celdas de OTP fuera del array de Flash.
+- **`SIGRD`** lee la **fila de firma**: los tres bytes de identificación del dispositivo, los de
+  calibración del oscilador y el número de serie. Otra fila fuera del array.
+
+**Por qué está justificada y no abierta.** Ninguna de las dos es lógica que se pueda escribir en
+Verilog y dejar sin escribir: son **celdas de un PDK**. En la FPGA no hay ni OTP ni fila de firma, y
+fingirlas con registros daría un chip donde los cerrojos no cierran nada —que es peor que no
+tenerlos, porque un programa comprobaría que están puestos y se lo creería—.
+
+**Lo que sí hace falta, y va aparte:** los tres bytes de firma que `avrdude` pregunta al conectar.
+Ésos no van por `SIGRD` sino por el protocolo del gestor de arranque, y son de la fase 4: el propio
+gestor los contesta. Que ahí se conteste lo correcto es cosa de `axioma.conf`, no de este bit.
+
+**Qué la cierra:** la fase 6, con las celdas del PDK delante.
 
 ### D17 — el nivel bajo no despierta de `Power-down`  ·  nace el 23-sep-2026
 
@@ -136,9 +214,10 @@ Está en el plan, con su fase y su criterio de aceptación. Se lista aquí sólo
 confunda con lo de arriba.
 
 - **Fase 3:** ADC, comparador analógico, watchdog, EEPROM, `clkctrl`.
-  Hoy **1 de los 25 vectores de interrupción** no tienen fuente, y la cuenta ya no se puede
-  quedar atrás en silencio: la comprueba `make check-docs` contra el cableado de `irq_src`
-  del SoC. Llegó a haber tres cifras distintas —10, 7 y 9— para la misma cosa.
+  Hoy **los 25 vectores de interrupción tienen fuente**, desde que `axioma_spm` trajo
+  `SPM_READY`. La cuenta no se puede quedar atrás en silencio: la comprueba `make check-docs`
+  contra el cableado de `irq_src` del SoC. Llegó a haber tres cifras distintas —10, 7 y 9—
+  para la misma cosa.
 - **Fase 4:** bootloader STK500v1, `SPM` completo, paquete de Arduino.
 - **Fase 5:** verificación formal (a cero), simulación post-P&R con retardos anotados, portes a
   iCE40 y Gowin, regresión de 10⁷ instrucciones.

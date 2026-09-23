@@ -44,8 +44,13 @@ module axioma_seq (
     input  wire [15:0] pm_if_data,
     output reg  [13:0] pm_d_addr,
     output reg         pm_d_en,
-    output reg         pm_d_we,
-    output reg  [15:0] pm_d_wdata,
+    // EL NUCLEO YA NO ESCRIBE LA FLASH. `SPM` no es una escritura: es una
+    // PETICION a `axioma_spm`, que es quien sabe de paginas, de bufer temporal
+    // y de los 4,5 ms de la celda. Aqui solo se avisa de que la instruccion se
+    // ha retirado y con que argumentos.
+    output wire        spm_pulso,
+    output wire [15:0] spm_z,
+    output wire [15:0] spm_dato,
     input  wire [15:0] pm_d_rdata,
 
     // ---- espacio de datos (registros, I/O y SRAM los resuelve el bus) ----
@@ -367,8 +372,6 @@ module axioma_seq (
         pm_if_en   = 1'b1;
         pm_d_addr  = rf_a16_rdata[14:1];
         pm_d_en    = 1'b0;
-        pm_d_we    = 1'b0;
-        pm_d_wdata = 16'h0000;
 
         ea       = 16'h0000;
 
@@ -805,26 +808,23 @@ module axioma_seq (
         end
 
         // ---------------------------------------------------------- SPM
-        // ESTO NO ES TODAVÍA EL SPM DEL ATmega328P, y conviene decirlo antes
-        // que nada: el del chip se gobierna con SPMCSR —borrado de página,
-        // llenado del búfer temporal, escritura de página— y trabaja por
-        // PÁGINAS, no por palabras. Aquí sólo está la escritura de UNA palabra.
-        // Ningún bootloader real funcionará con esto. SPMCSR y la máquina de
-        // páginas son de la fase 4, que es donde vive el bootloader.
+        // AQUI NO SE ESCRIBE NADA EN LA FLASH, y ese es el cambio de la fase 4.
+        // `SPM` no es una escritura de una palabra: es una PETICION, y lo que
+        // haga depende de lo que el programa acabe de dejar en `SPMCSR`
+        // —llenar el bufer temporal, borrar una pagina o volcarla—. Eso vive en
+        // `rtl/periph/axioma_spm.v`, que es quien sabe de paginas y de los
+        // 4,5 ms de la celda.
         //
-        // Lo que sí está, está bien y verificado (`make sim-robust`). Tenía dos
-        // fallos que nadie podía ver porque NINGÚN programa lo ejecutaba:
+        // Lo que queda aqui es leer Z, presentar R1:R0 y avanzar el puntero. De
+        // la version anterior —la que escribia una palabra suelta— se quedan
+        // los dos fallos que costo encontrar, porque siguen valiendo:
         //
-        //   - escribía `{Rd, Rd}`, duplicando un byte. El AVR escribe la
-        //     palabra R1:R0, así que hacen falta los dos puertos de 8 bits: el
-        //     de 16 está ocupado leyendo Z para la dirección.
+        //   - escribía `{Rd, Rd}`, duplicando un byte. El AVR mueve la palabra
+        //     R1:R0, así que hacen falta los dos puertos de 8 bits: el de 16
+        //     está ocupado leyendo Z.
         //   - `SPM Z+` decodificaba el post-incremento y NO escribía Z de
         //     vuelta, así que el puntero no avanzaba nunca.
         OPC_SPM: begin
-            pm_d_addr  = rf_a16_rdata[14:1];
-            pm_d_en    = 1'b1;
-            pm_d_we    = 1'b1;
-            pm_d_wdata = {rf_rr_data, rf_rd_data};      // R1:R0
             rf_a16_pair = 4'd15;                        // Z
             if (ptr_updates) begin
                 // DOS, no uno. `SPM Z+` escribe una PALABRA, así que el puntero
@@ -896,6 +896,12 @@ module axioma_seq (
 
     assign wdr_pulso   = retire && (d_class == OPC_WDR);
     assign sleep_pulso = retire && (d_class == OPC_SLEEP);
+
+    // `SPM`, al retirarse: el puntero Z y la palabra R1:R0. Quien decide que
+    // hacer con ellos es `axioma_spm`, mirando `SPMCSR`.
+    assign spm_pulso = retire && (d_class == OPC_SPM);
+    assign spm_z     = rf_a16_rdata;
+    assign spm_dato  = {rf_rr_data, rf_rd_data};
 
 endmodule
 

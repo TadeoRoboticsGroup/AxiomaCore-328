@@ -89,15 +89,15 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   42/42 objetivos en verde
-mutación   317/317 fallos inyectados, 317 detectados
+regresión   43/43 objetivos en verde
+mutación   327/327 fallos inyectados, 327 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
-            22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
+            22 de 28 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 8 570 LUT4 y 1 433 FF en el ECP5
+síntesis    sin latches · el SoC entero: 8 146 LUT4 y 1 475 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
@@ -138,12 +138,13 @@ bit**: 656 bits en 82 registros, 393 de almacenamiento, 134 con comportamiento p
 reservados, **ninguno sin clasificar**. De los 25 vectores de interrupción **sólo `SPM_READY` sigue
 sin fuente**, que es de la fase 4.
 
-El **criterio de aceptación** de la fase son tres cláusulas, y **dos están demostradas**:
+El **criterio de aceptación** de la fase son tres cláusulas, y **las tres están demostradas**
+desde el 24-sep:
 `micros()` **no deriva** —200 y 800 periodos dan el mismo desvío de 13 ciclos, así que es latencia
 acotada y no deriva— y el **scanner I2C encuentra un esclavo real y sólo a él** —127 direcciones
-barridas, una contesta; con el esclavo mudo, ninguna—. La tercera, los 25 vectores, está en 24: el
-que falta es `SPM_READY`, cuya fuente es el `SPM` por páginas de la **fase 4**. **No se puede
-cerrar antes**, y por eso la fase queda abierta.
+barridas, una contesta; con el esclavo mudo, ninguna—. Y **los 25 vectores disparan**: el que
+faltaba era `SPM_READY`, y su fuente llegó con el `SPM` por páginas, que es la primera pieza de la
+**fase 4**.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -232,14 +233,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 317 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 327 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 317 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 327 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son

@@ -289,6 +289,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-soc
 
+      - name: SPM, paginas y bufer temporal
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-spm
+
       - name: Control de reloj, consumo y sueno
         run: |
           source ~/eda/oss-cad-suite/environment

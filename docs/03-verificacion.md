@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 317
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 327
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -452,6 +452,29 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### `SPM`: cuando el oráculo no puede existir
+
+De casi todo este chip hay un tercero que dice qué debería pasar. De `SPM` **no puede haberlo**, y
+el motivo es bonito: el arnés diferencial contrasta el RTL contra simavr ejecutando **el mismo
+programa** en los dos. Un programa que se reescribe la Flash **cambia ese programa mientras corre**,
+así que a partir de la primera página escrita los dos lados ya no están ejecutando lo mismo y el
+contraste no significa nada. No es que simavr no lo modele —lo modela—: es que la técnica no aplica.
+
+Así que aquí el oráculo es el capítulo 26 de la hoja de datos, en dos niveles:
+
+- **`make sim-spm`** (28 comprobaciones) contra el módulo: la secuencia temporizada, el búfer, el
+  borrado, el volcado y `SPM_READY`;
+- **`make sim-robust`** corre **la secuencia entera de un gestor de arranque** sobre el SoC —llenar
+  el búfer con `SPM Z+`, borrar, esperar a `SPMEN` con `LDS`/`SBRC`/`RJMP`, volcar, esperar otra vez
+  y releer con `LPM`—. Incluida una tercera palabra que tiene que salir **borrada**: eso comprueba
+  de una vez que el búfer se limpió tras volcarlo y que el borrado llegó a las 64 palabras y no sólo
+  a las dos escritas.
+
+Y dos mutantes supervivientes dejaron su marca, como es costumbre aquí: uno quitó una guarda que
+resultó ser **código muerto** —el `SPM` que arranca la operación ya cierra la ventana— y el otro
+destapó que **ningún caso escribía `SPMEN` sin ejecutar `SPM` detrás**, que es justo cuando la hoja
+de datos dice que se cae a los cuatro ciclos.
+
 ### Y una puerta que sólo se ve desde fuera: clonar y ejecutar
 
 Todas las puertas de arriba corren en **este** árbol, que lleva meses de `build/` acumulado,
@@ -638,7 +661,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 52 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 53 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -658,7 +681,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,8 %** —3 168 de 3 175 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
+Hoy está en **99,8 %** —3 258 de 3 266 puntos—, con **22 de 28 módulos al 100 %**. Los catorce
 puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -715,7 +738,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 317 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 327 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

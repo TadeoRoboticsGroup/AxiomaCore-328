@@ -108,20 +108,37 @@ module axioma328_soc #(
 
     // ------------------------------------------------- memoria de programa
     wire [13:0] pm_if_addr, pm_d_addr;
-    wire        pm_if_en, pm_d_en, pm_d_we;
-    wire [15:0] pm_d_wdata, pm_if_data, pm_d_rdata;
+    wire        pm_if_en, pm_d_en;
+    wire [15:0] pm_if_data, pm_d_rdata;
+
+    // EL ARBITRAJE ES DE UNA LINEA porque no hay nada que arbitrar: durante el
+    // borrado o la grabacion el nucleo no tiene nada que leer de ese puerto
+    // —`LPM` de una pagina que se esta borrando no significa nada—, y el puerto
+    // de BUSQUEDA es otro, asi que el nucleo sigue ejecutando.
+    wire [13:0] pm_d_addr_ef  = spm_ocupado ? spm_addr : pm_d_addr;
+    wire        pm_d_en_ef    = spm_ocupado ? 1'b1     : pm_d_en;
+    wire        pm_d_we_ef    = spm_ocupado ? spm_we   : 1'b0;
 
     axioma_progmem #(.INIT_HEX(INIT_HEX)) pm (
         .clk(clk), .ce(ce_cpu),
         .if_addr(pm_if_addr), .if_en(pm_if_en), .if_data(pm_if_data),
-        .d_addr(pm_d_addr), .d_en(pm_d_en), .d_we(pm_d_we),
-        .d_wdata(pm_d_wdata), .d_rdata(pm_d_rdata)
+        .d_addr(pm_d_addr_ef), .d_en(pm_d_en_ef), .d_we(pm_d_we_ef),
+        .d_wdata(spm_wdata), .d_rdata(pm_d_rdata)
     );
 
     // ------------------------------------------------------ espacio de datos
     wire [15:0] dm_addr;
     wire        dm_re, dm_we;
     wire [7:0]  dm_wdata, dm_rdata;
+
+    // ------------------------------------------------ el SPM y su arbitraje
+    // El nucleo ya NO escribe la Flash: pide. Quien escribe es `axioma_spm`,
+    // que sabe de paginas y del bufer temporal, y mientras esta ocupado se
+    // adueña del puerto de datos de la Flash.
+    wire        core_spm_pulso, spm_we, spm_ocupado, sm_sel, sm_irq;
+    wire [15:0] core_spm_z, core_spm_dato, spm_wdata;
+    wire [13:0] spm_addr;
+    wire [7:0]  sm_rd;
 
     wire [10:0] sram_addr;
     wire        sram_en, sram_we;
@@ -538,6 +555,20 @@ module axioma328_soc #(
     wire [7:0] wd_rd;
     wire       wd_sel, wd_irq;
 
+    // `SPM` no lo gobierna `PRR`: no hay bit que lo apague. Y va con `ce_io`
+    // como todos, pero su temporizacion cuelga del oscilador, igual que la de
+    // la EEPROM y por el mismo motivo.
+    axioma_spm spm (
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(sm_rd), .io_sel(sm_sel),
+        .osc_tick(osc_rc_tick),
+        .spm_pulso(core_spm_pulso), .spm_z(core_spm_z), .spm_dato(core_spm_dato),
+        .pm_we(spm_we), .pm_addr(spm_addr), .pm_wdata(spm_wdata),
+        .pm_ocupado(spm_ocupado),
+        .irq_spm(sm_irq)
+    );
+
     axioma_wdt wdt (
         .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
@@ -634,9 +665,9 @@ module axioma328_soc #(
     // no lo mira nadie: es observacion.
     wire unused_clkctrl = &{1'b0, ck_ivsel, ck_dormido, prr[4]};
 
-    assign io_rdata = ck_rd | gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
+    assign io_rdata = sm_rd | ck_rd | gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
                     | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd | ee_rd;
-    assign io_sel   = ck_sel | gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
+    assign io_sel   = sm_sel | ck_sel | gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
                     | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel
                     | ad_sel | ac_sel | wd_sel | ee_sel;
 
@@ -650,7 +681,7 @@ module axioma328_soc #(
     wire [4:0]  core_irq_vector;
     wire        core_wdr;
 
-    assign irq_src = { 1'b0,          // 25      SPM_READY, sin periférico
+    assign irq_src = { sm_irq,        // 25      SPM_READY
                        tw_irq,        // 24      TWI
                        ac_irq,        // 23      comparador analogico
                        ee_irq,        // 22      EE_READY
@@ -712,8 +743,7 @@ module axioma328_soc #(
     axioma_core core (
         .clk(clk), .rst_n(rst_n), .ce(ce_cpu),
         .pm_if_addr(pm_if_addr), .pm_if_en(pm_if_en), .pm_if_data(pm_if_data),
-        .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_we(pm_d_we),
-        .pm_d_wdata(pm_d_wdata), .pm_d_rdata(pm_d_rdata),
+        .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_rdata(pm_d_rdata),
         .dm_addr(dm_addr), .dm_re(dm_re), .dm_we(dm_we),
         .dm_wdata(dm_wdata), .dm_rdata(dm_rdata),
         .irq_req(core_irq_req), .irq_vector(core_irq_vector), .irq_ack(core_irq_ack),
@@ -722,7 +752,8 @@ module axioma328_soc #(
         .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
         .dbg_reg_addr(dbg_reg_addr), .dbg_reg_data(dbg_reg_data)
     ,
-        .wdr_pulso(core_wdr), .sleep_pulso(core_sleep));
+        .wdr_pulso(core_wdr), .sleep_pulso(core_sleep),
+        .spm_pulso(core_spm_pulso), .spm_z(core_spm_z), .spm_dato(core_spm_dato));
 
 endmodule
 

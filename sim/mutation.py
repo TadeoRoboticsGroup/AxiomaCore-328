@@ -59,6 +59,7 @@ AC      = "rtl/periph/axioma_ac.v"
 WDT     = "rtl/periph/axioma_wdt.v"
 EEP     = "rtl/periph/axioma_eeprom.v"
 CLKC    = "rtl/periph/axioma_clkctrl.v"
+SPM     = "rtl/periph/axioma_spm.v"
 SOC     = "rtl/soc/axioma328_soc.v"
 
 # (grupo, fichero, objetivo de make, descripción, original, mutado)
@@ -477,9 +478,9 @@ CATALOG = [
 # Los tres fallos que tenia SPM, y el que colgaria el nucleo con un opcode
 # corrupto. Ninguno era visible antes: la cobertura demostro que NADIE
 # ejecutaba estos caminos.
-("spm", SEQ, "sim-robust", "SPM duplica un byte en vez de escribir R1:R0",
- """            pm_d_wdata = {rf_rr_data, rf_rd_data};      // R1:R0""",
- """            pm_d_wdata = {rf_rd_data, rf_rd_data};"""),
+("spm", SEQ, "sim-robust", "SPM duplica un byte en vez de mover R1:R0",
+ """    assign spm_dato  = {rf_rr_data, rf_rd_data};""",
+ """    assign spm_dato  = {rf_rd_data, rf_rd_data};"""),
 ("spm", SEQ, "sim-robust", "SPM Z+ avanza un byte en vez de una palabra",
  """                rf_w16_data = rf_a16_rdata + 16'd2;""",
  """                rf_w16_data = rf_a16_rdata + 16'd1;"""),
@@ -1260,6 +1261,41 @@ CATALOG = [
  "            mcusr_q <= 4'b0000;"),
 # El bit reservado de `PRR` se guardaba y se devolvia a uno. Lo encontro el
 # barrido semantico, contrastando contra avr-libc que ese bit no existe.
+# --- SPM de verdad: paginas, bufer y la quinta secuencia (fase 4) ---
+("spm", SPM, "sim-spm", "un SPM suelto programa igual, sin su SPMCSR",
+ "    wire valido      = spm_pulso && abierta && spmen && (est == S_QUIETO);",
+ "    wire valido      = spm_pulso && (est == S_QUIETO);"),
+("spm", SPM, "sim-spm", "el bufer no se limpia tras volcar la pagina",
+ "        else if (est == S_GRABA && ce) bufer[cuenta] <= 16'hFFFF;",
+ "        else if (1'b0)                 bufer[cuenta] <= 16'hFFFF;"),
+("spm", SPM, "sim-spm", "el borrado deja las celdas a cero en vez de a 0xFFFF",
+ "    assign pm_wdata   = (est == S_BORRA) ? 16'hFFFF : bufer_q;",
+ "    assign pm_wdata   = (est == S_BORRA) ? 16'h0000 : bufer_q;"),
+("spm", SPM, "sim-spm", "la pagina se mira en cada ciclo y no al arrancar",
+ "    assign pm_addr    = {pagina_q, cuenta};",
+ "    assign pm_addr    = {z_pagina, cuenta};"),
+("spm", SPM, "sim-spm", "la palabra del bufer sale de la pagina y no de Z",
+ "        if (pide_bufer) bufer[z_palabra] <= spm_dato;",
+ "        if (pide_bufer) bufer[cuenta] <= spm_dato;"),
+# NO hay mutante de «SPMEN se cae antes de terminar»: se escribio con una
+# guarda `!ocupado`, el mutante que la quitaba sobrevivio, y la razon es que el
+# `SPM` que arranca la operacion YA cierra la ventana, asi que estando ocupado
+# `abierta` vale cero. La guarda era codigo muerto y se quito.
+("spm", SPM, "sim-spm", "SPMEN no se cae al agotarse la ventana",
+ "            if (abierta && ventana == 3'd1) spmen <= 1'b0;",
+ "            if (1'b0)                       spmen <= 1'b0;"),
+("spm", SPM, "sim-spm", "borrar y grabar escriben 63 palabras, no 64",
+ "                if (cuenta == 6'd63) est <= S_ESPERA;",
+ "                if (cuenta == 6'd62) est <= S_ESPERA;"),
+("spm", SPM, "sim-spm", "SPM_READY mira la bandera al reves",
+ "    assign irq_spm = spmie & ~spmen;",
+ "    assign irq_spm = spmie & spmen;"),
+("spm", SPM, "sim-spm", "RWWSB devuelve el estado de otro bit",
+ "    assign io_rdata = hit ? {spmie, 1'b0, sigrd, rwwsre, blbset, pgwrt, pgers, spmen}",
+ "    assign io_rdata = hit ? {spmie, pgwrt, sigrd, rwwsre, blbset, pgwrt, pgers, spmen}"),
+("spm", SOC, "sim-robust", "el SPM no se adueña del puerto de datos de la Flash",
+ "    wire        pm_d_we_ef    = spm_ocupado ? spm_we   : 1'b0;",
+ "    wire        pm_d_we_ef    = 1'b0;"),
 ("clkctrl", CLKC, "sim-bits", "PRR guarda su bit reservado",
  "            if (io_we && hit_prr) prr_q <= io_wdata & 8'hEF;",
  "            if (io_we && hit_prr) prr_q <= io_wdata;"),

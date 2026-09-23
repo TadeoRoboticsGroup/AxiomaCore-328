@@ -303,6 +303,15 @@ sim-twi:
 # --- comparador analogico: la salida se mueve a mano, lo demas es logica ---
 # --- EEPROM: 1 KB, con su secuencia temporizada y la fisica de la celda ---
 .PHONY: sim-eeprom
+.PHONY: sim-spm
+sim-spm:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vspm -o tb_spm \
+	  --top-module axioma_spm \
+	  rtl/periph/axioma_spm.v sim/periph/tb_spm.cpp >/dev/null
+	@echo -e "$(BOLD)SPM: paginas, bufer temporal y la quinta secuencia$(NC)"
+	@./$(BUILD)/vspm/tb_spm
+
 sim-eeprom:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
 	  $(INCDIRS) -Mdir $(BUILD)/veep -o tb_eeprom \
@@ -430,6 +439,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_twi.v rtl/periph/axioma_adc.v \
             rtl/periph/axioma_ac.v rtl/periph/axioma_wdt.v \
             rtl/periph/axioma_eeprom.v rtl/periph/axioma_clkctrl.v \
+            rtl/periph/axioma_spm.v \
             rtl/fpga/axioma_adc_frente.v \
             rtl/periph/axioma_irq.v
 
@@ -662,7 +672,7 @@ sim-random: $(BUILD)/vdiff/Vaxioma_sim_top $(PERF_DIR)/cycles.bin
 REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
-             sim-adc sim-ac sim-wdt sim-eeprom sim-clkctrl sim-extint sim-irq \
+             sim-adc sim-ac sim-wdt sim-eeprom sim-spm sim-clkctrl sim-extint sim-irq \
              sim-soc sim-bits sim-micros sim-i2c sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 

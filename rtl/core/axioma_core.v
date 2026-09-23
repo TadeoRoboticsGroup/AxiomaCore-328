@@ -39,8 +39,10 @@ module axioma_core (
     input  wire [15:0] pm_if_data,
     output wire [13:0] pm_d_addr,
     output wire        pm_d_en,
-    output wire        pm_d_we,
-    output wire [15:0] pm_d_wdata,
+    // `SPM` sale como peticion, no como escritura: ver axioma_seq.v.
+    output wire        spm_pulso,
+    output wire [15:0] spm_z,
+    output wire [15:0] spm_dato,
     input  wire [15:0] pm_d_rdata,
 
     // Espacio de datos externo: I/O y SRAM
@@ -168,8 +170,8 @@ module axioma_core (
     axioma_seq seq (
         .clk(clk), .rst_n(rst_n), .ce(ce),
         .pm_if_addr(pm_if_addr), .pm_if_en(pm_if_en), .pm_if_data(pm_if_data),
-        .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_we(pm_d_we),
-        .pm_d_wdata(pm_d_wdata), .pm_d_rdata(pm_d_rdata),
+        .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_rdata(pm_d_rdata),
+        .spm_pulso(spm_pulso), .spm_z(spm_z), .spm_dato(spm_dato),
         .dm_addr(s_dm_addr), .dm_re(s_dm_re), .dm_we(s_dm_we),
         .dm_wdata(s_dm_wdata), .dm_rdata(seq_dm_rdata),
         .rf_rd_addr(s_rf_rd_addr), .rf_rr_addr(s_rf_rr_addr),

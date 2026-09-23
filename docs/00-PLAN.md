@@ -916,7 +916,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **1 de los 25 vectores de interrupción no tiene fuente**: `SPM_READY`, y es de la fase 4. Los otros 24 disparan desde un programa | Fase 3, salvo `SPM_READY`, que es de la 4 |
+| 7 | **CERRADO el 24-sep.** Aquí decía que a `SPM_READY` le faltaba fuente; la tiene desde que existe `axioma_spm`, y **los 25 vectores disparan desde un programa** | Fase 3, salvo `SPM_READY`, que es de la 4 |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -1271,14 +1271,15 @@ enumerado** en vez de implícito.
       propia definición de `TWAR` los exige en 7:1. La corrección vive en el generador, razonada.
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
-correcta —hoy lo hacen 24—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 > **Dónde está la fase, con precisión.** Las **tareas** de la lista están todas hechas: los diez
 > periféricos, las deudas de la USART y del ADC, y el barrido semántico. El **criterio de
 > aceptación** tiene tres cláusulas y **no está cumplido**:
 >
-> - **25 vectores** — hoy 24. El que falta es `SPM_READY`, y su fuente es el `SPM` por páginas, que
->   es de la **fase 4** (deuda D2). No se puede cerrar antes.
+> - **25 vectores** — **DEMOSTRADO**. El que faltaba era `SPM_READY`, y su fuente es el `SPM` por
+>   páginas: al escribirlo para la fase 4 (deuda D2) llegó también el vector. `make check-docs`
+>   compara la cuenta contra el cableado de `irq_src` y dice **25 de 25**.
 > - **`micros()` no deriva** — **DEMOSTRADO** (`make sim-micros`). Se mide con otra interrupción
 >   compitiendo y con las interrupciones apagadas a ratos, en dos ventanas de longitud muy distinta:
 >   200 periodos dan +13 ciclos de desvío y 800 dan **los mismos +13**. No crece con la ventana, así
@@ -1298,7 +1299,23 @@ correcta —hoy lo hacen 24—; `micros()` no deriva; el scanner I2C detecta un 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 
 - [ ] Bootloader STK500v1 propio, ≤ 512 B.
-- [ ] `SPM` funcional sobre el backend de BRAM.
+- [x] **`SPM` funcional sobre el backend de BRAM** — la deuda D2, cerrada. `rtl/periph/axioma_spm.v`
+      con `SPMCSR`, el búfer temporal de 64 palabras y las tres operaciones: llenar, borrar la
+      página y volcarla. **El núcleo ya no escribe la Flash**: `SPM` pasa de ser una escritura a ser
+      una petición, y quien escribe es el periférico, que es quien sabe de páginas y de los 4,5 ms
+      de la celda.
+
+      Es la **quinta secuencia temporizada** del chip y la única cuyo segundo paso no es una
+      escritura sino una **instrucción**: se escribe `SPMCSR` y se ejecuta `SPM` dentro de los
+      cuatro ciclos.
+
+      **Y con ella llegó el vector 25.** `SPM_READY` es de nivel, como `EE_READY`, y era el último
+      de los 25 sin fuente: al cerrar esta deuda se cerró la última cláusula del criterio de
+      aceptación de la **fase 3**.
+
+      28 comprobaciones contra el capítulo 26 —el arnés diferencial no sirve aquí: un programa que
+      se reescribe la Flash cambia el código que los dos lados ejecutan—, 13 mutantes, 179 LUT4, y
+      `make sim-robust` corriendo **la secuencia entera de un gestor de arranque** sobre el SoC.
 - [ ] Paquete de placas para Arduino IDE + JSON en GitHub Pages.
 - [ ] `axioma.conf` para avrdude con signature bytes propios.
 - [ ] Suite de sketches (Capa 5).

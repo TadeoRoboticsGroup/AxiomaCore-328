@@ -58,7 +58,7 @@ static const char *IMPLEMENTADOS[] = {
     "PCIFR","EIFR","EIMSK","PCICR","EICRA","PCMSK0","PCMSK1","PCMSK2",
     "UCSR0A","UCSR0B","UCSR0C","UBRR0L","UBRR0H","UDR0",
     "EECR","EEDR","EEARL","EEARH","WDTCSR","ACSR","DIDR1",
-    "SMCR","MCUSR","MCUCR","CLKPR","PRR",
+    "SMCR","MCUSR","MCUCR","SPMCSR","CLKPR","PRR",
     "ADCL","ADCH","ADCSRA","ADCSRB","ADMUX","DIDR0",
 };
 static const int N_IMPL = sizeof(IMPLEMENTADOS) / sizeof(IMPLEMENTADOS[0]);
@@ -185,6 +185,12 @@ static const Clase CLASES[] = {
     {"DIDR1", 0x03, ""},
 
     // --- control de reloj, consumo y sueño ---
+    // `SPMEN` lo baja el hardware —a los cuatro ciclos o al terminar de
+    // programar—, y `RWWSB` es de solo lectura y aqui vale siempre cero: no hay
+    // secciones que puedan estar ocupadas. Ver la deuda D18 para BLBSET y SIGRD,
+    // que SI se almacenan pero no hacen nada.
+    {"SPMCSR", 0xBE, "SPMEN lo baja el hardware al terminar, y RWWSB es de solo "
+                     "lectura: no hay seccion ocupada que señalar"},
     {"SMCR", 0x0F, ""},
     {"MCUSR", 0x00, "banderas de reinicio: las pone el hardware y se limpian "
                     "escribiendo CERO, al reves que el resto del chip"},

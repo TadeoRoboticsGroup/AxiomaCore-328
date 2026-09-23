@@ -169,7 +169,7 @@ Register bit for the OC0A pin must be set as output before the value is visible 
 funcionar código que en silicio no funciona, que es la peor clase de incompatibilidad.
 
 El SoC conecta `OC0A`→PD6, `OC0B`→PD5, `OC1A`→PB1 y `OC1B`→PB2. Verificación: `make sim-gpio` añade
-una fase dirigida de anulación (909 708 comprobaciones) y `make sim-hello` **mide el ciclo de
+una fase dirigida de anulación (910 200 comprobaciones) y `make sim-hello` **mide el ciclo de
 trabajo en el pin**, en **tres canales a la vez y con tres ciclos distintos a propósito**:
 
 | Canal | Pin | Medido | La fórmula `(OCR+1)/(TOP+1)` |
@@ -351,7 +351,7 @@ un puerto: da igual qué haya al otro lado del cable. **Una permutación en la t
 chip.** Es la misma lección del mapa de pines, y la respuesta es la misma: mirar el cable de
 verdad. Así que hay dos capas:
 
-- **`sim/periph/tb_adc.cpp`** (1 603 comprobaciones): las ocho entradas del multiplexor, el flanco,
+- **`sim/periph/tb_adc.cpp`** (1 606 comprobaciones): las ocho entradas del multiplexor, el flanco,
   el cambio de fuente como flanco, el modo libre y que sin `ADATE` no dispara nada.
 - **`sim/soc/tb_soc_trig.cpp`** (21 comprobaciones): cada fuente provocada **por su camino real**.
   Un programa de verdad configura el periférico de verdad —pone `PD2` como salida y la sube para
@@ -433,8 +433,11 @@ importa. Si se borra `UCSR0C` antes que `UBRR0`, queda una ventana de dos instru
 de bit que no existe y no decodificó ni una trama del puerto serie. El chip no se entera; el
 analizador lógico de al lado, sí.
 
-**Coste medido:** el módulo pasa de **391 a 486 LUT4** en el ECP5, y el `Fmax` del dispositivo
-entero de 20,23 a **19,77 MHz** tras el rutado —con la placa a 12,5, margen 1,58×—.
+**Coste medido, el día que entró:** el módulo pasó de **391 a 486 LUT4** en el ECP5, y el `Fmax`
+del dispositivo entero de 20,23 a **19,77 MHz** tras el rutado. Las dos cifras son de entonces y se
+dejan como el coste **de este cambio**, que es lo que mide esta sección; hoy el módulo está en 475
+LUT4 y el dispositivo en 18,25 MHz, porque desde entonces han entrado dos periféricos más y la
+habilitación de reloj de todo el chip. El estado de hoy vive en el README, que es donde se mira.
 
 ### D13 — el puerto serie vive en `PD1` y `PD0`, cerrada  ·  14-sep-2026
 

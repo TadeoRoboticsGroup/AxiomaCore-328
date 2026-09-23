@@ -710,10 +710,10 @@ diff está verde; `git clone` limpio pesa < 2 MB.
 - [x] **Tercer oráculo independiente**: contraste de los mismos 22 282 240 casos contra `simavr`
       ejecutando instrucciones AVR reales. Encontró un fallo que la verificación contra nuestro
       propio modelo no podía encontrar (flag H de `NEG`).
-- [x] **Prueba de mutación** de todo el RTL: **160 fallos inyectados, 160 detectados** —eran 92 al cerrar la fase 1; el catálogo crece con cada periférico—. El banco puede fallar, y se comprueba que puede.
+- [x] **Prueba de mutación** de todo el RTL: **317 fallos inyectados, 317 detectados** —eran 92 al cerrar la fase 1 y 160 al cerrar la 2; el catálogo crece con cada periférico y con cada puerta nueva—. El banco puede fallar, y se comprueba que puede.
 - [x] `regfile.v` — 2R/1W más un puerto de 16 bits direccionado por índice de par, de modo que la
       interfaz no puede expresar una dirección impar. 800 064 comprobaciones contra un modelo
-      sombra en 200 000 ciclos aleatorios, 0 fallos; 3 de 3 mutantes detectados.
+      sombra en 200 000 ciclos aleatorios, 0 fallos; **7 mutantes** y los 7 detectados.
 - [x] `decode.v` — decodificación combinacional completa, sin cerrojos, 579 LUT en ECP5.
       **Contrastado contra `avr-objdump` sobre los 65 536 opcodes posibles: 0 discrepancias**
       en tamaño de instrucción, clasificación y operandos de registro. Las 192 instrucciones
@@ -776,7 +776,7 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       a cero. Los ocho modos de onda, el doble búfer de `OCR0x`, las banderas `TIFR0` con su
       *write-1-to-clear*, `GTCCR` con `TSM`/`PSRSYNC`, el reloj externo por T0 y los pines de
       comparación. **4 480 668 comprobaciones** contra un modelo de la hoja de datos, 0 fallos, y
-      10 mutantes detectados. El encaminamiento de OC0A/OC0B al pad es de la fase 3, con el resto
+      **12 mutantes** y los 12 detectados. El encaminamiento de OC0A/OC0B al pad es de la fase 3, con el resto
       de los canales PWM.
 - [x] `irq.v` — 26 vectores con prioridad fija. Verificado de forma **exhaustiva**: las
       67 108 864 combinaciones posibles de peticiones, 201 326 592 comprobaciones. Con él se
@@ -826,7 +826,7 @@ Los dos están en el catálogo de mutación para que no puedan volver.
 
 - [x] **Cobertura de código como puerta** (`make coverage`), fusionando todas las fuentes. La
       primera medida encontró **cuatro caminos que ningún banco ejecutaba jamás**, y dentro de uno
-      —`SPM`— había **tres fallos**. Hoy: 99,7 %, con los cinco puntos restantes adjudicados como
+      —`SPM`— había **tres fallos**. Hoy: **99,8 %**, con los siete puntos restantes adjudicados como
       inalcanzables. Detalle en [`03-verificacion.md`](03-verificacion.md).
 - [ ] Backend `fpga_bram` como módulo aparte (hoy la memoria inferida ya se mapea a BRAM).
 
@@ -1023,9 +1023,18 @@ enumerado** en vez de implícito.
       ciclos de periodo donde la fórmula da 20, o sea 71 kHz donde el programa pidió 100—; y el
       estado de retención forzaba `SCL` abajo siempre, con lo que tras un STOP recibido el chip
       habría bloqueado el bus entero hasta que su ISR contestara.
+> **Las cifras de esta lista —área, comprobaciones y mutantes— son las de HOY, no las del día en
+> que cada módulo entró.** Se
+> mueven cuando se mueve una decisión de todo el chip: al pasar el dispositivo a habilitación de
+> reloj (ADR 0003) el ADC bajó de 269 a 217 LUT4 y el perro guardián subió de 100 a 107, porque la
+> habilitación entra en el biestable pero añade una entrada a su lógica. Se comprueban con
+> `make synth-check`, que es lo que las produce. Los mutantes suben cuando una puerta nueva hace
+> observable algo que antes no lo era: el ADC pasó de 15 a 30 al llegar el disparo automático, el
+> barrido semántico y el banco de `PRR`.
+
 - [x] **`adc.v`: el controlador SAR, y dentro del SoC.** **Verificado y enchufado**, con su vector
-      21 disparando —21 de los 25 ya tienen fuente—. 1 561 comprobaciones contra un comparador escrito desde la hoja de datos, 15 mutantes y
-      los 15 muertos, 100 % de cobertura, 269 LUT4 en el ECP5 y sin latches. Hace conversiones
+      21 disparando —hoy 24 de los 25 tienen fuente; el que falta es `SPM_READY`—. **1 606 comprobaciones** contra un comparador escrito desde la hoja de datos, **30 mutantes** y
+      los 30 muertos, 100 % de cobertura, **217 LUT4** en el ECP5 y sin latches. Hace conversiones
       sueltas —lo que usa `analogRead()`—; el disparo automático era la deuda **D14**, declarada el
       mismo día y **cerrada el 22-sep** en cuanto el comparador analógico, que era la fuente que
       faltaba, entró en el chip.
@@ -1074,7 +1083,7 @@ enumerado** en vez de implícito.
       con la salida alta hace caer `ACO`, y esa caída es un flanco que el chip **sí** cuenta.
       `sim/diff/tests/ac_irq.S` dispara el vector 23 moviendo la entrada negativa por `ADMUX`, que
       es para lo que existe `ACME`.
-- [x] **`wdt.v`: el perro guardián, y dentro del SoC.** Con su vector 6 disparando. 43 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura, 100 LUT4.
+- [x] **`wdt.v`: el perro guardián, y dentro del SoC.** Con su vector 6 disparando. 43 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura, **107 LUT4**.
 
       **Lo que de verdad hay que implementar bien es la secuencia temporizada**, no la cuenta: un
       perro guardián que se pueda apagar con una escritura suelta no sirve para nada, porque lo que
@@ -1178,8 +1187,8 @@ enumerado** en vez de implícito.
       y se quitaron tres líneas muertas, y la cobertura destapó que el segundo nivel del búfer no lo
       pisaba nadie en MSPIM.
 - [x] **`eeprom.v`: 1 KB con su máquina de `EECR`, y dentro del SoC.** Con el **vector 22**
-      disparando, y con él **sólo `SPM_READY` se queda sin fuente** — y ése es de la fase 4. 49 comprobaciones, 11 mutantes y los 11 muertos, 100 % de cobertura,
-      101 LUT4 y **una sola BRAM**.
+      disparando, y con él **sólo `SPM_READY` se queda sin fuente** — y ése es de la fase 4. 49 comprobaciones, **12 mutantes** y los 12 muertos, 100 % de cobertura,
+      **127 LUT4** y **una sola BRAM**.
 
       **Tres cosas, por orden de lo que duele si falla.** La **secuencia temporizada** —`EEMPE` y,
       dentro de cuatro ciclos, `EEPE`—, que existe porque una escritura perdida en la EEPROM no se

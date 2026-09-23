@@ -56,7 +56,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | `rtl/core/axioma_sreg.v` | **Verificado** | 200 029 comprobaciones contra un modelo sombra |
 | `rtl/core/axioma_regfile.v` | **Verificado** | 800 064 comprobaciones en 200 000 ciclos aleatorios |
 | `rtl/core/axioma_decode.v` | **Verificado** | Los 65 536 opcodes × 11 comprobaciones contra `avr-objdump`: 0 discrepancias |
-| `rtl/mem/axioma_progmem.v` | **Verificado** | 12 000 comprobaciones: puerto de búsqueda, puerto de `LPM`, escritura por `SPM` y los dos puertos a la vez |
+| `rtl/mem/axioma_progmem.v` | **Verificado** | 12 000 comprobaciones: puerto de búsqueda, puerto de datos —`LPM` y las escrituras que le manda `axioma_spm`— y los dos a la vez |
 | `rtl/mem/axioma_dmem.v` | **Verificado** | 22 049 comprobaciones, incluido el barrido completo de las 2048 direcciones y la disciplina de flanco del [ADR 0001](docs/adr/0001-memorias-en-flanco-de-bajada.md) |
 | `rtl/bus/axioma_dbus.v` | **Verificado** | 790 976 comprobaciones sobre las 65 536 direcciones del espacio de datos, 0 fallos |
 | `rtl/periph/axioma_gpio.v` | **Verificado** | Diferencial contra `simavr` sobre los tres puertos, más **910 200 comprobaciones** por máscara contra un modelo de la hoja de datos, incluido `PUD` |
@@ -86,6 +86,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Entrada a interrupción | **Verificada** | 2 510 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
 | `rtl/periph/axioma_wdt.v`, `axioma_eeprom.v`, `axioma_adc.v`, `axioma_ac.v` | **Verificados** | Sus filas están arriba. Los cuatro entraron entre el 17 y el 21 de septiembre |
 | `rtl/periph/axioma_clkctrl.v` | **Verificado** | `CLKPR` con su división medida en el pin, `PRR` apagando los siete periféricos uno a uno, `SMCR` con los seis modos de sueño, `MCUCR` con `PUD`, y `MCUSR`. El décimo de los diez |
+| `rtl/periph/axioma_spm.v` | **Verificado** | La Flash **por páginas**: `SPMCSR`, búfer temporal de 64 palabras y las tres operaciones. 28 comprobaciones contra el capítulo 26 —el arnés diferencial no sirve aquí: un programa que se reescribe la Flash cambia el código que los dos lados ejecutan—, más la secuencia entera de un gestor de arranque en `make sim-robust`. Trajo el vector 25 |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
@@ -133,10 +134,10 @@ Salen **~73 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas 
 un 46 % y un 54 %, y **~49 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
-Los **diez periféricos de la fase 3 están dentro** y el mapa de registros está **barrido bit a
-bit**: 656 bits en 82 registros, 393 de almacenamiento, 134 con comportamiento propio y 129
-reservados, **ninguno sin clasificar**. De los 25 vectores de interrupción **sólo `SPM_READY` sigue
-sin fuente**, que es de la fase 4.
+Los **diez periféricos de la fase 3 están dentro**, más el `SPM` por páginas que abre la fase 4, y
+el mapa de registros está **barrido bit a bit**: 664 bits en 83 registros, 399 de almacenamiento,
+136 con comportamiento propio y 129 reservados, **ninguno sin clasificar**. Y **los 25 vectores de
+interrupción disparan desde un programa**.
 
 El **criterio de aceptación** de la fase son tres cláusulas, y **las tres están demostradas**
 desde el 24-sep:
@@ -162,7 +163,7 @@ en cuatro niveles, y sólo tres son alcanzables con herramientas libres.
 | Nivel | Qué garantiza | ¿Objetivo? | Cómo se verifica |
 |-------|---------------|-----------|------------------|
 | **L1 — Binaria** | 131 instrucciones, semántica exacta del SREG, PC de 14 bits, pila, interrupciones | Obligatorio | Diferencial contra `simavr`, instrucción a instrucción |
-| **L2 — Registros** | Mismas direcciones, nombres y bits. `avr/io.h` con `-mmcu=atmega328p` funciona sin tocar nada | Obligatorio | Mapa generado desde `iom328p.h` de avr-libc, con test de CI |
+| **L2 — Registros** | Mismas direcciones, nombres y bits. `avr/io.h` con `-mmcu=atmega328p` funciona sin tocar nada | Obligatorio | Mapa generado desde `iom328p.h` de avr-libc, con test de CI. Y **bit a bit**: `make sim-bits` clasifica los 664 bits de los 83 registros y comprueba que **ningún reservado devuelve un uno** |
 | **L3 — Ciclos** | Misma cuenta de ciclos por instrucción y misma temporización de periféricos | Sí | Tabla del manual del ISA como fichero de datos, comprobada en cada instrucción retirada |
 | **L4 — Eléctrica** | 5 V, DIP-28, pinout idéntico | **No en el die.** Sí en el módulo | Sky130 no da 5 V; se resuelve con level shifters en la PCB |
 
@@ -224,23 +225,24 @@ make check-tools
 make check-all
 ```
 
-**Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
-`synth-check` es casi todo, porque sintetiza los quince módulos. **La lista de lo que tiene que
-pasar vive en el `Makefile`, en la variable `REGRESION`, y en ningún otro sitio**: estaba copiada
-aquí, en `INSTALL.md` y en la CI, y tres copias de una lista son tres cifras que se desincronizan.
-Ya pasó con la cuenta de objetivos.
+**Los cuarenta y tres objetivos deben pasar**, y tardan unos veinte minutos en un portátil — la
+cobertura y la co-simulación diferencial son casi todo; `synth-check` sintetiza veintitrés
+módulos por separado y tarda poco. **La lista de lo que tiene que pasar vive en el `Makefile`, en
+la variable `REGRESION`, y en ningún otro sitio**: estaba copiada aquí, en `INSTALL.md` y en la CI,
+y tres copias de una lista son tres cifras que se desincronizan. Ya pasó con la cuenta de
+objetivos, y estas dos —cuarenta y tres y veintitrés— se volvieron a medir el 24-sep.
 
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 327 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 327 fallos inyectados, ~25 min; MODIFICA el RTL mientras corre
 ```
 
-**Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
-`synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
+**Los cuarenta y tres objetivos deben pasar**, y tardan unos veinte minutos en un portátil. La
+prueba de mutación va aparte:
 
 ```bash
-make mutation      # 327 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 327 fallos inyectados, ~25 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
@@ -261,7 +263,7 @@ terminar, la SRAM entera byte a byte.
 > los que el 328P puede ejecutar; `SPM` es la única exclusión y es deliberada.
 
 ```bash
-make mutation      # ~6 min · inyecta 74 fallos y comprueba que la regresión los caza
+make mutation      # ~25 min · inyecta 327 fallos y comprueba que la regresión los caza
 ```
 
 A eso se le suman **10⁶ instrucciones aleatorias** (`make sim-random`): programas válidos con
@@ -369,8 +371,8 @@ make check-tools
 | 0 | Fundación: estructura, licencias, generador del mapa de registros, CI | **Hecha** |
 | **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **Hecha** — criterio de aceptación cumplido |
 | 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | **Cumplida en simulación** — falta enchufar la placa |
-| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **En marcha** — los diez dentro; falta el barrido del mapa |
-| 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | Pendiente |
+| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **Hecha** — los diez dentro y las tres cláusulas del criterio demostradas |
+| 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | **En marcha** — el `SPM` por páginas, que era su primera pieza, ya está |
 | 5 | Endurecimiento: cierre de timing, portes a iCE40 y Gowin, regresión nocturna | Pendiente |
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
 | 7 | Módulo DIP-28 en KiCad, compatible con el zócalo de un Arduino Uno | Pendiente |
@@ -391,18 +393,23 @@ SoC completo y **decodifica el pin**: el texto por el puerto serie, el LED parpa
 transacción SPI y los seis canales PWM medidos a la vez. El bitstream se genera, cierra timing y
 lleva el programa dentro. **Lo único que falta es enchufar la placa** (`make prog-ulx3s`).
 
-La **fase 3** tiene ya **los diez periféricos** dentro —Timer1, Timer2, las interrupciones
-externas, el SPI, el TWI, el ADC, el comparador analógico, el perro guardián, la EEPROM y el
-control de reloj— y las deudas D3, D12, D13 y D14 cerradas. Lo que falta para cerrarla es el
-**barrido semántico del mapa de registros**.
+La **fase 3 está hecha**: los diez periféricos dentro —Timer1, Timer2, las interrupciones externas,
+el SPI, el TWI, el ADC, el comparador analógico, el perro guardián, la EEPROM y el control de
+reloj—, las deudas D3, D12, D13 y D14 cerradas, el mapa de registros barrido bit a bit y **las tres
+cláusulas de su criterio de aceptación demostradas**, cada una con un comando.
 
-El último periférico trajo la decisión de más alcance de la fase, en el
+La **fase 4** ha empezado por donde tenía que empezar: el **`SPM` por páginas** (deuda D2), que es
+lo que hace posible un gestor de arranque y lo que trajo de paso el último vector sin fuente. El
+núcleo ya no escribe la Flash — pide, y quien escribe es `axioma_spm`, que sabe de páginas y del
+búfer temporal.
+
+El décimo periférico trajo la decisión de más alcance de la fase 3, en el
 [ADR 0003](docs/adr/0003-relojes-por-habilitacion.md): **`CLKPR` y `PRR` cortan relojes de verdad**,
 en forma de habilitación. El chip entero corre ahora con `clk_CPU` y `clk_I/O` separados, y con
 `CLKPS`=0 quedó **bit a bit** como estaba. `SLEEP` para el núcleo de verdad: en `Idle` el Timer0
 lo despierta, en `Power-down` ese mismo programa no despierta nunca y el perro guardián sí, porque
-su cuenta corre con otro reloj. De los 25 vectores de interrupción, **24 disparan desde un programa**: sólo queda
-`SPM_READY`, que es de la fase 4.
+su cuenta corre con otro reloj. Y **los 25 vectores de interrupción disparan desde un programa**:
+el último en tener fuente fue `SPM_READY`, que la trajo el `SPM` por páginas de la fase 4.
 
 Los dos últimos periféricos trajeron algo que el proyecto no tenía: **lógica que no es digital de
 punta a punta**. El ADC y el comparador analógico se cortan por donde lo hace la hoja de datos —el

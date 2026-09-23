@@ -1,6 +1,17 @@
 # Deuda técnica
 
-**Última revisión:** 22 de septiembre de 2026 (cierre de D14)
+**Última revisión:** 24 de septiembre de 2026 (cierre de D2, y D18 declarada)
+
+**Dieciocho deudas declaradas: 8 cerradas, 5 justificadas y 5 abiertas.**
+
+De las cinco abiertas, **cuatro son de la fase 5** —D6 y D17, que van juntas porque las dos tocan
+el sincronizador de entrada; D10, el dominio asíncrono del Timer2; y D15, la parada del núcleo al
+leer la EEPROM—. La quinta, **D16**, sí es de la fase 4, que es la que está en curso: es `IVSEL`
+sin sección de arranque a donde apuntar.
+
+**Ninguna de las cinco bloquea lo que se está construyendo.** D16 en particular no bloquea el
+gestor de arranque: un gestor del estilo de Optiboot **no usa interrupciones**, así que no necesita
+mover la tabla de vectores. Es al revés — es el gestor el que desbloquea a D16.
 
 Este documento existe porque «está en el plan» y «está a medias» **no son lo mismo**, y mezclarlos
 es la forma más fácil de que algo a medias llegue a una foundry. Aquí sólo hay lo segundo.
@@ -30,7 +41,7 @@ hace todo lo que su nombre promete.
 | D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
 | D15 | **Leer la EEPROM no para el núcleo cuatro ciclos.** La hoja de datos dice «the CPU is halted for four clock cycles before the next instruction is executed»; aquí `EERE` devuelve el byte y el programa sigue. Rompe el nivel **L3** en las instrucciones que siguen a una lectura de EEPROM | Abierta · **fase 5** |
 | D14 | **El ADC no tenía disparo automático (`ADATE` con `ADTS`).** Sólo hacía conversiones sueltas. Sus bits se almacenaban y se leían de vuelta | **CERRADA** 22-sep — ver abajo |
-| D16 | **`IVSEL` no mueve la tabla de vectores.** El registro y su secuencia temporizada (`IVCE`) están hechos y verificados, y `ivsel` sale de `axioma_clkctrl`, pero el SoC no lo conecta: no hay sección de arranque hasta la fase 4 | Abierta · **fase 4** |
+| D16 | **`IVSEL` no mueve la tabla de vectores.** El registro y su secuencia temporizada (`IVCE`) están hechos y verificados, y `ivsel` sale de `axioma_clkctrl`, pero el SoC no lo conecta: todavía no hay sección de arranque a donde apuntar | Abierta · **fase 4**, con el gestor |
 | D17 | **La interrupción externa de nivel bajo no despierta de `Power-down`.** El chip la detecta de forma **asíncrona** y por eso sirve para despertar con el reloj parado; aquí se mira sobre el pin ya sincronizado, y ese sincronizador se para con `clk_I/O` | Abierta · **fase 5** |
 | D18 | **`BLBSET` y `SIGRD` de `SPMCSR` no hacen nada.** Los bits de cerrojo del gestor de arranque y la fila de firma se almacenan y se leen de vuelta. No son lógica: son celdas de un PDK | **Justificada** en FPGA · fase 6 en silicio |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
@@ -148,15 +159,21 @@ la de `IVCE`: escribir `IVCE` a uno, y dentro de los cuatro ciclos siguientes es
 que escribir `IVSEL` cierra la ventana en el acto.
 
 **Qué falta:** que sirva de algo. `IVSEL` mueve la tabla de vectores de interrupción al principio de
-la **sección de arranque**, y este chip no tiene sección de arranque: la escritura por páginas de la
-Flash y `SPMCSR` son la deuda **D2**, de la fase 4. Mover los vectores a una dirección donde no hay
-gestor de arranque sería peor que no moverlos.
+la **sección de arranque**, y este chip todavía no tiene una. Mover los vectores a una dirección
+donde no hay gestor de arranque sería peor que no moverlos.
 
 **Por qué se declara en vez de no escribirlo.** Porque el registro **sí** tiene que leerse de
 vuelta: un gestor de arranque que compruebe si ya está en modo arranque lee `MCUCR`, y un programa
 que ejecute la secuencia tiene que ver `IVCE` subir y caer. Lo que no puede es fingir el efecto.
 
-**Qué la desbloquea:** D2. Las dos son la misma pieza vista por dos sitios, y se cierran juntas.
+**Qué la desbloquea, con precisión (actualizado el 24-sep).** Aquí decía «D2», porque sin escritura
+por páginas no puede haber gestor de arranque. **D2 está cerrada** desde que existe
+`rtl/periph/axioma_spm.v`, y esta deuda **sigue abierta**: lo que falta ya no es el hardware para
+programar la Flash, sino **el gestor de arranque en sí** —el software de la fase 4— y la decisión de
+**dónde empieza su sección**, que en el chip la fijan los fusibles `BOOTSZ`.
+
+Son dos cosas distintas y conviene no confundirlas otra vez: D2 era *poder escribir la Flash*, y
+ésta es *tener algo escrito ahí a donde saltar*. Se cierra con el gestor, no antes.
 
 ### D10 — por qué está abierta y qué la desbloquea
 

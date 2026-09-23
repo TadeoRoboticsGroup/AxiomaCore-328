@@ -16,9 +16,9 @@ cableado de los 26 vectores— vivía dentro del banco de pruebas, de modo que l
 verificaba no era el dispositivo. El desplazamiento de un bit que convertía `TIMER0_COMPA` en
 `TIMER1_OVF` estaba justo ahí.
 
-**Esto es lo que hay instanciado hoy**, no la lista de lo que habrá. Lo que falta va al final, con
-su fase: un árbol que enseña módulos inexistentes es la forma más fácil de creer que algo está
-hecho.
+**Esto es lo que hay instanciado hoy**, no la lista de lo que habrá: un árbol que enseña módulos
+inexistentes es la forma más fácil de creer que algo está hecho. Llegó a haber debajo una tabla de
+«lo que todavía no existe»; hoy está vacía, y lo que se dice al final es por qué.
 
 ```
 axioma328_soc
@@ -51,15 +51,19 @@ axioma328_soc
 │                          DIDR1 apaga el buffer de AIN0 y AIN1 · ACIC a la captura
 ├── axioma_wdt             perro guardián · su propio oscilador de 128 kHz, que
 │                          entra de fuera · secuencia temporizada para `WDE`
-└── axioma_eeprom          1 KB en una BRAM · secuencia temporizada para `EEPE`
-                           la celda baja bits y no los sube · EE_READY es NIVEL
+├── axioma_eeprom          1 KB en una BRAM · secuencia temporizada para `EEPE`
+│                          la celda baja bits y no los sube · EE_READY es NIVEL
+├── axioma_clkctrl         `CLKPR` divide y `PRR` apaga, con habilitación de reloj
+│                          (ADR 0003) · `SMCR` y los seis modos de sueño · `MCUCR`
+│                          con `PUD` · `MCUSR` con el rastro del perro guardián
+└── axioma_spm             la Flash por PÁGINAS · búfer temporal de 64 palabras
+                           el núcleo ya no escribe la Flash: pide · SPM_READY es NIVEL
 ```
 
-**Lo que todavía no existe**, y por qué está aquí escrito y no dibujado arriba:
-
-| Módulo | Qué traerá | Fase |
-|--------|-----------|------|
-| `axioma_clkctrl` | `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` · modos de sueño | 3 — **el último de los diez** |
+**Ya no falta ningún módulo por dibujar.** Esta sección llegó a tener una tabla de «lo que todavía
+no existe», y se queda dicho porque el criterio sigue valiendo: **un árbol que enseña módulos
+inexistentes es la forma más fácil de creer que algo está hecho**. Lo que falta del chip no es un
+bloque: es el gestor de arranque de la fase 4 —que es software, no RTL— y el silicio de la 6.
 
 ---
 

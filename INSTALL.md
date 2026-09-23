@@ -166,8 +166,8 @@ Debe listar **12 herramientas disponibles, 0 pendientes**. Y después, la regres
 make check-all
 ```
 
-**Los 33 objetivos deben pasar**, y tardan unos **5 minutos** en total —`synth-check` es casi
-todo—. **La lista de lo que tiene que pasar vive en el `Makefile`, en la variable `REGRESION`, y en
+**Los 43 objetivos deben pasar**, y tardan unos **veinte minutos** en total —la cobertura y la
+co-simulación diferencial son casi todo—. **La lista de lo que tiene que pasar vive en el `Makefile`, en la variable `REGRESION`, y en
 ningún otro sitio**: estaba copiada aquí, en el README y en el flujo de la CI, y tres copias de una
 lista son tres cifras que se desincronizan.
 
@@ -180,7 +180,7 @@ La prueba de mutación va **aparte**, en un trabajo propio de la CI, porque tard
 y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # inyecta 259 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 327 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

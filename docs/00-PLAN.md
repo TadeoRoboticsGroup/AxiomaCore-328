@@ -691,15 +691,30 @@ Estimaciones asumiendo ~15 h/semana. El camino crítico es la fase 1.
 
 ### Fase 0 — Fundación (1 semana)
 
-- [ ] Instalar OSS CAD Suite, toolchain AVR, simavr, cocotb.
-- [ ] `git mv` de todo lo actual a `legacy/`. Purgar los `.tar.gz` del historial.
-- [ ] Crear la estructura de §6, `LICENSE` (Apache-2.0), `LICENSE-EXCEPTIONS.md`, `docs/02-legal.md`.
-- [ ] Borrar `bootloader/optiboot/`, `layout/*.gds`, `openlane/src/`.
-- [ ] Generador `tools/gen_regmap.py`: `iom328p.h` → `axioma_regmap.vh` + `docs/05-register-map.md`.
-- [ ] CI mínima en GitHub Actions (lint + build).
+- [x] Instalar OSS CAD Suite, toolchain AVR, simavr, cocotb. `make check-tools`: **12 disponibles,
+      0 pendientes**.
+- [x] `git mv` de todo lo actual a `legacy/`. Purgar los `.tar.gz` del historial.
+- [x] Crear la estructura de §6, `LICENSE` (Apache-2.0), `LICENSE-EXCEPTIONS.md`, `docs/02-legal.md`.
+- [x] Borrar `bootloader/optiboot/`, `layout/*.gds`, `openlane/src/`.
+- [x] Generador `tools/gen_regmap.py`: `iom328p.h` → `axioma_regmap.vh` + `docs/05-register-map.md`.
+      Hoy genera además `sim/soc/regbits.h`, que es el que dice qué bits existen.
+- [x] CI mínima en GitHub Actions (lint + build). Hoy son 43 objetivos.
 
 **Criterio de aceptación:** `make check-tools` pasa; el mapa de registros se genera y su test de
 diff está verde; `git clone` limpio pesa < 2 MB.
+
+> **Dos de tres. El tamaño NO se cumple, y conviene decirlo con el número delante.** Un clon
+> empaquetado pesa hoy **16 MB**: 4,6 MB de árbol de trabajo y **11 MB de historial**.
+>
+> La causa no son los `.tar.gz` que este punto mandó purgar —ésos no están—, sino **las cuatro
+> figuras PNG del README**: entre todas sus versiones suman **~16 MiB de objetos**, porque cada
+> `make diagrams` añade un binario nuevo de ~700 KB y se han regenerado muchas veces. El resto del
+> repositorio, con meses de trabajo, cabe en poco más de 2 MB de objetos.
+>
+> Se deja anotado y no se arregla de tapadillo: limpiarlo es **reescribir el historial**, que es una
+> decisión del proyecto y no de un commit de documentación. Lo que sí cambia desde hoy es el
+> criterio para el futuro: **regenerar las figuras sólo cuando cambien de verdad**, no por costumbre
+> al tocar el README.
 
 ### Fase 1 — Núcleo ISA (4 semanas) ← *camino crítico*
 
@@ -789,7 +804,7 @@ Los dos están en el catálogo de mutación para que no puedan volver.
       No era teórico —el bit desplazado que convertía `TIMER0_COMPA` en `TIMER1_OVF` estaba ahí—.
       De paso desaparece el array que fingía que todo el espacio de I/O era RAM: los tres `GPIOR`
       son registros del 328P y ahora son un periférico (`axioma_gpior.v`), y una dirección sin
-      implementar se lee como cero, como en el chip. `make sim-soc` barre las 224 direcciones por
+      implementar se lee como cero, como en el chip. `make sim-soc` barre las **221 direcciones** alcanzables por
       el bus real y comprueba que no hay colisiones y que el mapa es el de la hoja de datos.
 - [x] `make synth-check`: yosys sobre todo el RTL, falla ante un latch y mide el área de cada
       módulo. Cierra un hueco que venía de la fase 1 —el lint de verilator no es un sintetizador—
@@ -916,7 +931,7 @@ estas son las razones concretas:
 | 4 | **Sin verificación formal.** `sby` está instalado y no hay ni una propiedad escrita | Fase 5 |
 | 5 | **Sin simulación post-P&R con retardos anotados.** Es el segundo punto de «a verificar» del propio ADR 0001 | Fase 5 |
 | 6 | **Sin DFT.** Ni cadenas de scan ni BIST para la SRAM. Un chip sin DFT no se puede clasificar en oblea | Fase 6 |
-| 7 | **CERRADO el 24-sep.** Aquí decía que a `SPM_READY` le faltaba fuente; la tiene desde que existe `axioma_spm`, y **los 25 vectores disparan desde un programa** | Fase 3, salvo `SPM_READY`, que es de la 4 |
+| 7 | **CERRADO el 24-sep.** Aquí decía que a `SPM_READY` le faltaba fuente; la tiene desde que existe `axioma_spm`, y **los 25 vectores disparan desde un programa** | **Cerrado** |
 | 8 | **Los `initial` de las memorias** no existen en silicio; los sustituye el backend del PDK | Fase 6 |
 
 Nada de esto es una sorpresa: todo estaba en el plan. Lo que cambia es que ahora está **medido y
@@ -1033,7 +1048,7 @@ enumerado** en vez de implícito.
 > barrido semántico y el banco de `PRR`.
 
 - [x] **`adc.v`: el controlador SAR, y dentro del SoC.** **Verificado y enchufado**, con su vector
-      21 disparando —hoy 24 de los 25 tienen fuente; el que falta es `SPM_READY`—. **1 606 comprobaciones** contra un comparador escrito desde la hoja de datos, **30 mutantes** y
+      21 disparando —hoy los 25 tienen fuente—. **1 606 comprobaciones** contra un comparador escrito desde la hoja de datos, **30 mutantes** y
       los 30 muertos, 100 % de cobertura, **217 LUT4** en el ECP5 y sin latches. Hace conversiones
       sueltas —lo que usa `analogRead()`—; el disparo automático era la deuda **D14**, declarada el
       mismo día y **cerrada el 22-sep** en cuanto el comparador analógico, que era la fuente que
@@ -1187,7 +1202,8 @@ enumerado** en vez de implícito.
       y se quitaron tres líneas muertas, y la cobertura destapó que el segundo nivel del búfer no lo
       pisaba nadie en MSPIM.
 - [x] **`eeprom.v`: 1 KB con su máquina de `EECR`, y dentro del SoC.** Con el **vector 22**
-      disparando, y con él **sólo `SPM_READY` se queda sin fuente** — y ése es de la fase 4. 49 comprobaciones, **12 mutantes** y los 12 muertos, 100 % de cobertura,
+      disparando. Con la EEPROM dentro sólo quedaba `SPM_READY` sin fuente, y la tiene desde
+      que existe `axioma_spm`. 49 comprobaciones, **12 mutantes** y los 12 muertos, 100 % de cobertura,
       **127 LUT4** y **una sola BRAM**.
 
       **Tres cosas, por orden de lo que duele si falla.** La **secuencia temporizada** —`EEMPE` y,
@@ -1259,8 +1275,8 @@ enumerado** en vez de implícito.
       nivel bajo externo no despierta de `Power-down`, fase 5, va con D6).
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
-- [x] **El barrido semántico del mapa de registros.** `make sim-bits`: **656 bits en 82 registros —
-      393 de almacenamiento, 134 con comportamiento propio y 129 reservados. Ninguno sin
+- [x] **El barrido semántico del mapa de registros.** `make sim-bits`: **664 bits en 83 registros —
+      399 de almacenamiento, 136 con comportamiento propio y 129 reservados. Ninguno sin
       clasificar.** Qué bits existen sale de avr-libc por el mismo generador que ya decide las
       direcciones; qué hace cada uno se escribe a mano y **el banco falla si un bit que no es
       almacenamiento llano no lleva motivo**.
@@ -1273,9 +1289,9 @@ enumerado** en vez de implícito.
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
 correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
-> **Dónde está la fase, con precisión.** Las **tareas** de la lista están todas hechas: los diez
-> periféricos, las deudas de la USART y del ADC, y el barrido semántico. El **criterio de
-> aceptación** tiene tres cláusulas y **no está cumplido**:
+> **Dónde está la fase, con precisión: CERRADA el 24-sep-2026.** Las **tareas** de la lista están
+> todas hechas —los diez periféricos, las deudas de la USART y del ADC, y el barrido semántico— y
+> el **criterio de aceptación**, que son tres cláusulas, también:
 >
 > - **25 vectores** — **DEMOSTRADO**. El que faltaba era `SPM_READY`, y su fuente es el `SPM` por
 >   páginas: al escribirlo para la fase 4 (deuda D2) llegó también el vector. `make check-docs`
@@ -1292,9 +1308,10 @@ correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 >   48 533 ciclos, una sola contesta**; y con el esclavo mudo, ninguna — sin esa tercera pasada, un
 >   barrido que devolviera siempre `0x50` también pasaría.
 >
-> O sea: **dos de las tres cláusulas están demostradas y la tercera está bloqueada por la fase 4.**
-> Se dice aquí y no se redondea: la lista de tareas y el criterio **no son lo mismo**, y este
-> documento existe para que no se confundan.
+> **Las tres, con un comando cada una.** Y se deja escrito cómo se llegó aquí, porque la lección
+> vale más que el resultado: durante un día esta nota decía que dos estaban demostradas y la
+> tercera bloqueada, y era verdad. La lista de tareas y el criterio **no son lo mismo**, y este
+> documento existe para que no se confundan — ni cuando falta, ni cuando sobra.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

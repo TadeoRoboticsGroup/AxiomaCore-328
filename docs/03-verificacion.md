@@ -132,7 +132,7 @@ trama la delimita el reloj y esas ramas ya no se alcanzan. Un superviviente **no
 RTL por defecto: es una pregunta, y hay tres respuestas posibles —falta banco, falta observar el
 pin, o la línea no hace nada—. En este caso la respuesta fue quitar tres líneas.
 
-Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
+Se ejecuta con `make mutation` (~25 min), en un trabajo propio de la CI.
 
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
@@ -307,7 +307,7 @@ cualquier protocolo bit-bangeado como el de las tiras NeoPixel.
 
 ## Capa 4 — Periféricos y mapa de registros
 
-**Lo que hay hoy: `make sim-soc`**, que barre las **224 direcciones** del espacio de I/O por el bus
+**Lo que hay hoy: `make sim-soc`**, que barre las **221 direcciones** alcanzables del espacio de I/O por el bus
 real del SoC y comprueba que el mapa coincide con la tabla `MAPA[]` de `sim/soc/tb_soc_map.cpp`
 —escrita desde la hoja de datos—, que no hay dos periféricos respondiendo a la misma dirección, y
 que los huecos se leen como `0x00`, porque **el espacio de I/O no es RAM**.
@@ -396,7 +396,8 @@ la fase 1 y media fase 2 no la comprobaba nadie: el mapa de direcciones y el de 
 el banco de pruebas. Ahí apareció un fallo real —un bit de más en una concatenación convertía
 `TIMER0_COMPA` en `TIMER1_OVF`—.
 
-`make sim-soc` barre **las 224 direcciones del espacio de I/O**, y lo hace por el camino real: carga
+`make sim-soc` barre **las 221 direcciones alcanzables del espacio de I/O** —las 224 del mapa
+menos las tres que el núcleo intercepta, `SPL`, `SPH` y `SREG`—, y por el camino real: carga
 un programa con un `LDS` por dirección y deja que el núcleo lo ejecute. No fuerza ninguna señal
 interna. Comprueba tres cosas:
 
@@ -541,7 +542,7 @@ desbordamiento**. Exigir que no se pierda ahí es exigirle al chip algo que el o
 que se exige, y es lo que importa, es que **mientras la ISR quepa no se pierda ni uno**, por poco
 que sobre.
 
-### El barrido semántico: 656 bits, y ninguno sin decir qué es
+### El barrido semántico: 664 bits, y ninguno sin decir qué es
 
 `make sim-soc` comprueba el mapa de **direcciones**. Eso deja entera la pregunta que de verdad
 decide si un sketch funciona: **dentro de un registro que sí existe, ¿qué hace cada bit?** Un
@@ -565,7 +566,7 @@ grabación—, con unos y con ceros. La tercera **satura el espacio entero** y d
 los bits reservados de un registro alimentados desde otro se escapan, y eso no es teórico —un
 mutante que hacía `EEARH` devolver bits de `EEARL` sobrevivía a las dos primeras—.
 
-Hoy: **656 bits en 82 registros — 393 de almacenamiento, 134 con comportamiento propio y 129
+Hoy: **664 bits en 83 registros — 399 de almacenamiento, 136 con comportamiento propio y 129
 reservados. Ninguno sin clasificar.**
 
 #### Lo que encontró, y una vez perdió el oráculo
@@ -737,8 +738,8 @@ TRES trabajos separados a propósito:
 | Trabajo | Qué ejecuta | Por qué va aparte |
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
-| **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 327 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Verificación del núcleo** | las **36 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **43 objetivos** de una vez |
+| **Mutación** | `make mutation`, los 327 mutantes | Tarda ~25 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

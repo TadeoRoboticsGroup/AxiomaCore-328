@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 310
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 315
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -452,6 +452,60 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### El barrido semántico: 656 bits, y ninguno sin decir qué es
+
+`make sim-soc` comprueba el mapa de **direcciones**. Eso deja entera la pregunta que de verdad
+decide si un sketch funciona: **dentro de un registro que sí existe, ¿qué hace cada bit?** Un
+registro puede estar en su dirección, leerse y escribirse, y tener un bit reservado que devuelve
+basura, o uno de sólo lectura que se deja escribir, o una bandera de las que se limpian escribiendo
+un uno que se comporta como almacenamiento. Nada de eso lo ve el barrido de direcciones.
+
+`make sim-bits` lo cierra, y su valor está en **de dónde sale cada mitad**:
+
+- **qué bits existen** lo genera `tools/gen_regmap.py` preguntándole al preprocesador de avr-gcc con
+  avr-libc. O sea que la lista de reservados no es una lectura mía de un PDF: es el mismo tercero
+  independiente que ya decide las direcciones. Y de los reservados la hoja de datos dice algo
+  comprobable: **se leen como cero**;
+- **qué hace cada bit que existe** se escribe a mano, porque no hay tercero que lo sepa, y la tabla
+  obliga: los bits que no son almacenamiento llano **tienen que llevar un motivo escrito**, y el
+  banco falla si falta. Un bit sin clasificar no puede esconderse.
+
+Son **tres pasadas**. Las dos primeras prueban cada registro **desde un reinicio limpio**, con su
+propio programa —escribir `0xFF` en `WDTCSR` arma el perro guardián y en `EECR` lanza una
+grabación—, con unos y con ceros. La tercera **satura el espacio entero** y después lee: sin ella,
+los bits reservados de un registro alimentados desde otro se escapan, y eso no es teórico —un
+mutante que hacía `EEARH` devolver bits de `EEARL` sobrevivía a las dos primeras—.
+
+Hoy: **656 bits en 82 registros — 393 de almacenamiento, 134 con comportamiento propio y 129
+reservados. Ninguno sin clasificar.**
+
+#### Lo que encontró, y una vez perdió el oráculo
+
+**Un fallo nuestro:** `PRR` guardaba y devolvía su bit 4, que no existe. No rompe nada hoy; rompe el
+día que un programa lee el registro, le cambia un bit y lo vuelve a escribir, que es el idioma
+normal en C.
+
+**Dos clasificaciones mías equivocadas**, que el banco corrigió: `MSTR` de `SPCR` no es
+almacenamiento —el hardware lo **limpia** si `SS` es entrada y está a cero, que es la detección de
+colisión de maestros—, y `TWDR` tampoco —sólo se deja cargar con `TWINT` puesto, y fuera de tiempo
+levanta `TWWC`—. Las dos son la hoja de datos funcionando, y ahora están escritas.
+
+**Y una vez el oráculo se equivocó**, que es el caso para el que existe la segunda mitad de la regla
+del proyecto. avr-libc define los bits de `TWAMR` como `TWAM0`=0 … `TWAM6`=6. La hoja de datos los
+pone en los bits 7:1. No hace falta creer a ninguno de los dos: **en el mismo fichero**, avr-libc
+define `TWAR` como `TWGCE`=0 y `TWA0`…`TWA6` en los bits 1:7, y `TWAMR` es la máscara que se aplica
+a esa dirección:
+
+```
+((recibida ^ TWAR) & ~TWAMR) == 0
+```
+
+Una máscara colocada en los bits 6:0 **no puede enmascarar una dirección que vive en los 7:1**. La
+definición de avr-libc es incoherente consigo misma, y por tanto es la equivocada. El RTL ya estaba
+bien. La corrección vive en `tools/gen_regmap.py`, con el razonamiento escrito, **y no en el banco**:
+quien habla por avr-libc en este proyecto es ese generador, y una excepción escondida en un banco
+sería una excepción que nadie encuentra.
+
 ### Siete cables a la vez: `PRR`
 
 `PRR` apaga siete periféricos uno a uno, y con la habilitación de reloj repartida implementarlo es
@@ -518,7 +572,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 49 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 50 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -538,7 +592,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,6 %** —3 163 de 3 175 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
+Hoy está en **99,8 %** —3 168 de 3 175 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
 puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -595,7 +649,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 310 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 315 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

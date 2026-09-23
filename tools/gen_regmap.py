@@ -38,6 +38,32 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 VH_OUT = ROOT / "rtl/soc/axioma_regmap.vh"
 MD_OUT = ROOT / "docs/05-register-map.md"
+BITS_OUT = ROOT / "sim/soc/regbits.h"
+
+# EL ORACULO TAMBIEN SE COMPRUEBA, y esta es la primera vez que pierde.
+#
+# avr-libc define en `iom328p.h` los bits de TWAMR como TWAM0=0 ... TWAM6=6, o
+# sea en los bits 6..0. La hoja de datos los pone en los bits 7..1, con el bit 0
+# reservado. No hace falta creerse a ninguno de los dos para saber quien tiene
+# razon: en el MISMO fichero, avr-libc define TWAR como TWGCE=0 y TWA0..TWA6 en
+# los bits 1..7. TWAMR es la mascara de «no me importa» que se aplica A ESA
+# direccion:
+#
+#     ((recibida ^ TWAR) & ~TWAMR) == 0
+#
+# Una mascara colocada en los bits 6..0 NO PUEDE enmascarar una direccion que
+# vive en los 7..1. La definicion de avr-libc es incoherente consigo misma, y
+# por tanto es la equivocada. El RTL ya estaba bien -`twamr_q & 8'hFE`, usando
+# `[7:1]`-, y lo que se corrige aqui es la tabla generada, porque si no cada
+# regeneracion volveria a pedirle al chip que se comportara mal.
+#
+# Se corrige AQUI y no en el banco a proposito: quien habla por avr-libc en este
+# proyecto es este generador, y una excepcion escondida en un banco seria una
+# excepcion que nadie encuentra.
+CORRECCIONES = {
+    "TWAMR": (0xFE, "avr-libc pone TWAM6..0 en los bits 6..0; la mascara se "
+                    "aplica a TWA6..0, que el mismo fichero pone en los 7..1"),
+}
 
 SFR_OFFSET = 0x20  # __SFR_OFFSET en AVR: I/O 0x00 == dato 0x20
 
@@ -277,6 +303,52 @@ def emit_vh(regs, bits, vectors, src: Path) -> str:
     return "\n".join(L)
 
 
+def emit_bits(regs, bits, src: Path) -> str:
+    """La mascara de bits QUE EXISTEN en cada registro, para el barrido semantico.
+
+    Esto es la mitad del barrido que NO se escribe a mano, y por eso vale: sale
+    del mismo preprocesador que el mapa de direcciones, o sea de avr-libc. Lo
+    que no esta nombrado ahi es un bit RESERVADO, y un reservado tiene que
+    leerse SIEMPRE a cero.
+
+    Escrita a mano, esta tabla seria una lista de ochenta numeros copiados de un
+    PDF, que es justo la clase de cosa que se desincroniza sin que nadie se
+    entere. Generada, es una propiedad del chip contrastada contra un tercero.
+    """
+    L = [
+        "// AxiomaCore-328 - que bits EXISTEN en cada registro",
+        "// FICHERO GENERADO. No editar a mano.",
+        "//   Generador: tools/gen_regmap.py",
+        "//   Fuente:    preprocesador de avr-gcc con avr-libc (BSD-3-Clause)",
+        "//",
+        "// Un bit que no aparece aqui es RESERVADO, y la hoja de datos dice que los",
+        "// reservados se leen a cero. `sim/soc/tb_soc_bits.cpp` lo comprueba en el",
+        "// chip, registro por registro y bit por bit.",
+        "",
+        "#pragma once",
+        "#include <cstdint>",
+        "",
+        "struct RegBits { uint16_t dato; const char *nombre; uint8_t existen; };",
+        "",
+        "static const RegBits REGBITS[] = {",
+    ]
+    for r in regs:
+        if r["width"] == 16:
+            continue
+        m = 0
+        for _, pos in bits.get(r["name"], []):
+            m |= 1 << pos
+        if r["name"] in CORRECCIONES:
+            m, motivo = CORRECCIONES[r["name"]]
+            L.append(f"    // CORREGIDO: {motivo}")
+        L.append(f'    {{ 0x{r["data"]:02X}, "{r["name"]}", 0x{m:02X} }},')
+    L.append("};")
+    L.append("")
+    L.append(f"static const int N_REGBITS = sizeof(REGBITS) / sizeof(REGBITS[0]);")
+    L.append("")
+    return "\n".join(L)
+
+
 def emit_md(regs, bits, vectors, src: Path) -> str:
     L = [
         "# Mapa de registros",
@@ -332,13 +404,14 @@ def main():
               file=sys.stderr)
 
     vh, md = emit_vh(regs, bits, vectors, hdr), emit_md(regs, bits, vectors, hdr)
+    bh = emit_bits(regs, bits, hdr)
     # Nota: la salida NO incrusta la versión del compilador. Si lo hiciera,
     # `--check` fallaría en cualquier máquina con otro avr-gcc aunque el mapa
     # fuese idéntico.
 
     if args.check:
         bad = False
-        for path, want in ((VH_OUT, vh), (MD_OUT, md)):
+        for path, want in ((VH_OUT, vh), (MD_OUT, md), (BITS_OUT, bh)):
             if not path.exists():
                 print(f"FALTA: {path.relative_to(ROOT)}", file=sys.stderr); bad = True
             elif path.read_text(encoding="utf-8") != want:
@@ -353,9 +426,11 @@ def main():
     MD_OUT.parent.mkdir(parents=True, exist_ok=True)
     VH_OUT.write_text(vh, encoding="utf-8")
     MD_OUT.write_text(md, encoding="utf-8")
+    BITS_OUT.write_text(bh, encoding="utf-8")
     print(f"fuente: {hdr}")
     print(f"  {VH_OUT.relative_to(ROOT)}  — {len(regs)} registros, {total} vectores")
     print(f"  {MD_OUT.relative_to(ROOT)}")
+    print(f"  {BITS_OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

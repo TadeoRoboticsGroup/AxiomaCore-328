@@ -81,15 +81,15 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   39/39 objetivos en verde
-mutación   310/310 fallos inyectados, 310 detectados
-cobertura   99,6 % del RTL, fusionando todas las fuentes
+regresión   40/40 objetivos en verde
+mutación   315/315 fallos inyectados, 315 detectados
+cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 7 845 LUT4 y 1 434 FF en el ECP5
+síntesis    sin latches · el SoC entero: 8 570 LUT4 y 1 433 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
@@ -116,20 +116,24 @@ cuenta se hace con esos pesos, no a ojo:
 | 0 · fundación | 1 | 100 % | 1,00 |
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
-| 3 · periféricos | 5 | 95 % — **los diez** dentro; falta el barrido semántico del mapa de registros | 4,75 |
+| 3 · periféricos | 5 | 97 % — **los diez** dentro y el mapa barrido bit a bit; falta el criterio: `micros()` sin deriva y el scanner I2C | 4,85 |
 | 4 · Arduino | 3 | 0 % | 0,00 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **11,55** |
+| | **17** | | **11,65** |
 
 Salen **~68 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
 un 43 % y un 50 %, y **~46 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
-Los **diez periféricos de la fase 3 están dentro**, el último el control de reloj —`CLKPR`, `PRR`,
-`SMCR` y los modos de sueño—. Lo que falta para cerrar la fase es el **barrido semántico del mapa
-de registros**: comprobar uno a uno que cada bit hace lo que su nombre dice y no sólo que se
-almacena. Y de los 25 vectores de interrupción **sólo `SPM_READY` sigue sin fuente**, que es de la
-fase 4.
+Los **diez periféricos de la fase 3 están dentro** y el mapa de registros está **barrido bit a
+bit**: 656 bits en 82 registros, 393 de almacenamiento, 134 con comportamiento propio y 129
+reservados, **ninguno sin clasificar**. De los 25 vectores de interrupción **sólo `SPM_READY` sigue
+sin fuente**, que es de la fase 4.
+
+Las **tareas** de la fase están hechas; su **criterio de aceptación**, no. Son tres cláusulas: los
+25 vectores —hoy 24, y el que falta depende de la fase 4—, que `micros()` no derive, y que el
+scanner I2C detecte un esclavo real. Las dos últimas están **sin demostrar**, y por eso la fase no
+se da por cerrada.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -218,14 +222,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 310 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 315 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 310 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 315 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son

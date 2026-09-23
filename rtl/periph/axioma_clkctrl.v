@@ -302,7 +302,12 @@ module axioma_clkctrl #(
                 se <= io_wdata[0];
             end
 
-            if (io_we && hit_prr) prr_q <= io_wdata;
+            // EL BIT 4 DE `PRR` NO EXISTE -la tabla 10-2 tiene siete bits y el
+            // hueco esta en medio-, y un bit reservado SE LEE A CERO. Guardarlo
+            // tal cual lo devolvia a uno, que es lo que un programa que lea el
+            // registro para volver a escribirlo propagaria sin enterarse. Lo
+            // encontro el barrido semantico contrastando contra avr-libc.
+            if (io_we && hit_prr) prr_q <= io_wdata & 8'hEF;
 
             if (io_we && hit_mcucr) begin
                 bods  <= io_wdata[6];

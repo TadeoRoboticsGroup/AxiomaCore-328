@@ -1250,8 +1250,34 @@ enumerado** en vez de implícito.
       nivel bajo externo no despierta de `Power-down`, fase 5, va con D6).
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
+- [x] **El barrido semántico del mapa de registros.** `make sim-bits`: **656 bits en 82 registros —
+      393 de almacenamiento, 134 con comportamiento propio y 129 reservados. Ninguno sin
+      clasificar.** Qué bits existen sale de avr-libc por el mismo generador que ya decide las
+      direcciones; qué hace cada uno se escribe a mano y **el banco falla si un bit que no es
+      almacenamiento llano no lleva motivo**.
+
+      Encontró un fallo nuestro —`PRR` devolvía su bit 4, que no existe—, corrigió dos
+      clasificaciones mías —`MSTR` lo limpia el hardware si `SS` está bajo; `TWDR` sólo se carga con
+      `TWINT` puesto— y **pilló al oráculo**: avr-libc pone los bits de `TWAMR` en 6:0 cuando su
+      propia definición de `TWAR` los exige en 7:1. La corrección vive en el generador, razonada.
+
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad
 correcta —hoy lo hacen 24—; `micros()` no deriva; el scanner I2C detecta un esclavo real.
+
+> **Dónde está la fase, con precisión.** Las **tareas** de la lista están todas hechas: los diez
+> periféricos, las deudas de la USART y del ADC, y el barrido semántico. El **criterio de
+> aceptación** tiene tres cláusulas y **no está cumplido**:
+>
+> - **25 vectores** — hoy 24. El que falta es `SPM_READY`, y su fuente es el `SPM` por páginas, que
+>   es de la **fase 4** (deuda D2). No se puede cerrar antes.
+> - **`micros()` no deriva** — no demostrado. Hace falta medir la deriva del contador de
+>   milisegundos de Arduino contra el reloj, sostenida.
+> - **el scanner I2C detecta un esclavo real** — no demostrado a nivel de SoC. El banco del TWI
+>   tiene un esclavo escrito desde la hoja de datos, pero el barrido de direcciones que hace un
+>   sketch no se ha ejecutado sobre el chip.
+>
+> Se dice aquí y no se redondea: la lista de tareas y el criterio **no son lo mismo**, y este
+> documento existe para que no se confundan.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 

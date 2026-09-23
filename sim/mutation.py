@@ -1258,6 +1258,11 @@ CATALOG = [
 ("clkctrl", CLKC, "sim-clkctrl", "PORF no esta puesto al arrancar",
  "            mcusr_q <= 4'b0001;",
  "            mcusr_q <= 4'b0000;"),
+# El bit reservado de `PRR` se guardaba y se devolvia a uno. Lo encontro el
+# barrido semantico, contrastando contra avr-libc que ese bit no existe.
+("clkctrl", CLKC, "sim-bits", "PRR guarda su bit reservado",
+ "            if (io_we && hit_prr) prr_q <= io_wdata & 8'hEF;",
+ "            if (io_we && hit_prr) prr_q <= io_wdata;"),
 ("clkctrl", CLKC, "sim-clkctrl", "IVSEL se escribe sin su ventana",
  "                if (cierra_ivce) ivsel_q <= io_wdata[1];",
  "                ivsel_q <= io_wdata[1];"),
@@ -1373,6 +1378,26 @@ CATALOG = [
 ("clkctrl", SOC, "sim-prr", "PRUSART0 apaga la USART y el Timer2 a la vez",
  "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[6])   /* PRTIM2 */,",
  "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[6] & ~prr[1])   /* PRTIM2 */,"),
+
+# --- el barrido semantico: bits reservados y clases ---
+# Un bit reservado que devuelve un uno no rompe nada hoy: rompe el dia que un
+# programa lee el registro, le cambia un bit y lo vuelve a escribir, que es el
+# idioma normal en C. `sim-bits` es la unica puerta que los mira.
+("gpio", GPIO, "sim-bits", "el puerto C no enmascara: PC7 aparece y no existe",
+ "                if (hit_port) port_q <= io_wdata & BITS;",
+ "                if (hit_port) port_q <= io_wdata;"),
+("twi", TWI, "sim-bits", "TWAMR guarda su bit 0, que no existe",
+ "                if (hit_twamr) twamr_q <= io_wdata & 8'hFE;",
+ "                if (hit_twamr) twamr_q <= io_wdata;"),
+# El cero de un bit reservado lo pone LA LECTURA, no la escritura, asi que el
+# mutante tiene que ir ahi. Los dos primeros intentos mutaban la escritura y
+# SOBREVIVIERON: el registro guardaba el bit y la lectura lo tapaba igual.
+("adc", ADC, "sim-bits", "ADMUX devuelve su bit 4, que es reservado",
+ "    wire [7:0] r_admux  = {refs, adlar, 1'b0, mux};",
+ "    wire [7:0] r_admux  = {refs, adlar, mux[3], mux};"),
+("eeprom", EEP, "sim-bits", "EEARH devuelve basura en sus seis bits altos",
+ "                      hit_arh ? {6'b0, eear[9:8]}   : 8'h00;",
+ "                      hit_arh ? {eear[7:2], eear[9:8]} : 8'h00;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

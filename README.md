@@ -17,7 +17,7 @@ documento fija: si no hay un comando que lo demuestre, no se afirma.*
 [![HDL](https://img.shields.io/badge/HDL-Verilog--2001-ff6600)](rtl/)
 [![FPGA](https://img.shields.io/badge/FPGA-Lattice%20ECP5-6a1b9a)](rtl/fpga/ecp5/)
 [![PDK](https://img.shields.io/badge/PDK-Sky130-7b1fa2)](docs/00-PLAN.md)
-[![Fase](https://img.shields.io/badge/Fase%203-perif%C3%A9ricos-9a6700)](docs/00-PLAN.md)
+[![Fase](https://img.shields.io/badge/Fase%204-Arduino-9a6700)](docs/00-PLAN.md)
 
 </div>
 
@@ -124,13 +124,13 @@ cuenta se hace con esos pesos, no a ojo:
 | 0 · fundación | 1 | 100 % | 1,00 |
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
-| 3 · periféricos | 5 | 98 % — todo hecho salvo el vector 25, que depende de la fase 4 | 4,90 |
-| 4 · Arduino | 3 | 0 % | 0,00 |
+| 3 · periféricos | 5 | **100 %** — las tareas y las tres cláusulas del criterio | 5,00 |
+| 4 · Arduino | 3 | 20 % — `SPM` por páginas hecho; falta el gestor de arranque y el paquete | 0,60 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **11,70** |
+| | **17** | | **12,40** |
 
-Salen **~68 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
-un 43 % y un 50 %, y **~46 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+Salen **~73 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 46 % y un 54 %, y **~49 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
 Los **diez periféricos de la fase 3 están dentro** y el mapa de registros está **barrido bit a

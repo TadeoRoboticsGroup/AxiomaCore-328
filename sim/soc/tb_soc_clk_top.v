@@ -31,6 +31,13 @@ module tb_soc_clk_top (
     output wire [7:0]  pb_out_v,     // lo que el programa saca por el puerto B
     output wire [7:0]  pd_out_v,     // y por el D, donde sale OC0A (PD6)
 
+    // Lo que hace falta para ver a cada periferico moverse o pararse: el TWI
+    // no «saca» un uno —es colector abierto, tira a cero o suelta—, asi que lo
+    // que delata su actividad es su HABILITACION DE SALIDA, no su valor.
+    output wire [7:0]  pb_oe_v,
+    output wire [7:0]  pc_oe_v,
+    output wire        adc_muestrea_v,
+
     // Los tres buses de pull-up, para ver llegar `PUD` a los tres puertos.
     output wire [7:0]  pb_pu_v,
     output wire [7:0]  pc_pu_v,
@@ -46,6 +53,9 @@ module tb_soc_clk_top (
 
     assign pb_out_v = pb_out;
     assign pd_out_v = pd_out;
+    assign pb_oe_v  = pb_oe;
+    assign pc_oe_v  = pc_oe;
+    assign adc_muestrea_v = adc_muestrea;
     assign pb_pu_v  = pb_pu;
     assign pc_pu_v  = pc_pu;
     assign pd_pu_v  = pd_pu;

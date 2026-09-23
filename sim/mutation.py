@@ -1140,7 +1140,7 @@ CATALOG = [
  "    wire [15:0] alineado = adlar ? {dato, 6'd0} : {6'd0, dato};",
  "    wire [15:0] alineado = {6'd0, dato};"),
 ("adc", ADC, "sim-adc", "apagar el ADC no para la conversion en marcha",
- "            if (!aden) adsc <= 1'b0;",
+ "            if (!aden_ef) adsc <= 1'b0;",
  "            if (1'b0) adsc <= 1'b0;"),
 ("adc", ADC, "sim-adc", "escribir un cero en ADSC para la conversion",
  "                if (io_wdata[6]) adsc <= 1'b1;",
@@ -1164,6 +1164,13 @@ CATALOG = [
 ("adc", ADC, "sim-adc", "el modo libre arranca solo, sin que nadie escriba ADSC",
  "    wire auto_dispara = aden & adate & (libre ? fin : trig_flanco);",
  "    wire auto_dispara = aden & adate & (libre ? 1'b1 : trig_flanco);"),
+# EL FALLO QUE ENCONTRO EL BANCO DE `PRR`: la guarda que limpia `ADSC` con el
+# ADC apagado miraba el `ADEN` GUARDADO. Escribir `ADEN|ADSC` de una vez -el
+# idioma de medio Arduino, y un caso que la hoja de datos nombra al explicar los
+# 25 ciclos- borraba el `ADSC` recien puesto, sin error y sin convertir nunca.
+("adc", ADC, "sim-adc", "ADEN y ADSC a la vez no arrancan la conversion",
+ "    wire aden_ef = (io_we && hit_sra) ? io_wdata[7] : aden;",
+ "    wire aden_ef = aden;"),
 ("adc", ADC, "sim-adc", "DIDR0 no apaga el bufer de entrada digital",
  "    assign didr_dis     = {2'b00, didr};",
  "    assign didr_dis     = 8'h00;"),
@@ -1268,11 +1275,11 @@ CATALOG = [
  "    axioma_prescaler presc (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io),",
  "    axioma_prescaler presc (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
 ("clkctrl", SOC, "sim-clk", "el Timer0 se queda sin habilitacion",
- "    axioma_timer0 timer0 (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io),",
- "    axioma_timer0 timer0 (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
+ "    axioma_timer0 timer0 (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[5])",
+ "    axioma_timer0 timer0 (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1)"),
 ("clkctrl", SOC, "sim-clk", "la USART se queda sin habilitacion",
- "    axioma_usart usart (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io),",
- "    axioma_usart usart (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
+ "    axioma_usart usart (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[1])",
+ "    axioma_usart usart (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1)"),
 ("clkctrl", USART, "sim-clk", "el generador de baudios no se divide",
  "            if      (carga_brr)  brg <= {ubrr[11:8], io_wdata};\n"
  "            else if (brg_tick)   brg <= ubrr;\n"
@@ -1341,6 +1348,31 @@ CATALOG = [
 ("gpio", SOC, "sim-pud", "el puerto B esta siempre sin pull-up",
  "        .pud(ck_pud), .pad_pullup(pb_pu)",
  "        .pud(1'b1), .pad_pullup(pb_pu)"),
+
+# --- PRR: siete cables, siete oportunidades de cruzarlos ---
+# Con la habilitacion repartida, `PRR` es una `and` por modulo. Eso lo hace
+# barato y tambien facil de cablear mal: un bit cambiado de sitio apaga el
+# periferico de al lado, y ningun banco de modulo lo nota —alli `ce` es un
+# puerto—. Los dos ultimos son los casos que solo caza la mitad negativa del
+# banco: que los OTROS SEIS sigan moviendose.
+("clkctrl", SOC, "sim-prr", "PRTIM0 y PRTIM1 cambiados de sitio",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[5])   /* PRTIM0 */,",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[3])   /* PRTIM0 */,"),
+("clkctrl", SOC, "sim-prr", "PRTIM2 apaga tambien al TWI",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[7])   /* PRTWI */,",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[6])   /* PRTWI */,"),
+("clkctrl", SOC, "sim-prr", "PRSPI no llega: el SPI no se puede apagar",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[2])   /* PRSPI */,",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io)   /* PRSPI */,"),
+("clkctrl", SOC, "sim-prr", "PRADC no llega: el ADC no se puede apagar",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[0])   /* PRADC */,",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io)   /* PRADC */,"),
+("clkctrl", SOC, "sim-prr", "cualquier bit de PRR apaga el Timer1 entero",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[3])   /* PRTIM1 */,",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~(|prr))   /* PRTIM1 */,"),
+("clkctrl", SOC, "sim-prr", "PRUSART0 apaga la USART y el Timer2 a la vez",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[6])   /* PRTIM2 */,",
+ "        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[6] & ~prr[1])   /* PRTIM2 */,"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

@@ -77,19 +77,19 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
 | Entrada a interrupción | **Verificada** | 2 510 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
 | `rtl/periph/axioma_wdt.v`, `axioma_eeprom.v`, `axioma_adc.v`, `axioma_ac.v` | **Verificados** | Sus filas están arriba. Los cuatro entraron entre el 17 y el 21 de septiembre |
-| `rtl/periph/axioma_clkctrl.v` | **Verificado** | `CLKPR` con su división medida, `PRR`, `SMCR` con los seis modos de sueño, `MCUCR` y `MCUSR`. El décimo de los diez |
+| `rtl/periph/axioma_clkctrl.v` | **Verificado** | `CLKPR` con su división medida en el pin, `PRR` apagando los siete periféricos uno a uno, `SMCR` con los seis modos de sueño, `MCUCR` con `PUD`, y `MCUSR`. El décimo de los diez |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   38/38 objetivos en verde
-mutación   303/303 fallos inyectados, 303 detectados
+regresión   39/39 objetivos en verde
+mutación   310/310 fallos inyectados, 310 detectados
 cobertura   99,6 % del RTL, fusionando todas las fuentes
             22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 8 073 LUT4 y 1 422 FF en el ECP5
+síntesis    sin latches · el SoC entero: 7 845 LUT4 y 1 434 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
@@ -218,14 +218,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 303 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 310 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 303 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 310 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son

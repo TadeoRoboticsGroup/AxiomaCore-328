@@ -145,6 +145,8 @@ def main():
               f"sim/soc/tb_soc_clk_top.v {RTL}{FRENTE} sim/soc/tb_soc_sleep.cpp")
     construir("build/vcovpu", "pudc", "tb_soc_clk_top",
               f"sim/soc/tb_soc_clk_top.v {RTL}{FRENTE} sim/soc/tb_soc_pud.cpp")
+    construir("build/vcovpr", "prrc", "tb_soc_clk_top",
+              f"sim/soc/tb_soc_clk_top.v {RTL}{FRENTE} sim/soc/tb_soc_prr.cpp")
     construir("build/vcovtr", "trigc", "tb_soc_trig_top",
               f"sim/soc/tb_soc_trig_top.v {RTL}{FRENTE} sim/soc/tb_soc_trig.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
@@ -175,6 +177,7 @@ def main():
     sh("AXIOMA_COV=build/cov/clk.dat ./build/vcovck2/clkc2"); n += 1
     sh("AXIOMA_COV=build/cov/sleep.dat ./build/vcovsl/slpc"); n += 1
     sh("AXIOMA_COV=build/cov/pud.dat ./build/vcovpu/pudc"); n += 1
+    sh("AXIOMA_COV=build/cov/prr.dat ./build/vcovpr/prrc"); n += 1
     sh("AXIOMA_COV=build/cov/trig.dat ./build/vcovtr/trigc"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")

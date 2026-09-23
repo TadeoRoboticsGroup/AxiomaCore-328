@@ -144,6 +144,10 @@ module axioma_adc (
 
     assign io_sel = hit_l | hit_h | hit_sra | hit_srb | hit_mux | hit_didr;
 
+    // El `ADEN` EFECTIVO de este ciclo: el que se esta escribiendo si hay
+    // escritura a `ADCSRA`, y el guardado si no. Hace falta porque encender el
+    // ADC y pedir la conversion caben en una sola escritura.
+
     // ---------------------------------------------------------- registros
     reg        aden, adsc, adate, adif, adie;
     reg [2:0]  adps;
@@ -153,6 +157,8 @@ module axioma_adc (
     reg        adlar;
     reg [3:0]  mux;
     reg [5:0]  didr;
+
+    wire aden_ef = (io_we && hit_sra) ? io_wdata[7] : aden;
 
     // ------------------------------------------------------- el prescaler
     // ADPS=0 y ADPS=1 dan LOS DOS la division por 2: lo dice la tabla y no es
@@ -365,7 +371,18 @@ module axioma_adc (
                 adsc <= 1'b0;
                 adif <= 1'b1;
             end
-            if (!aden) adsc <= 1'b0;
+            // LA GUARDA MIRA EL `ADEN` EFECTIVO, no el que habia. La
+            // diferencia es un caso que la hoja de datos nombra con todas las
+            // letras —«or if ADSC is written AT THE SAME TIME as the ADC is
+            // enabled, will take 25 ADC clock cycles»—: escribir `ADEN` y
+            // `ADSC` en la MISMA escritura arranca una conversion, y ademas la
+            // larga. Con el valor viejo, ese `ADEN` todavia era cero y la
+            // guarda borraba el `ADSC` recien puesto: el programa no recibia
+            // ningun error y el ADC no convertia nunca.
+            //
+            // Es el idioma de medio Arduino -`ADCSRA = (1<<ADEN)|(1<<ADSC)`-, y
+            // lo destapo el banco de `PRR` al encender el ADC de una escritura.
+            if (!aden_ef) adsc <= 1'b0;
             // Y EL DISPARO AUTOMATICO VA DESPUES DEL FINAL, porque en modo libre
             // las dos cosas caen en el mismo flanco: la conversion termina y la
             // siguiente arranca. Al reves, el rearme se perderia siempre.

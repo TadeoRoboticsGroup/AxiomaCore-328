@@ -1229,6 +1229,23 @@ enumerado** en vez de implícito.
       el secuenciador presenta la petición registrada (ADR 0001). Era defensa contra algo que la
       arquitectura ya impide.
 
+      **`PUD` y `PRR` cierran el módulo.** `PUD` apaga los pull-up de los tres puertos y va en el
+      RTL con una `and` aparte y al final, porque la hoja de datos lo pone **por encima** de `DDxn`
+      y `PORTxn` —«even if the DDxn and PORTxn registers are configured to enable the pull-ups»—.
+      `PRR` apaga siete periféricos uno a uno, y con la habilitación repartida es **una `and` por
+      módulo**: `ce_io & ~prr[n]`. El bit 4 no existe —la tabla 10-2 tiene siete bits y el hueco
+      está en medio—, y se declara sin usar a propósito.
+
+      Los dos tienen banco de SoC propio, porque los dos son **cables entre periféricos** y ésos no
+      los verifica ningún banco de módulo. `make sim-prr` pone los siete a moverse a la vez y apaga
+      uno cada vez, comprobando las dos mitades: que el que se apaga se pare, y que **los otros seis
+      sigan** — que es lo que distingue siete cables de uno.
+
+      **Escribir ese programa encontró un fallo real en el ADC**, de los que no dan error: la guarda
+      que limpia `ADSC` con el convertidor apagado miraba el `ADEN` guardado, así que
+      `ADCSRA = (1<<ADEN)|(1<<ADSC)` —el idioma de medio Arduino— borraba el `ADSC` recién puesto y
+      el ADC no convertía nunca. La hoja de datos nombra ese caso al explicar los 25 ciclos.
+
       Quedan declaradas dos deudas: **D16** (`IVSEL` sin sección de arranque, fase 4) y **D17** (el
       nivel bajo externo no despierta de `Power-down`, fase 5, va con D6).
 - [ ] Barrido completo del mapa de registros (Capa 4).

@@ -459,6 +459,15 @@ sim-clk:
 	@echo -e "$(BOLD)El prescaler del reloj, medido en el pin$(NC)"
 	@./$(BUILD)/vclks/tb_soc_clk
 
+# --- PRR: apagar perifericos uno a uno ---
+.PHONY: sim-prr
+sim-prr:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vprr -o tb_soc_prr --top-module tb_soc_clk_top \
+	  sim/soc/tb_soc_clk_top.v $(SOC_SRCS) sim/soc/tb_soc_prr.cpp >/dev/null
+	@echo -e "$(BOLD)PRR: cada bit apaga su periferico$(NC)"
+	@./$(BUILD)/vprr/tb_soc_prr
+
 # --- PUD: el apagado global de los pull-up ---
 .PHONY: sim-pud
 sim-pud:
@@ -625,7 +634,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-trig sim-clk sim-sleep sim-pud sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

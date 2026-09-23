@@ -418,6 +418,45 @@ int main(int argc, char **argv) {
         chk("tras apagar, la primera vuelve a durar mas", larga > corta, 1);
     }
 
+    // ------------------- 12bis. encender y pedir en la MISMA escritura
+    // `ADCSRA = (1<<ADEN)|(1<<ADSC)` es el idioma de medio Arduino, y la hoja
+    // de datos lo nombra con todas las letras al explicar los 25 ciclos: «or if
+    // ADSC is written AT THE SAME TIME as the ADC is enabled». O sea que no
+    // solo vale: ademas es de las largas.
+    //
+    // ESTO ESTUVO MAL Y NO DABA NINGUN ERROR. La guarda que limpia `ADSC` con
+    // el ADC apagado miraba el `ADEN` GUARDADO, que en esa escritura todavia
+    // era cero, asi que borraba el `ADSC` recien puesto y el ADC no convertia
+    // nunca. Lo destapo el banco de `PRR` al encender el ADC de una escritura,
+    // porque ningun caso de aqui lo hacia asi.
+    fase = "ADEN y ADSC en la misma escritura";
+    {
+        // Dejarlo APAGADO de verdad primero: es el estado desde el que un
+        // programa escribe `ADEN|ADSC`, y ademas rearma la conversion larga.
+        wr(ADCSRA, 0x00);
+        run(2);
+        wr(ADCSRA, ADIF);                       // limpiar la bandera vieja
+        wr(ADCSRA, 0x00);
+        run(2);
+        // Un valor que no haya salido antes en este banco: si el ADC no
+        // convirtiera, `ADCL`/`ADCH` conservarian el de la fase anterior y una
+        // comprobacion perezosa pasaria sin que se haya convertido nada.
+        v_canal[0] = 731;
+
+        long juntas = convertir(ADEN);          // ADEN|ADSC de una vez
+        // Y no vale con que `ADSC` se caiga: cayendose EN EL ACTO tambien se
+        // cae. Una conversion larga a esta division son 50 ciclos de sistema,
+        // asi que se exige que haya durado algo parecido a una conversion.
+        chk("no se cae en el acto: convierte de verdad", juntas > 40, 1);
+
+        long siguiente = convertir(ADEN);
+        chk("y era LA LARGA: la siguiente dura menos", siguiente < juntas, 1);
+
+        // Y el resultado es el bueno, no un valor cualquiera: si la conversion
+        // hubiera arrancado a destiempo, el SAR habria aproximado otra cosa.
+        chk("el resultado es el del canal", resultado(false), 731);
+    }
+
     // ------------------------------------- 13. los canales del multiplexor
     // Para el SAR un canal es un canal: el sensor de temperatura y la
     // referencia de 1,1 V son entradas del multiplexor, no casos especiales.

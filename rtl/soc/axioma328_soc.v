@@ -341,7 +341,7 @@ module axioma328_soc #(
         /* verilator lint_on PINCONNECTEMPTY */
     );
     axioma_timer0 timer0 (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[5])   /* PRTIM0 */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(tm_rd), .io_sel(tm_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
@@ -363,7 +363,7 @@ module axioma328_soc #(
     wire       t1_capt, t1_compa, t1_compb, t1_ovf;
 
     axioma_timer1 timer1 (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[3])   /* PRTIM1 */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(t1_rd), .io_sel(t1_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
@@ -387,7 +387,7 @@ module axioma328_soc #(
     wire       us_rxc, us_udre, us_txc;
 
     axioma_usart usart (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[1])   /* PRUSART0 */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(us_rd), .io_sel(us_sel),
         // TXD es PD1 y RXD es PD0, como en el encapsulado. Ya no hay puertos
@@ -415,7 +415,7 @@ module axioma328_soc #(
     wire       presc_reset_asy;
 
     axioma_timer2 timer2 (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[6])   /* PRTIM2 */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(t2_rd), .io_sel(t2_sel),
         .presc_reset(presc_reset_asy),
@@ -431,7 +431,7 @@ module axioma328_soc #(
     wire       sp_sel, sp_irq;
 
     axioma_spi spi (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[2])   /* PRSPI */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(sp_rd), .io_sel(sp_sel),
         // `pb_oe[2]` es DDB2 ya resuelto: PB2 sólo lleva anulación de
@@ -456,7 +456,7 @@ module axioma328_soc #(
     wire       tw_sel, tw_irq;
 
     axioma_twi twi (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[7])   /* PRTWI */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(tw_rd), .io_sel(tw_sel),
         .scl_pin(pc_in[5]), .sda_pin(pc_in[4]),
@@ -501,7 +501,7 @@ module axioma328_soc #(
     wire unused_trig = &{1'b0, t0_flags[2], t1_flags[1]};
 
     axioma_adc adc (
-        .clk(clk), .rst_n(rst_n), .ce(ce_io),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io & ~prr[0])   /* PRADC */,
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ad_rd), .io_sel(ad_sel),
         .adc_canal(adc_canal), .adc_ref(adc_ref),
@@ -624,10 +624,15 @@ module axioma328_soc #(
     // `IVSEL` sale del modulo con su secuencia temporizada hecha, pero no hay
     // seccion de arranque a donde mover los vectores hasta la fase 4: es la
     // deuda D16. `PUD` y `dormido` se cablean en el paso siguiente.
-    // `PUD` ya va a los tres puertos. `IVSEL` no tiene a donde apuntar hasta la
-    // fase 4 (deuda D16) y `dormido` no lo mira nadie todavia: es observacion,
-    // y quien quiera verlo lo tiene en el pin de depuracion del SoC.
-    wire unused_clkctrl = &{1'b0, ck_ivsel, ck_dormido, prr};
+    // `PUD` va a los tres puertos y `PRR` a los siete perifericos que apaga.
+    //
+    // EL BIT 4 DE `PRR` NO EXISTE: la tabla 10-2 tiene siete bits, no ocho, y
+    // el hueco esta en medio. Se declara sin usar a proposito para que lint no
+    // lo tape, igual que `OCF0B` y `OCF1A` en la tabla del disparo del ADC.
+    //
+    // `IVSEL` no tiene a donde apuntar hasta la fase 4 (deuda D16), y `dormido`
+    // no lo mira nadie: es observacion.
+    wire unused_clkctrl = &{1'b0, ck_ivsel, ck_dormido, prr[4]};
 
     assign io_rdata = ck_rd | gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
                     | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd | ee_rd;

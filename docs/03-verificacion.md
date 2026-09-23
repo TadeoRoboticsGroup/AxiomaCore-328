@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 303
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 310
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -452,6 +452,29 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### Siete cables a la vez: `PRR`
+
+`PRR` apaga siete periféricos uno a uno, y con la habilitación de reloj repartida implementarlo es
+**una `and` por módulo**. Eso lo hace barato y también fácil de cablear mal: un bit cambiado de
+sitio apaga el periférico de al lado.
+
+`make sim-prr` pone **los siete a moverse a la vez** y apaga uno cada vez. La comprobación tiene dos
+mitades y las dos hacen falta: que **el que se apaga se pare**, y que **los otros seis sigan**. La
+segunda es la que distingue siete cables de uno — sin ella, atar todas las habilitaciones a
+`~|prr` pasaría entero.
+
+Cada uno se mira por un pin distinto a propósito, porque dos que compartieran harían que apagar uno
+pareciera apagar al otro: `OC0A` en PD6, `OC1A` en PB1, `OC2B` en PD3 —PB3 no vale, ahí manda
+`MOSI`—, `TXD` en PD1, `SCK` en PB5, y del TWI **su habilitación de salida** y no su valor, porque
+es colector abierto y no «saca» un uno. El ADC va en modo libre y se mira el pulso del S/H.
+
+**Y escribir ese programa encontró un fallo real en el ADC**, de los que no dan error: la guarda que
+limpia `ADSC` con el convertidor apagado miraba el `ADEN` **guardado**, así que escribir
+`ADCSRA = (1<<ADEN)|(1<<ADSC)` —el idioma de medio Arduino— borraba el `ADSC` recién puesto y el ADC
+no convertía nunca. La hoja de datos nombra ese caso con todas las letras al explicar los 25 ciclos:
+*«or if ADSC is written at the same time as the ADC is enabled»*. Ningún caso del banco del ADC lo
+escribía así; ahora hay uno.
+
 ### Y una tercera vez: `PUD`
 
 `PUD` vive en `MCUCR`, que es del control de reloj, y lo que apaga son los pull-up de los **tres**
@@ -495,7 +518,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 48 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 49 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -515,7 +538,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,6 %** —3 161 de 3 174 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
+Hoy está en **99,6 %** —3 163 de 3 175 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
 puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -572,7 +595,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 303 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 310 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

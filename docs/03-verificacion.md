@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 294
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 296
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -431,6 +431,23 @@ porque cada una recorre un camino distinto:
 4. **el intervalo entre dos mordiscos del perro guardián** — que tiene que salir **igual** con
    cualquier `CLKPS`, porque su cuenta corre con otro reloj.
 
+Y `make sim-sleep` comprueba lo que hace `SLEEP`, que es **dejar de hacer**. Lo único que se puede
+medir de eso es desde fuera y con el tiempo en la mano, y los cuatro casos están elegidos para que
+entre los dos primeros y los dos últimos quede demostrado que `clk_CPU` y `clk_I/O` son **dos
+relojes y no uno**:
+
+| caso | qué pasa |
+|---|---|
+| `Idle` + desbordamiento del Timer0 | el núcleo se para y **el temporizador sigue**, así que lo despierta: el pin sale una vez cada 256 ciclos, clavado |
+| sin `SE` | `SLEEP` es un `NOP` y el bucle corre suelto — 10 ciclos |
+| `Power-down` + el mismo temporizador | **no despierta nunca**: es el mismo programa cambiando tres bits, y hace lo contrario |
+| `Power-down` + perro guardián | **sí despierta**, a los ~200 700 ciclos, porque su cuenta no se gatea |
+
+Ninguno necesita una ISR: el bit `I` global se deja a cero, y la hoja de datos dice que despierta
+cualquier interrupción **habilitada en su máscara**. Con `I` a cero el chip despierta y sigue por la
+instrucción de después del `SLEEP`. Es el idioma de «esperar a que pase algo» sin gastar un vector,
+y comprobarlo así deja el banco sin tabla de vectores de por medio.
+
 La cuarta pata nació de un mutante superviviente, y la lección es la de siempre: la primera versión
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
@@ -466,7 +483,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 46 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 47 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -486,7 +503,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,6 %** —3 158 de 3 171 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
+Hoy está en **99,6 %** —3 160 de 3 173 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
 puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -543,7 +560,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 294 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 296 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

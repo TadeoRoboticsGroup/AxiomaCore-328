@@ -397,53 +397,54 @@ Lo mismo para `axioma_dmem` (2 KB) y `axioma_eeprom` (1 KB).
 
 ## 6. Estructura del repositorio
 
+**Esto es lo que hay, no lo que se pensaba tener.** La versión de este árbol que vivió aquí hasta
+el 23-sep-2026 era la proyección original y nombraba ficheros que nunca llegaron a existir
+—`pcint.v`, `iomux.v`, una `eeprom.v` en `mem/`, tests de cocotb—. Es exactamente el fallo que
+cerró la deuda **D9**, repetido en un diagrama en vez de en una cita, que es donde `check-docs` no
+mira: su comprobación de rutas lee las que van entre acentos graves, no las de un bloque de código.
+
 ```
-axioma328/
-├── LICENSE                        Apache-2.0
-├── LICENSE-EXCEPTIONS.md          inventario de terceros y sus licencias
+AxiomaCore-328/
 ├── README.md                      estado real + matriz de compatibilidad medida
-├── CONTRIBUTING.md
-├── Makefile                       punto de entrada único
+├── Makefile                       punto de entrada unico · `make check-all` es la regresion
 ├── docs/
 │   ├── 00-PLAN.md                 este documento
-│   ├── 01-architecture.md
-│   ├── 02-isa.md                  nuestra especificación del ISA (escrita de cero)
-│   ├── 05-register-map.md         GENERADO desde iom328p.h
-│   ├── 06-compat-matrix.md        GENERADO desde los resultados de la regresión
-│   ├── 05-legal.md                política clean-room
-│   └── adr/                       registros de decisiones de arquitectura
+│   ├── 01-arquitectura.md         el chip por dentro, y las diferencias declaradas
+│   ├── 02-legal.md                politica clean-room
+│   ├── 03-verificacion.md         los oraculos, las puertas y por que cada una
+│   ├── 04-herramientas.md         el entorno reproducible
+│   ├── 05-register-map.md         el mapa de I/O
+│   ├── 06-deuda-tecnica.md        lo construido a medias, con su fecha y su cierre
+│   └── adr/                       0001 memorias · 0002 frontera analogica · 0003 relojes
 ├── rtl/
-│   ├── core/       axioma_core.v  decode.v  alu.v  regfile.v  sreg.v  seq.v
-│   ├── bus/        dbus.v  iomux.v
-│   ├── mem/        progmem.v  dmem.v  eeprom.v
-│   │   └── backends/  sim/  fpga_bram/  sky130_sram/
-│   ├── periph/     gpio.v  timer0.v  timer1.v  timer2.v  usart.v  spi.v
-│   │               twi.v  adc.v  ac.v  wdt.v  extint.v  pcint.v
-│   ├── soc/        axioma328_soc.v  irq.v  clkctrl.v  axioma_regmap.vh
-│   └── fpga/       ecp5/  ice40/  gowin/     tops + constraints por placa
+│   ├── core/       axioma_core.v  axioma_seq.v  axioma_decode.v  axioma_alu.v
+│   │               axioma_regfile.v  axioma_sreg.v  + los dos .vh de opcodes
+│   ├── bus/        axioma_dbus.v
+│   ├── mem/        axioma_progmem.v  axioma_dmem.v  backends/
+│   ├── periph/     gpio  gpior  prescaler  timer0  timer1  timer2  timer8  usart
+│   │               spi  twi  extint  adc  ac  wdt  eeprom  clkctrl  irq
+│   ├── soc/        axioma328_soc.v  axioma_regmap.vh
+│   └── fpga/       axioma_adc_frente.v  ecp5/  ice40/  gowin/
 ├── sim/
-│   ├── tb/         testbenches Verilog
-│   ├── cocotb/     tests en Python
-│   ├── golden/     co-simulación diferencial contra simavr
-│   ├── isa/        tests dirigidos, uno por instrucción
-│   └── perf/       comprobación de la tabla de ciclos
-├── fw/
-│   ├── bootloader/ NUESTRO bootloader STK500v1
-│   ├── selftest/   POST / BIST
-│   └── examples/
-├── sw/
-│   ├── arduino/    paquete de placas para Arduino IDE 2.x
-│   ├── platformio/
-│   └── avrdude/    axioma.conf con nuestros signature bytes
-├── asic/
-│   ├── librelane/  config.yaml, constraints
-│   ├── macros/     LEF/GDS/LIB de las SRAM
-│   └── reports/
-├── board/          KiCad: módulo DIP-28
-├── tools/          generadores, scripts de build
-├── legacy/         el repositorio actual, congelado, como referencia
-└── .github/workflows/   CI
+│   ├── diff/       el arnes de co-simulacion contra simavr, y sus 20 programas
+│   ├── alu/        exhaustivos de ALU, SREG y banco de registros
+│   ├── periph/     un banco por periferico, escrito desde la hoja de datos
+│   ├── soc/        mapa de I/O, robustez, extremo a extremo, disparo del ADC,
+│   │               prescaler del reloj y sueño
+│   ├── mem/  bus/  random/  perf/
+│   └── mutation.py el catalogo de mutantes
+├── fw/                            el C que se compila con avr-gcc sin tocar
+├── tools/                         synth_check.py  coverage.py  check_docs.py
+├── sw/                            arduino/  avrdude/  platformio/   — fase 4
+├── asic/                          librelane/  macros/  reports/     — fase 6
+├── board/  images/  legacy/       la placa, las figuras, y el codigo de partida
+└── (la sintesis no tiene directorio: la gobiernan el Makefile y tools/)
 ```
+
+Y la propia correccion de arriba estuvo a punto de repetir el fallo: la primera version de este
+arbol nuevo nombraba un `synth/` que tampoco existe. Se comprobo fichero a fichero antes de
+publicarlo, que es lo unico que funciona con un diagrama.
+
 
 **Regla de oro:** cada fichero RTL existe **una sola vez**. Nada de copiar `rtl/` dentro de
 `asic/`. Las herramientas reciben listas de ficheros (`*.f`), no copias.
@@ -1196,7 +1197,40 @@ enumerado** en vez de implícito.
       con eso yosys no infiere memoria —«replacing memory with list of registers»: 1 024 bytes
       convertidos en **8 192 biestables**, más que todo el resto del chip—. Con la lectura
       registrada, la EEPROM entera cabe en **una BRAM**.
-- [ ] `clkctrl.v`: CLKPR, PRR, modos de sueño, `SMCR`.
+- [x] **`clkctrl.v`: `CLKPR`, `PRR`, `SMCR`, `MCUCR`, `MCUSR` y los modos de sueño.** El décimo y
+      último periférico de la fase, y el único que no hace nada por sí solo: lo que hace es decidir
+      quién se mueve y cuándo. La decisión de fondo está en el
+      [ADR 0003](adr/0003-relojes-por-habilitacion.md) — **se cortan relojes de verdad**, en forma
+      de habilitación y no de puerta sobre el reloj.
+
+      **Guardar los bits y no hacer nada no valía**: un programa que baja a `f/8` para ahorrar
+      corriente seguiría viendo la USART a la velocidad de antes, y eso no es incompatibilidad de
+      detalle, es un dispositivo que no habla. Habría sido la cuarta deuda de la forma «los bits se
+      almacenan y se leen de vuelta».
+
+      **Con `CLKPS`=0 la habilitación vale uno siempre**, así que el chip quedó **bit a bit** igual
+      y el diferencial dio 20/20 programas y 97/97 mnemónicos sin tocar una línea. Y esa misma red
+      es el agujero: a un módulo se le puede olvidar la habilitación y pasar su banco, lint,
+      síntesis y el diferencial. Por eso `make sim-clk` baja el reloj de verdad y mide **por el
+      pin**, con cuatro patas. Encontró que el generador de baudios de la USART se había quedado
+      sin gatear — literalmente el ejemplo que motiva el ADR.
+
+      **El perro guardián y la EEPROM se gatean por partes**: las ventanas y las escrituras de
+      registro sí, la cuenta y la temporización no, porque corren con el oscilador. Un perro
+      guardián que se parase al pararse el reloj del sistema no serviría para nada.
+
+      **`make sim-sleep`** comprueba lo que `SLEEP` hace, que es dejar de hacer: `Idle` despierta
+      con el Timer0 cada 256 ciclos clavados; sin `SE` es un `NOP`; en `Power-down` el **mismo
+      programa con tres bits distintos** no despierta nunca; y el perro guardián sí, a los ~200 700.
+      Entre esos cuatro queda demostrado que `clk_CPU` y `clk_I/O` son dos relojes y no uno.
+
+      Dos mutantes supervivientes quitaron código: el SoC cualificaba `io_we` con `ce_cpu` por si
+      una escritura se quedaba congelada durante el sueño, y resulta que **no puede pasar** porque
+      el secuenciador presenta la petición registrada (ADR 0001). Era defensa contra algo que la
+      arquitectura ya impide.
+
+      Quedan declaradas dos deudas: **D16** (`IVSEL` sin sección de arranque, fase 4) y **D17** (el
+      nivel bajo externo no despierta de `Power-down`, fase 5, va con D6).
 - [ ] Barrido completo del mapa de registros (Capa 4).
 
 **Criterio de aceptación:** los 25 vectores de interrupción disparan y se atienden con la prioridad

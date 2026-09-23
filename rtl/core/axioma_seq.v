@@ -118,7 +118,13 @@ module axioma_seq (
     // La instruccion no hace nada en el nucleo -es un NOP de un ciclo-, pero
     // fuera SI: rearma la cuenta del vigilante. Sale como un pulso de un ciclo
     // en el momento en que la instruccion se retira.
-    output wire        wdr_pulso);
+    output wire        wdr_pulso,
+
+    // LA INSTRUCCION `SLEEP`, que sale igual que `WDR`: un pulso al retirarse.
+    // Lo que hace con el es cosa del control de reloj -si `SE` no esta puesto,
+    // ahi se ignora y `SLEEP` acaba siendo un `NOP`, que es lo que dice la hoja
+    // de datos-. Aqui no se decide nada: solo se avisa.
+    output wire        sleep_pulso);
 
 `include "axioma_alu_ops.vh"
 `include "axioma_decode_ops.vh"
@@ -888,7 +894,8 @@ module axioma_seq (
     end
 
 
-    assign wdr_pulso = retire && (d_class == OPC_WDR);
+    assign wdr_pulso   = retire && (d_class == OPC_WDR);
+    assign sleep_pulso = retire && (d_class == OPC_SLEEP);
 
 endmodule
 

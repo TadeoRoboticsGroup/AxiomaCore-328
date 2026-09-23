@@ -94,10 +94,18 @@
 //
 // LOS MODOS QUE PARAN `clk_I/O` TIENEN UNA CONSECUENCIA QUE SE HEREDA: sin
 // reloj de perifericos no hay deteccion de FLANCOS, asi que de `Power-down`
-// solo despierta lo que no necesita reloj —una interrupcion externa de NIVEL,
-// el perro guardian con su oscilador, la EEPROM—. No es una limitacion de esta
-// implementacion: es lo que dice la hoja de datos, y sale solo de parar el
-// reloj de verdad en vez de fingirlo.
+// solo despierta lo que no necesita reloj. Aqui eso son EL PERRO GUARDIAN, con
+// su oscilador propio, y la EEPROM, que cuenta sus milisegundos con el mismo.
+// No es una limitacion de esta implementacion: es lo que dice la hoja de datos,
+// y sale solo de parar el reloj de verdad en vez de fingirlo.
+//
+// EN EL CHIP HAY UNA TERCERA, y aqui todavia no: la interrupcion externa de
+// NIVEL BAJO, que se detecta de forma ASINCRONA —«the low level interrupt on
+// INT0/INT1 is detected asynchronously... this interrupt can be used for waking
+// the part also from sleep modes other than Idle mode»—. En `axioma_extint` el
+// nivel se mira sobre el pin YA SINCRONIZADO, y ese sincronizador se para con
+// `clk_I/O`, de modo que un nivel que llegue estando el chip dormido no se ve.
+// Es la deuda D17, declarada el dia que este modulo entro.
 //
 // LOS RESERVADOS 100 Y 101 se tratan como `Idle`, que es el modo mas suave. Es
 // la eleccion contraria a la del perro guardian —alli un valor reservado se

@@ -77,19 +77,19 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
 | Entrada a interrupción | **Verificada** | 2 510 entradas a ISR contrastadas contra `simavr`, que ejecuta su propia secuencia de entrada: vector, pila, `SP` y bit `I`. Cuesta 4 ciclos, como dice el manual. Encontró dos fallos reales (ver abajo) |
 | `rtl/periph/axioma_wdt.v`, `axioma_eeprom.v`, `axioma_adc.v`, `axioma_ac.v` | **Verificados** | Sus filas están arriba. Los cuatro entraron entre el 17 y el 21 de septiembre |
-| Control de reloj (`CLKPR`, `PRR`, `SMCR`) | Pendiente | Fase 3 — es el último de los diez |
+| `rtl/periph/axioma_clkctrl.v` | **Verificado** | `CLKPR` con su división medida, `PRR`, `SMCR` con los seis modos de sueño, `MCUCR` y `MCUSR`. El décimo de los diez |
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   36/36 objetivos en verde
-mutación   294/294 fallos inyectados, 294 detectados
+regresión   37/37 objetivos en verde
+mutación   296/296 fallos inyectados, 296 detectados
 cobertura   99,6 % del RTL, fusionando todas las fuentes
             22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 7 582 LUT4 y 1 421 FF en el ECP5
+síntesis    sin latches · el SoC entero: 8 073 LUT4 y 1 422 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
@@ -116,18 +116,20 @@ cuenta se hace con esos pesos, no a ojo:
 | 0 · fundación | 1 | 100 % | 1,00 |
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
-| 3 · periféricos | 5 | 88 % — **nueve de sus diez** dentro y **sin deuda abierta de la fase**; falta el control de reloj | 4,40 |
+| 3 · periféricos | 5 | 95 % — **los diez** dentro; falta el barrido semántico del mapa de registros | 4,75 |
 | 4 · Arduino | 3 | 0 % | 0,00 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **11,20** |
+| | **17** | | **11,55** |
 
-Salen **~66 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
-un 41 % y un 49 %, y **~45 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+Salen **~68 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 43 % y un 50 %, y **~46 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
-De los diez periféricos de la fase 3 **falta uno**: el **control de reloj** —`CLKPR`, `PRR`,
-`SMCR` y los modos de sueño—. Y de los 25 vectores de interrupción **sólo `SPM_READY` sigue sin
-fuente**, que es de la fase 4.
+Los **diez periféricos de la fase 3 están dentro**, el último el control de reloj —`CLKPR`, `PRR`,
+`SMCR` y los modos de sueño—. Lo que falta para cerrar la fase es el **barrido semántico del mapa
+de registros**: comprobar uno a uno que cada bit hace lo que su nombre dice y no sólo que se
+almacena. Y de los 25 vectores de interrupción **sólo `SPM_READY` sigue sin fuente**, que es de la
+fase 4.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -216,14 +218,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 294 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 296 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 294 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 296 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
@@ -352,7 +354,7 @@ make check-tools
 | 0 | Fundación: estructura, licencias, generador del mapa de registros, CI | **Hecha** |
 | **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **Hecha** — criterio de aceptación cumplido |
 | 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | **Cumplida en simulación** — falta enchufar la placa |
-| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **En marcha** — nueve de sus diez dentro |
+| 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **En marcha** — los diez dentro; falta el barrido del mapa |
 | 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | Pendiente |
 | 5 | Endurecimiento: cierre de timing, portes a iCE40 y Gowin, regresión nocturna | Pendiente |
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
@@ -374,11 +376,17 @@ SoC completo y **decodifica el pin**: el texto por el puerto serie, el LED parpa
 transacción SPI y los seis canales PWM medidos a la vez. El bitstream se genera, cierra timing y
 lleva el programa dentro. **Lo único que falta es enchufar la placa** (`make prog-ulx3s`).
 
-La **fase 3** está en marcha, con **nueve de sus diez periféricos** dentro —Timer1, Timer2, las
-interrupciones externas, el SPI, el TWI, el ADC, el comparador analógico, el perro guardián y la
-EEPROM— y las deudas D3, D12, D13 y D14 cerradas. **Falta el control de reloj**, y con él
-la fase. Con el comparador dentro se cerró D14, el disparo automático del ADC: sus ocho fuentes
-cableadas y cada una provocada por su camino real desde un programa. De los 25 vectores de interrupción, **24 disparan desde un programa**: sólo queda
+La **fase 3** tiene ya **los diez periféricos** dentro —Timer1, Timer2, las interrupciones
+externas, el SPI, el TWI, el ADC, el comparador analógico, el perro guardián, la EEPROM y el
+control de reloj— y las deudas D3, D12, D13 y D14 cerradas. Lo que falta para cerrarla es el
+**barrido semántico del mapa de registros**.
+
+El último periférico trajo la decisión de más alcance de la fase, en el
+[ADR 0003](docs/adr/0003-relojes-por-habilitacion.md): **`CLKPR` y `PRR` cortan relojes de verdad**,
+en forma de habilitación. El chip entero corre ahora con `clk_CPU` y `clk_I/O` separados, y con
+`CLKPS`=0 quedó **bit a bit** como estaba. `SLEEP` para el núcleo de verdad: en `Idle` el Timer0
+lo despierta, en `Power-down` ese mismo programa no despierta nunca y el perro guardián sí, porque
+su cuenta corre con otro reloj. De los 25 vectores de interrupción, **24 disparan desde un programa**: sólo queda
 `SPM_READY`, que es de la fase 4.
 
 Los dos últimos periféricos trajeron algo que el proyecto no tenía: **lógica que no es digital de

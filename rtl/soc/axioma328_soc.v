@@ -128,7 +128,7 @@ module axioma328_soc #(
     wire [7:0]  sram_wdata, sram_rdata;
 
     wire [7:0]  io_addr;
-    wire        io_re_bruto, io_we_bruto;
+    wire        io_re, io_we;
     wire [7:0]  io_wdata, io_rdata;
     wire        io_sel;
 
@@ -143,41 +143,44 @@ module axioma328_soc #(
     // nucleo y la memoria, `clk_I/O` para los perifericos. En modo `Idle` el
     // primero se para y el segundo sigue, que es lo que hace util ese modo.
     wire       ce_cpu, ce_io;
+    wire       core_sleep;
     wire [7:0] prr;
     wire       ck_sel, ck_pud, ck_ivsel, ck_dormido;
     wire [7:0] ck_rd;
 
-    // LA ESCRITURA SE CUALIFICA CON `ce_cpu`, y esto no es adorno. El nucleo va
-    // gateado, asi que sus salidas SE QUEDAN QUIETAS mientras no le toca: con
-    // el prescaler puesto, `io_we` estaria alto 2^CLKPS ciclos seguidos. Eso no
-    // molesta mientras el periferico muestree en el mismo pulso... pero en el
-    // sueño `Idle` el nucleo se para Y LOS PERIFERICOS SIGUEN, y entonces una
-    // escritura congelada se aplicaria una vez por cada ciclo de periferico
-    // hasta que alguien despertara. Cualificarla lo cierra de raiz.
+    // LA ESCRITURA Y LA LECTURA NO HACE FALTA CUALIFICARLAS, y conviene decir
+    // por que porque la intuicion dice lo contrario.
     //
-    // Y por eso NO tiene mutante todavia: hasta que el `SLEEP` del secuenciador
-    // no llegue aqui, quitar esta `and` no cambia nada observable. Dicho, para
-    // que no parezca un olvido.
-    wire io_we = io_we_bruto & ce_cpu;
-
-    // Y LA LECTURA IGUAL, aunque parezca inocente: leer `UDR0` SACA UN BYTE del
-    // bufer de la USART. Una lectura congelada durante un sueño `Idle` vaciaria
-    // el bufer entero sin que nadie leyera nada.
-    wire io_re = io_re_bruto & ce_cpu;
-
-    // Y DE AQUI SALE UNA PROPIEDAD QUE CONVIENE TENER PRESENTE AL LEER EL RESTO
-    // DEL CHIP: con las dos cualificadas, TODO lo que un periferico hace «al
-    // escribirse un registro» ocurre ya una sola vez por ciclo de sistema, sin
-    // gatear nada mas. Lo que si hay que gatear es el estado que corre SOLO
-    // -contadores, registros de desplazamiento, sincronizadores, maquinas de
-    // estado-, que es justo lo que se para cuando se para un reloj.
+    // El nucleo va gateado, asi que uno esperaria que sus salidas se quedaran
+    // QUIETAS mientras no le toca: con el prescaler puesto, `io_we` alto
+    // 2^CLKPS ciclos seguidos, y en el sueño `Idle` —donde el nucleo se para Y
+    // LOS PERIFERICOS SIGUEN— una escritura congelada aplicandose una vez por
+    // cada ciclo de periferico hasta que alguien despertara.
+    //
+    // No pasa, y la razon esta en la disciplina del ADR 0001: el secuenciador
+    // presenta `dm_we` y `dm_re` REGISTRADOS —`dm_we = dm_we_q`—, no
+    // combinacionales. Estando el registro gateado por `ce_cpu`, la peticion
+    // solo puede cambiar en un ciclo habilitado, y al dormirse vale cero
+    // porque la ultima instruccion retirada fue el `SLEEP`, que no escribe.
+    //
+    // Estuvo cualificado con `ce_cpu` durante un commit, hasta que DOS
+    // MUTANTES SOBREVIVIERON: quitar la `and` no cambiaba nada, ni con el
+    // prescaler ni durmiendo. Era codigo defensivo contra algo que la
+    // arquitectura ya impide, y esto es lo que queda en su lugar.
+    //
+    // De aqui sale ademas una propiedad que conviene tener presente al leer el
+    // resto del chip: todo lo que un periferico hace «al escribirse un
+    // registro» ocurre ya una sola vez por ciclo de sistema, sin gatear nada
+    // mas. Lo que si hay que gatear es el estado que corre SOLO —contadores,
+    // registros de desplazamiento, sincronizadores, maquinas de estado—, que es
+    // justo lo que se para cuando se para un reloj.
 
     axioma_dbus bus (
         .clk(clk), .rst_n(rst_n), .ce(ce_cpu),
         .addr(dm_addr), .re(dm_re), .we(dm_we), .wdata(dm_wdata), .rdata(dm_rdata),
         .sram_addr(sram_addr), .sram_en(sram_en), .sram_we(sram_we),
         .sram_wdata(sram_wdata), .sram_rdata(sram_rdata),
-        .io_addr(io_addr), .io_re(io_re_bruto), .io_we(io_we_bruto),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we),
         .io_wdata(io_wdata), .io_rdata(io_rdata), .io_sel(io_sel)
     );
 
@@ -605,7 +608,10 @@ module axioma328_soc #(
         .clk(clk), .rst_n(rst_n),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ck_rd), .io_sel(ck_sel),
-        .sleep_pulso(1'b0),
+        // SIN CUALIFICAR, por lo mismo que `io_we`: al retirarse el `SLEEP` el
+        // secuenciador ya ha avanzado a la instruccion siguiente, asi que el
+        // pulso se cae solo. Su mutante tambien sobrevivio.
+        .sleep_pulso(core_sleep),
         .irq_pendiente(core_irq_req),
         .wdt_reset(wdt_reset),
         .ce_cpu(ce_cpu), .ce_io(ce_io),
@@ -705,7 +711,7 @@ module axioma328_soc #(
         .dbg_sp(dbg_sp), .dbg_sreg(dbg_sreg),
         .dbg_reg_addr(dbg_reg_addr), .dbg_reg_data(dbg_reg_data)
     ,
-        .wdr_pulso(core_wdr));
+        .wdr_pulso(core_wdr), .sleep_pulso(core_sleep));
 
 endmodule
 

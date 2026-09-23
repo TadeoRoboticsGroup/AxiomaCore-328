@@ -1286,12 +1286,30 @@ CATALOG = [
  "        .wdr(core_wdr),",
  "        .osc_tick(osc_rc_tick & ce_io),\n"
  "        .wdr(core_wdr),"),
-# La cualificacion de `io_we` con `ce_cpu` NO tiene mutante todavia, y esta
-# dicho aqui para que no parezca un olvido: con el prescaler puesto da igual
-# -el periferico muestrea en el mismo pulso, asi que ve la escritura una sola
-# vez de las dos maneras-. Lo que la hace necesaria es el sueño `Idle`, donde
-# el nucleo se para Y LOS PERIFERICOS SIGUEN y una escritura congelada se
-# aplicaria una vez por ciclo de periferico. El mutante entra con el sueño.
+# LA CUALIFICACION DE `io_we` CON `ce_cpu`, que solo es observable con el sueño
+# `Idle`: con el prescaler puesto da igual -el periferico muestrea en el mismo
+# pulso y ve la escritura una sola vez de las dos maneras-. Lo que la hace
+# necesaria es que en `Idle` el nucleo se para Y LOS PERIFERICOS SIGUEN, asi que
+# la escritura de un `OUT` congelado se aplicaria una vez por ciclo de
+# periferico. El programa de `sim-sleep` pone un `OUT` justo detras del `SLEEP`
+# para que eso se vea: sin la `and`, limpia `TOV0` para siempre y el chip no
+# despierta nunca.
+# NO HAY MUTANTE DE «CUALIFICAR io_we/io_re/sleep_pulso CON ce_cpu» PORQUE ESA
+# CUALIFICACION YA NO EXISTE, y la historia merece quedarse escrita. Se puso en
+# el commit de la habilitacion de reloj, defendiendo el caso del sueño `Idle`
+# -el nucleo parado y los perifericos corriendo, con una escritura congelada
+# aplicandose una vez por ciclo de periferico-. Al llegar el `SLEEP` de verdad,
+# los dos mutantes correspondientes SOBREVIVIERON: quitar la `and` no cambiaba
+# nada. El motivo es la disciplina del ADR 0001 —el secuenciador presenta
+# `dm_we` y `dm_re` REGISTRADOS, no combinacionales—, asi que la peticion solo
+# cambia en un ciclo habilitado y al dormirse vale cero. Era codigo defensivo
+# contra algo que la arquitectura impide, y se quito.
+("clkctrl", SEQ, "sim-sleep", "SLEEP sigue siendo un NOP: no avisa a nadie",
+ "    assign sleep_pulso = retire && (d_class == OPC_SLEEP);",
+ "    assign sleep_pulso = 1'b0;"),
+("clkctrl", SEQ, "sim-sleep", "cualquier instruccion de un ciclo duerme al chip",
+ "    assign sleep_pulso = retire && (d_class == OPC_SLEEP);",
+ "    assign sleep_pulso = retire && (d_class == OPC_NOP);"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

@@ -31,8 +31,36 @@ hace todo lo que su nombre promete.
 | D15 | **Leer la EEPROM no para el núcleo cuatro ciclos.** La hoja de datos dice «the CPU is halted for four clock cycles before the next instruction is executed»; aquí `EERE` devuelve el byte y el programa sigue. Rompe el nivel **L3** en las instrucciones que siguen a una lectura de EEPROM | Abierta · **fase 5** |
 | D14 | **El ADC no tenía disparo automático (`ADATE` con `ADTS`).** Sólo hacía conversiones sueltas. Sus bits se almacenaban y se leían de vuelta | **CERRADA** 22-sep — ver abajo |
 | D16 | **`IVSEL` no mueve la tabla de vectores.** El registro y su secuencia temporizada (`IVCE`) están hechos y verificados, y `ivsel` sale de `axioma_clkctrl`, pero el SoC no lo conecta: no hay sección de arranque hasta la fase 4 | Abierta · **fase 4** |
+| D17 | **La interrupción externa de nivel bajo no despierta de `Power-down`.** El chip la detecta de forma **asíncrona** y por eso sirve para despertar con el reloj parado; aquí se mira sobre el pin ya sincronizado, y ese sincronizador se para con `clk_I/O` | Abierta · **fase 5** |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
+
+### D17 — el nivel bajo no despierta de `Power-down`  ·  nace el 23-sep-2026
+
+**Qué hay:** los cuatro modos de `ISCn` implementados y verificados contra la hoja de datos,
+incluido el de nivel bajo con su regla propia —**no tiene bandera**: la petición vale mientras el
+pin esté bajo, y `INTFn` se lee siempre a cero en ese modo—.
+
+**Qué falta:** que sea **asíncrono**. La hoja de datos es explícita sobre por qué importa: *«the low
+level interrupt on INT0/INT1 is detected asynchronously. This implies that this interrupt can be
+used for waking the part also from sleep modes other than Idle mode»*. Aquí el nivel se mira sobre
+`syn_d[2]`, o sea el pin **ya sincronizado**, y desde el ADR 0003 ese sincronizador se para junto
+con `clk_I/O`. En `Idle` no cambia nada; en `Power-down` y los demás, un nivel que llegue con el
+chip dormido **no se ve**.
+
+**Por qué no se cierra en el mismo paso que el sueño.** Porque no es cambiar un cable. Hay que
+llevar la ruta de nivel al pin **crudo**, y eso mete un camino combinacional del encapsulado al
+controlador de interrupciones — que es exactamente el terreno de la deuda **D6**, el sincronizador
+de una etapa y su MTBF sin calcular. Las dos piden la misma conversación y conviene tenerla una
+vez. Además, el banco de `extint` modela hoy el nivel **sincronizado**, así que cerrarlo cambia el
+modelo del oráculo, y eso no se hace de paso.
+
+**Cómo se comprobará:** con un caso más en `make sim-sleep`. Hace falta una cáscara que permita
+mover un pin **desde fuera** —las de hoy son de lazo cerrado, y un programa dormido no puede
+moverse el pin a sí mismo—, y entonces la prueba es directa: dormir en `Power-down`, bajar el pin
+desde el banco, y que el núcleo siga.
+
+**Qué la desbloquea:** nada externo. Es trabajo, y va con D6.
 
 ### D16 — `IVSEL` sin sitio a donde apuntar  ·  nace el 23-sep-2026
 

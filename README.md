@@ -81,7 +81,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   40/40 objetivos en verde
+regresión   41/41 objetivos en verde
 mutación   315/315 fallos inyectados, 315 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
@@ -130,10 +130,10 @@ bit**: 656 bits en 82 registros, 393 de almacenamiento, 134 con comportamiento p
 reservados, **ninguno sin clasificar**. De los 25 vectores de interrupción **sólo `SPM_READY` sigue
 sin fuente**, que es de la fase 4.
 
-Las **tareas** de la fase están hechas; su **criterio de aceptación**, no. Son tres cláusulas: los
-25 vectores —hoy 24, y el que falta depende de la fase 4—, que `micros()` no derive, y que el
-scanner I2C detecte un esclavo real. Las dos últimas están **sin demostrar**, y por eso la fase no
-se da por cerrada.
+Las **tareas** de la fase están hechas; su **criterio de aceptación**, casi. Son tres cláusulas:
+los 25 vectores —hoy 24, y el que falta depende de la fase 4—, que **`micros()` no derive**
+—demostrado: 200 y 800 periodos dan el mismo desvío de 13 ciclos, así que es latencia acotada y no
+deriva— y que el **scanner I2C detecte un esclavo real**, que sigue sin demostrar.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando

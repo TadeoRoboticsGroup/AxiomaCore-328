@@ -1270,8 +1270,12 @@ correcta —hoy lo hacen 24—; `micros()` no deriva; el scanner I2C detecta un 
 >
 > - **25 vectores** — hoy 24. El que falta es `SPM_READY`, y su fuente es el `SPM` por páginas, que
 >   es de la **fase 4** (deuda D2). No se puede cerrar antes.
-> - **`micros()` no deriva** — no demostrado. Hace falta medir la deriva del contador de
->   milisegundos de Arduino contra el reloj, sostenida.
+> - **`micros()` no deriva** — **DEMOSTRADO** (`make sim-micros`). Se mide con otra interrupción
+>   compitiendo y con las interrupciones apagadas a ratos, en dos ventanas de longitud muy distinta:
+>   200 periodos dan +13 ciclos de desvío y 800 dan **los mismos +13**. No crece con la ventana, así
+>   que es latencia acotada y no deriva; un solo ciclo de deriva por periodo habría dado 800. Y con
+>   una ISR casi tan larga como el periodo, barriendo su longitud, no se pierde ninguno mientras
+>   quepa —cuando ya no cabe, un AVR de verdad también lo pierde—.
 > - **el scanner I2C detecta un esclavo real** — no demostrado a nivel de SoC. El banco del TWI
 >   tiene un esclavo escrito desde la hoja de datos, pero el barrido de direcciones que hace un
 >   sketch no se ha ejecutado sobre el chip.

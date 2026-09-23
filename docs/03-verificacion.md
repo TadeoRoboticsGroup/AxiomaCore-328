@@ -452,6 +452,37 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### `micros()` no deriva, y qué significa eso en un chip
+
+Es una de las tres cláusulas del criterio de aceptación de la fase 3, y conviene decir qué se
+demuestra, porque `micros()` es una función de una biblioteca y aquí no se compila ninguna.
+
+`micros()` y `millis()` se apoyan en **una sola cosa del hardware**: que el Timer0 desborde cada 256
+cuentas y que **ninguno de esos desbordamientos se pierda**. Si se pierde uno, el reloj del programa
+se retrasa 1 024 µs **de golpe y no se recupera nunca**. No es un redondeo que se promedie: es un
+escalón permanente.
+
+`make sim-micros` lo mide con el chip incómodo —otra interrupción compitiendo y secciones con las
+interrupciones apagadas, que es lo que hace cualquier biblioteca al tocar una variable compartida—
+y separa dos cosas que no son lo mismo:
+
+| | qué es | se acumula |
+|---|---|---|
+| **jitter de latencia** | que una ISR entre unos ciclos más tarde que otra | **no** — y un AVR de verdad también lo tiene |
+| **deriva** | que el periodo medio no sea el del temporizador | **sí**, y eso rompe `micros()` |
+
+Se distinguen **midiendo dos ventanas de longitud muy distinta**. Con deriva, el desvío crecería con
+la ventana. Medido: **200 periodos → +13 ciclos; 800 periodos → +13 ciclos**. No crece, así que es
+latencia. Un solo ciclo de deriva por periodo habría dado 800.
+
+Y hay un segundo escenario, el que de verdad pierde desbordamientos: **una ISR casi tan larga como
+el periodo**, barriendo su longitud para caer en el ciclo exacto en vez de confiar en que toque.
+Aquí la afirmación hay que medirla bien, y la primera versión no lo hizo: con la ISR en 248 ciclos
+el servicio ya no cabe en los 256 del periodo y **un AVR de verdad también pierde el
+desbordamiento**. Exigir que no se pierda ahí es exigirle al chip algo que el original no cumple. Lo
+que se exige, y es lo que importa, es que **mientras la ISR quepa no se pierda ni uno**, por poco
+que sobre.
+
 ### El barrido semántico: 656 bits, y ninguno sin decir qué es
 
 `make sim-soc` comprueba el mapa de **direcciones**. Eso deja entera la pregunta que de verdad
@@ -572,7 +603,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 50 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 51 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su

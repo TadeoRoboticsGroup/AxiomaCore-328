@@ -459,6 +459,15 @@ sim-clk:
 	@echo -e "$(BOLD)El prescaler del reloj, medido en el pin$(NC)"
 	@./$(BUILD)/vclks/tb_soc_clk
 
+# --- que la base de tiempo no derive ---
+.PHONY: sim-micros
+sim-micros:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vmic -o tb_soc_micros --top-module tb_soc_clk_top \
+	  sim/soc/tb_soc_clk_top.v $(SOC_SRCS) sim/soc/tb_soc_micros.cpp >/dev/null
+	@echo -e "$(BOLD)La base de tiempo: que no derive$(NC)"
+	@./$(BUILD)/vmic/tb_soc_micros
+
 # --- el barrido semantico: bit a bit ---
 .PHONY: sim-bits
 sim-bits:
@@ -643,7 +652,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-bits sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-bits sim-micros sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

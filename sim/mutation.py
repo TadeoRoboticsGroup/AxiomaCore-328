@@ -1392,6 +1392,28 @@ CATALOG = [
 # El cero de un bit reservado lo pone LA LECTURA, no la escritura, asi que el
 # mutante tiene que ir ahi. Los dos primeros intentos mutaban la escritura y
 # SOBREVIVIERON: el registro guardaba el bit y la lectura lo tapaba igual.
+# --- la base de tiempo: que no derive ---
+# Lo que `sim-micros` caza y no caza ningun otro banco es PERDER UN
+# DESBORDAMIENTO. El primero invierte la prioridad entre poner la bandera y
+# atender el vector: si gana el `ack`, un desbordamiento que caiga en el mismo
+# ciclo en que se entra en la ISR se pierde, y el reloj del programa se retrasa
+# 1 024 us PARA SIEMPRE. Con interrupciones compitiendo, esa colision ocurre.
+# NO HAY MUTANTE DE «atender el vector gana a un desbordamiento simultaneo»,
+# aunque la prioridad esta escrita a proposito en `axioma_timer8` y es la buena.
+# Se escribio el mutante y SOBREVIVIO, y la respuesta a por que merece quedarse:
+#
+# Para que la colision ocurra, el nucleo tiene que entrar en el vector EN EL
+# MISMO CICLO en que el temporizador desborda. Con un periodo comodo, la ISR
+# entra unos ciclos despues del desbordamiento y el siguiente esta un periodo
+# entero mas alla: no coinciden nunca. Y con la ISR estirada hasta que si
+# coincidirian, el servicio ya no cabe en el periodo y **un AVR de verdad
+# tambien pierde el desbordamiento**, asi que no hay nada que distinguir.
+#
+# O sea que la colision solo es alcanzable en un regimen en el que la base de
+# tiempo ya esta saturada. El codigo se queda -poner la bandera ganando a
+# limpiarla es lo correcto y lo que hace el chip-, y el mutante no, porque un
+# mutante que nadie puede matar no mide nada. `sim-micros` demuestra una
+# clausula del criterio de aceptacion, que es otro trabajo y tambien vale.
 ("adc", ADC, "sim-bits", "ADMUX devuelve su bit 4, que es reservado",
  "    wire [7:0] r_admux  = {refs, adlar, 1'b0, mux};",
  "    wire [7:0] r_admux  = {refs, adlar, mux[3], mux};"),

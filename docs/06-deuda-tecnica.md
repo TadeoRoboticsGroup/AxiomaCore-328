@@ -1,6 +1,6 @@
 # Deuda técnica
 
-**Última revisión:** 14 de septiembre de 2026 (segunda pasada)
+**Última revisión:** 22 de septiembre de 2026 (cierre de D14)
 
 Este documento existe porque «está en el plan» y «está a medias» **no son lo mismo**, y mezclarlos
 es la forma más fácil de que algo a medias llegue a una foundry. Aquí sólo hay lo segundo.
@@ -29,7 +29,7 @@ hace todo lo que su nombre promete.
 | D12 | **La USART no tenía el modo SPI maestro (`UMSEL` = 11).** Sus bits se almacenaban y se leían de vuelta, y nada más | **CERRADA** 16-sep — ver abajo |
 | D13 | **`TXD` y `RXD` no llegaban a `PD1` y `PD0`.** Salían del SoC por dos puertos aparte | **CERRADA** 14-sep — ver abajo |
 | D15 | **Leer la EEPROM no para el núcleo cuatro ciclos.** La hoja de datos dice «the CPU is halted for four clock cycles before the next instruction is executed»; aquí `EERE` devuelve el byte y el programa sigue. Rompe el nivel **L3** en las instrucciones que siguen a una lectura de EEPROM | Abierta · **fase 5** |
-| D14 | **El ADC no tiene disparo automático (`ADATE` con `ADTS`).** Sólo hace conversiones sueltas, que es lo que usa `analogRead()`. Sus bits se almacenan y se leen de vuelta | Abierta · **fase 3** |
+| D14 | **El ADC no tenía disparo automático (`ADATE` con `ADTS`).** Sólo hacía conversiones sueltas. Sus bits se almacenaban y se leían de vuelta | **CERRADA** 22-sep — ver abajo |
 | D11 | **Los pines del TWI no tienen el limitador de pendiente del chip.** La hoja de datos describe `SDA` y `SCL` como colector abierto **con limitación de pendiente y supresión de picos**. El colector abierto y la supresión de picos están hechos y probados; la limitación de pendiente es del transistor de salida y no se puede escribir en Verilog | **Justificada** — ver abajo |
 | D8 | **Los directorios de backend de memoria están vacíos.** `rtl/mem/backends/{sim,fpga_bram,sky130_sram}` sólo tienen un `.gitkeep`; la implementación real está dentro de los módulos | **Justificada**: el README y la arquitectura ya dicen que hay **una** implementación. Los directorios son marcadores de la fase 6 |
 
@@ -258,26 +258,69 @@ así que el contraste de ciclos la cazaría sola — hoy no la caza porque ning�
 diferencial lee la EEPROM con `EERE`, y eso también queda dicho aquí para que no parezca que pasa
 por estar bien.
 
-### D14 — el ADC sin disparo automático  ·  nace el 17-sep-2026
+### D14 — el disparo automático del ADC, cerrada  ·  nace el 17-sep-2026, cerrada el 22-sep-2026
 
-**Qué hay:** conversiones sueltas. Se escribe `ADSC`, el SAR aproxima y `ADIF` avisa. Es lo que usa
-`analogRead()`, que es el 99 % de lo que hace cualquiera con este periférico.
+**Lo que la tenía abierta era una dependencia, no una dificultad.** El texto de cuando nació lo
+decía: *«dos de las ocho fuentes no existen todavía —el comparador analógico es de esta misma fase
+y aún no está—, y cablear las otras seis sin poder probar las ocho dejaría media función sin
+banco»*. Con el comparador dentro, la dependencia desapareció y la deuda se cerró entera.
 
-**Qué falta:** `ADATE`, que rearma la conversión sola cuando se dispara la fuente que elijan los
-tres bits `ADTS` — modo libre, comparador analógico, `INT0`, y cinco banderas de los
-temporizadores. Los bits **se almacenan y se leen de vuelta**, así que un programa que los ponga no
-recibe ningún error: simplemente no pasa nada más.
+**Lo que hay ahora.** `ADATE` rearma la conversión sola cuando se dispara la fuente que eligen los
+tres bits `ADTS`, con las **ocho** entradas de la tabla 23-6 cableadas:
 
-**Por qué se deja fuera ahora, por escrito.** Dos de las ocho fuentes **no existen todavía** —el
-comparador analógico es de esta misma fase y aún no está—, y el disparo se hace **en el flanco de
-la bandera**, no en su nivel, así que cablear las otras seis desde el SoC sin poder probar las ocho
-dejaría media función sin banco. El modo libre —`ADTS`=000— es el que se usa de verdad y es el más
-barato de los ocho, pero meterlo solo y llamar a eso «disparo automático» sería exactamente lo que
-este documento existe para evitar.
+| `ADTS` | fuente | de dónde sale |
+|---|---|---|
+| 000 | modo libre | el fin de la conversión anterior |
+| 001 | `ACI` | comparador analógico |
+| 010 | `INTF0` | interrupción externa 0 |
+| 011 | `OCF0A` | comparación A del Timer0 |
+| 100 | `TOV0` | desbordamiento del Timer0 |
+| 101 | `OCF1B` | comparación B del Timer1 |
+| 110 | `TOV1` | desbordamiento del Timer1 |
+| 111 | `ICF1` | captura del Timer1 |
 
-**Qué la desbloquea:** el comparador analógico, que es el siguiente de la lista. Con él dentro, las
-ocho fuentes se pueden cablear y probar a la vez, y el módulo ya está escrito para que añadirlo sea
-**una condición más en el arranque de la conversión** — la misma línea que hoy mira `ADSC`.
+**Tres cosas que no son obvias y que costaron sitio en el RTL:**
+
+**1. El disparo va por el FLANCO de la bandera, no por su nivel.** Las banderas se quedan puestas
+hasta que alguien las limpia, así que con nivel una sola comparación del Timer0 encadenaría
+conversiones para siempre. Y hay un caso que sólo sale del flanco: la hoja de datos dice que
+**cambiar `ADTS` a una fuente que YA está puesta genera un flanco positivo**, o sea que dispara.
+Eso no es un efecto lateral, es el comportamiento documentado, y el banco lo comprueba.
+
+**2. Son las banderas CRUDAS, no las peticiones de vector.** El ADC se dispara con `OCF0A` aunque
+la interrupción de `OCF0A` esté apagada, que es justamente el uso típico: muestrear a una
+frecuencia fija sin gastar una ISR por cada disparo. Por eso los cuatro módulos que aportan fuentes
+—Timer0, Timer1, `extint` y el comparador— exportan un puerto nuevo con la bandera **sin la máscara
+de habilitación**, y no se reutiliza la línea que ya va al controlador de interrupciones. Tres
+mutantes del catálogo son exactamente ese error: exportar `bandera & habilitación`.
+
+**3. `OCF0B` y `OCF1A` NO disparan.** Existen, están a un cable de distancia, y la tabla 23-6 no
+las incluye: el ADC tiene siete fuentes, no nueve. En el SoC se declaran sin usar **a propósito y
+por escrito**, para que lint no las tape y para que nadie las «arregle» más adelante.
+
+**Cómo se verifica, y por qué el banco de módulo no bastaba.** En `axioma_adc` el bus de disparo es
+un puerto: da igual qué haya al otro lado del cable. **Una permutación en la tabla del SoC —que
+`OCF0A` y `OCF1B` se crucen— pasa entero el banco de módulo, pasa lint, pasa síntesis y sale en el
+chip.** Es la misma lección del mapa de pines, y la respuesta es la misma: mirar el cable de
+verdad. Así que hay dos capas:
+
+- **`sim/periph/tb_adc.cpp`** (1 603 comprobaciones): las ocho entradas del multiplexor, el flanco,
+  el cambio de fuente como flanco, el modo libre y que sin `ADATE` no dispara nada.
+- **`sim/soc/tb_soc_trig.cpp`** (21 comprobaciones): cada fuente provocada **por su camino real**.
+  Un programa de verdad configura el periférico de verdad —pone `PD2` como salida y la sube para
+  fabricarse su propio `INT0`, arranca el Timer1 con la cuenta precargada cerca del final para
+  fabricarse su `TOV1`, mueve `ICP1` para fabricarse su captura— y desde fuera se mira el pulso del
+  S/H, que es la prueba observable de que una conversión empezó.
+
+  **Y la prueba positiva no basta**, porque un multiplexor roto de forma que TODO dispare pasaría
+  las siete. Por eso cada fuente se comprueba tres veces: se provoca con `ADTS` apuntando a ella
+  —tiene que arrancar—, con `ADTS` apuntando a otra que nadie provoca —no tiene que arrancar— y sin
+  `ADATE` —tampoco—. Eso es lo que distingue un cable de un cortocircuito.
+
+**Que el banco sirve está comprobado por construcción**: se cruzaron `OCF0A` y `OCF1B` en el SoC a
+mano y el banco cayó con dos fallos. Y en el catálogo de mutación hay **ocho mutantes nuevos** para
+esta función —cuatro permutan la tabla, uno la cortocircuita y tres enmascaran las banderas en
+origen—, los ocho detectados.
 
 ### D12 — la USART como maestro SPI, cerrada  ·  16-sep-2026
 

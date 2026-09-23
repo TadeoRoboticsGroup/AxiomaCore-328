@@ -136,6 +136,8 @@ def main():
               "rtl/periph/axioma_wdt.v sim/periph/tb_wdt.cpp")
     construir("build/vcovee", "tb_eepc", "axioma_eeprom",
               "rtl/periph/axioma_eeprom.v sim/periph/tb_eeprom.cpp")
+    construir("build/vcovtr", "trigc", "tb_soc_trig_top",
+              f"sim/soc/tb_soc_trig_top.v {RTL}{FRENTE} sim/soc/tb_soc_trig.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
               f"sim/soc/tb_soc_uart_top.v {RTL}{FRENTE} sim/soc/tb_soc_uart.cpp")
 
@@ -160,6 +162,7 @@ def main():
     sh("AXIOMA_COV=build/cov/ac.dat ./build/vcovac/tb_acc"); n += 1
     sh("AXIOMA_COV=build/cov/wdt.dat ./build/vcovw/tb_wdtc"); n += 1
     sh("AXIOMA_COV=build/cov/eeprom.dat ./build/vcovee/tb_eepc"); n += 1
+    sh("AXIOMA_COV=build/cov/trig.dat ./build/vcovtr/trigc"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")
 

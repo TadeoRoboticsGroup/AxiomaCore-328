@@ -137,12 +137,29 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 259
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 272
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
 **El catálogo se reapunta EN EL MISMO COMMIT que mueve el RTL.** No es una recomendación: es la
 única forma de que la cifra de mutantes signifique algo.
+
+#### Y hay un segundo motivo para ejecutarlo, que se descubrió a base de sufrirlo
+
+`make mutation` **modifica el RTL en sitio** y lo restaura al terminar. Si la ejecución se corta de
+mala manera —la máquina se apaga, el proceso muere sin poder atender la señal—, **el árbol se queda
+con el último mutante puesto**. El cerrojo de `build/.mutation.lock` sobrevive y avisa de que algo
+quedó a medias, pero no dice *qué*.
+
+Pasó el 22-sep: el árbol quedó con `total = primera ? 50 : 24` en el ADC, o sea **una conversión de
+12 ciclos donde la tabla 23-1 dice 13**. Y lo importante es lo que NO lo detectó: `make lint` pasó
+limpio, la síntesis habría pasado, y el fallo es de los que sólo se ven midiendo. Lo cazó
+`mutation-check` en un segundo, porque un mutante puesto significa que **el texto original del
+catálogo ya no está en el fichero**.
+
+O sea que la misma puerta sirve para dos preguntas opuestas: *¿el catálogo sigue apuntando al
+RTL?* y *¿el RTL sigue siendo el RTL?*. **Después de una mutación interrumpida, `mutation-check`
+antes que nada.**
 
 #### Y sirve para preguntar «¿esto lo comprueba alguien?»
 
@@ -389,6 +406,29 @@ interna. Comprueba tres cosas:
    existe; una de más, un registro que responde donde no debe;
 3. **que los huecos se lean como `0x00`** — una dirección reservada del 328P no es RAM.
 
+### El mismo agujero, otra vez: los cables entre periféricos
+
+El mapa de direcciones no es lo único que vive en el SoC y no en ningún módulo. **Las fuentes del
+disparo automático del ADC son ocho cables**, y en `axioma_adc` son un puerto: da igual qué haya al
+otro lado. Una permutación —que `OCF0A` y `OCF1B` se crucen— pasa el banco de módulo, pasa lint,
+pasa síntesis y sale en el chip.
+
+`make sim-trig` lo cierra provocando **cada fuente por su camino real**. Un programa de verdad
+configura el periférico de verdad: se pone `PD2` como salida y la sube para fabricarse su propio
+`INT0`, precarga el Timer1 cerca del final para fabricarse su `TOV1`, mueve `ICP1` para fabricarse
+su captura. Desde fuera se mira el pulso del S/H, que es la prueba observable de que una conversión
+empezó.
+
+**Y la prueba positiva no basta.** Un multiplexor roto de forma que TODO dispare pasaría las siete
+pruebas. Por eso cada fuente se comprueba tres veces: con `ADTS` apuntando a ella —tiene que
+arrancar—, con `ADTS` apuntando a otra que nadie provoca —no tiene que arrancar— y sin `ADATE`
+—tampoco—. **Eso es lo que distingue un cable de un cortocircuito**, y es el mismo razonamiento que
+la prueba negativa del mapa de I/O: comprobar que algo responde donde debe no dice nada hasta que
+se comprueba que no responde donde no debe.
+
+Que el banco sirve está comprobado por construcción: se cruzaron dos entradas de la tabla a mano y
+cayó con dos fallos.
+
 ---
 
 ## La cobertura: la única que dice lo que NO se ha probado
@@ -397,9 +437,9 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 35 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 44 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
-periférico, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
+periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
 funcionalidad la cubre **su** banco.
 
@@ -417,7 +457,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,5 %** —3 003 de 3 017 puntos—, con **21 de 26 módulos al 100 %**. Los catorce
+Hoy está en **99,5 %** —3 022 de 3 036 puntos—, con **21 de 26 módulos al 100 %**. Los catorce
 puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -474,7 +514,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 259 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 272 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

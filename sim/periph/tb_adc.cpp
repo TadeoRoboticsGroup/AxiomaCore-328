@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 16; i++) v_canal[i] = 0;
     dut->rst_n = 0; dut->clk = 0;
     dut->io_addr = 0; dut->io_re = 0; dut->io_we = 0; dut->io_wdata = 0;
-    dut->adc_cmp = 0; dut->ack_adc = 0;
+    dut->adc_cmp = 0; dut->ack_adc = 0; dut->adc_trig = 0;
     dut->eval();
     tick();
     dut->rst_n = 1; dut->eval();
@@ -465,6 +465,106 @@ int main(int argc, char **argv) {
             }
             chk("el codigo", resultado(lar), (uint16_t)v);
         }
+    }
+
+    // ============================ 16. EL DISPARO AUTOMATICO (la deuda D14)
+    // Ocho fuentes, y la que manda es la que diga ADTS. Lo que se comprueba no
+    // es que convierta —eso ya esta probado— sino QUIEN la arranca: que sea el
+    // FLANCO de la bandera elegida y no el de otra, y que el nivel no baste.
+    fase = "el disparo automatico: las ocho fuentes";
+    {
+        for (int fuente = 1; fuente < 8; fuente++) {
+            wr(ADCSRA, 0x00); run(4);
+            dut->adc_trig = 0; dut->eval();
+            v_canal[0] = 300 + fuente;
+            wr(ADMUX, 0x00);
+            wr(ADCSRB, (uint8_t)fuente);              // ADTS
+            wr(ADCSRA, (uint8_t)(ADEN | ADATE | ADIF | 0x02));
+            run(40);
+            chk("sin flanco no arranca nada", (peek(ADCSRA) & ADSC) != 0, 0);
+
+            // Levantar OTRA bandera no tiene que hacer nada.
+            dut->adc_trig = (uint8_t)(1 << (fuente == 7 ? 1 : fuente + 1));
+            dut->eval(); run(40);
+            chk("otra fuente no dispara", (peek(ADCSRA) & ADSC) != 0, 0);
+
+            // Y la suya si, EN EL FLANCO.
+            dut->adc_trig = (uint8_t)(1 << fuente); dut->eval(); run(4);
+            chk("su fuente dispara", (peek(ADCSRA) & ADSC) != 0, 1);
+            for (long i = 0; i < 4000 && (peek(ADCSRA) & ADSC); i++) tick();
+            chk("y convierte el canal pedido", resultado(false),
+                (uint16_t)(300 + fuente));
+
+            // EL NIVEL NO BASTA: la bandera se queda alta y no vuelve a
+            // disparar. Si disparase por nivel, un ADC con TOV0 puesto
+            // convertiria sin parar y el programa no podria leer nunca un
+            // resultado quieto.
+            wr(ADCSRA, (uint8_t)(ADEN | ADATE | ADIF | 0x02));
+            run(60);
+            chk("el nivel sostenido no vuelve a disparar",
+                (peek(ADCSRA) & ADSC) != 0, 0);
+        }
+        dut->adc_trig = 0; dut->eval();
+    }
+
+    // CAMBIAR ADTS A UNA FUENTE YA PUESTA ES UN FLANCO, y lo dice la hoja de
+    // datos con todas las letras: «switching from a trigger source that is
+    // cleared to a trigger source that is set will generate a positive edge».
+    fase = "cambiar de fuente es un flanco";
+    {
+        wr(ADCSRA, 0x00); run(4);
+        v_canal[0] = 512;
+        wr(ADMUX, 0x00);
+        dut->adc_trig = 0x80;                          // ICF1 puesta de antes
+        dut->eval();
+        wr(ADCSRB, 0x03);                              // ADTS = OCF0A, que esta baja
+        wr(ADCSRA, (uint8_t)(ADEN | ADATE | ADIF | 0x02));
+        run(40);
+        chk("con la fuente baja no pasa nada", (peek(ADCSRA) & ADSC) != 0, 0);
+        wr(ADCSRB, 0x07);                              // ahora ADTS = ICF1, ya puesta
+        run(6);
+        chk("cambiar a una fuente puesta arranca", (peek(ADCSRA) & ADSC) != 0, 1);
+        for (long i = 0; i < 4000 && (peek(ADCSRA) & ADSC); i++) tick();
+        dut->adc_trig = 0; dut->eval();
+    }
+
+    // EL MODO LIBRE: ADTS=000 y la conversion se rearma sola. La PRIMERA la
+    // arranca el programa con ADSC — un ADC que empezara solo al poner ADATE no
+    // dejaria configurar ADMUX antes.
+    fase = "el modo libre";
+    {
+        wr(ADCSRA, 0x00); run(4);
+        v_canal[0] = 100;
+        wr(ADMUX, 0x00);
+        wr(ADCSRB, 0x00);                              // ADTS = modo libre
+        wr(ADCSRA, (uint8_t)(ADEN | ADATE | ADIF | 0x02));
+        run(200);
+        chk("no arranca sola al poner ADATE", (peek(ADCSRA) & ADSC) != 0, 0);
+
+        wr(ADCSRA, (uint8_t)(ADEN | ADATE | ADSC | 0x02));
+        long m0 = muestreos;
+        for (long i = 0; i < 20000 && muestreos < m0 + 4; i++) tick();
+        chk("y a partir de ahi convierte sin parar", muestreos >= m0 + 4, 1);
+        chk("con ADSC siempre puesto", (peek(ADCSRA) & ADSC) != 0, 1);
+
+        // Quitar ADATE la para al terminar la que este en curso.
+        wr(ADCSRA, (uint8_t)(ADEN | ADIF | 0x02));
+        for (long i = 0; i < 4000 && (peek(ADCSRA) & ADSC); i++) tick();
+        m0 = muestreos;
+        run(2000);
+        chk("quitar ADATE para el modo libre", muestreos, (uint32_t)m0);
+    }
+
+    // Y SIN ADATE, una bandera puesta no arranca nada: es el bit que manda.
+    fase = "sin ADATE no hay disparo";
+    {
+        wr(ADCSRA, 0x00); run(4);
+        wr(ADCSRB, 0x04);                              // ADTS = TOV0
+        wr(ADCSRA, (uint8_t)(ADEN | ADIF | 0x02));     // sin ADATE
+        dut->adc_trig = 0x10; dut->eval(); run(60);
+        chk("la bandera no dispara sin ADATE", (peek(ADCSRA) & ADSC) != 0, 0);
+        dut->adc_trig = 0; dut->eval();
+        wr(ADCSRB, 0x00);
     }
 
 #if VM_COVERAGE

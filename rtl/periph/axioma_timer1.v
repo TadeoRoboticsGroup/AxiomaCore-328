@@ -93,6 +93,13 @@ module axioma_timer1 (
     output wire       oc1b_en,
 
     // ---- interrupciones ----
+
+    // ---- las banderas CRUDAS, para el disparo automatico del ADC ----
+    // Son las mismas que se leen en el registro de banderas, SIN la mascara de
+    // habilitacion: el disparo del ADC va por la bandera aunque su interrupcion
+    // este apagada, y por eso no vale reutilizar las peticiones de vector.
+    output wire [3:0] flags_tifr,   // {ICF1, OCF1B, OCF1A, TOV1}
+
     output wire       irq_capt,    // vector 10
     output wire       irq_compa,   // vector 11
     output wire       irq_compb,   // vector 12
@@ -420,6 +427,8 @@ module axioma_timer1 (
                       hit_ocrah ? temp                               :
                       hit_ocrbl ? ocrb_buf[7:0]                      :
                       hit_ocrbh ? temp                               : 8'h00;
+
+    assign flags_tifr = {icf, tifr};
 
     assign irq_capt  = icf     & icie;
     assign irq_compa = tifr[1] & timsk[1];

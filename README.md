@@ -81,15 +81,15 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   33/33 objetivos en verde
-mutación   259/259 fallos inyectados, 259 detectados
+regresión   34/34 objetivos en verde
+mutación   272/272 fallos inyectados, 272 detectados
 cobertura   99,5 % del RTL, fusionando todas las fuentes
             21 de 26 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
             enumerados—, el `$readmemh` que sólo corre con programa precargado,
             el `next_warmup` que sólo pone el reset, y líneas de declaración cuyos
             bits van atados a constante
-síntesis    sin latches · el SoC entero: 8 158 LUT4 y 1 379 FF en el ECP5
+síntesis    sin latches · el SoC entero: 8 002 LUT4 y 1 380 FF en el ECP5
             es una MEDIDA, no un criterio: yosys aplana y comparte lógica, así
             que un cambio local mueve el total en cientos. El número atribuible
             es el de cada módulo por separado
@@ -116,13 +116,13 @@ cuenta se hace con esos pesos, no a ojo:
 | 0 · fundación | 1 | 100 % | 1,00 |
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
-| 3 · periféricos | 5 | 85 % — **nueve de sus diez** dentro; falta el control de reloj | 4,25 |
+| 3 · periféricos | 5 | 88 % — **nueve de sus diez** dentro y **sin deuda abierta de la fase**; falta el control de reloj | 4,40 |
 | 4 · Arduino | 3 | 0 % | 0,00 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **11,05** |
+| | **17** | | **11,20** |
 
-Salen **~65 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
-un 41 % y un 48 %, y **~44 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+Salen **~66 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 41 % y un 49 %, y **~45 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
 De los diez periféricos de la fase 3 **falta uno**: el **control de reloj** —`CLKPR`, `PRR`,
@@ -216,14 +216,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 259 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 272 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 259 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 272 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
@@ -376,8 +376,9 @@ lleva el programa dentro. **Lo único que falta es enchufar la placa** (`make pr
 
 La **fase 3** está en marcha, con **nueve de sus diez periféricos** dentro —Timer1, Timer2, las
 interrupciones externas, el SPI, el TWI, el ADC, el comparador analógico, el perro guardián y la
-EEPROM— y las deudas D3, D12 y D13 de la USART cerradas. **Falta el control de reloj**, y con él
-la fase. De los 25 vectores de interrupción, **24 disparan desde un programa**: sólo queda
+EEPROM— y las deudas D3, D12, D13 y D14 cerradas. **Falta el control de reloj**, y con él
+la fase. Con el comparador dentro se cerró D14, el disparo automático del ADC: sus ocho fuentes
+cableadas y cada una provocada por su camino real desde un programa. De los 25 vectores de interrupción, **24 disparan desde un programa**: sólo queda
 `SPM_READY`, que es de la fase 4.
 
 Los dos últimos periféricos trajeron algo que el proyecto no tenía: **lógica que no es digital de

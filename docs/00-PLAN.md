@@ -1025,8 +1025,9 @@ enumerado** en vez de implícito.
 - [x] **`adc.v`: el controlador SAR, y dentro del SoC.** **Verificado y enchufado**, con su vector
       21 disparando —21 de los 25 ya tienen fuente—. 1 561 comprobaciones contra un comparador escrito desde la hoja de datos, 15 mutantes y
       los 15 muertos, 100 % de cobertura, 269 LUT4 en el ECP5 y sin latches. Hace conversiones
-      sueltas —lo que usa `analogRead()`—; el disparo automático es la deuda **D14**, declarada el
-      mismo día.
+      sueltas —lo que usa `analogRead()`—; el disparo automático era la deuda **D14**, declarada el
+      mismo día y **cerrada el 22-sep** en cuanto el comparador analógico, que era la fuente que
+      faltaba, entró en el chip.
 
       **El banco encontró un fallo real, y de los que no dan error:** la conversión duraba **12,5
       ciclos de ADC** en vez de 13, porque arrancaba en cuanto se escribía `ADSC` y no en el
@@ -1104,6 +1105,24 @@ enumerado** en vez de implícito.
       Para generar los flancos sin cables, el programa de co-simulación usa lo que dice la hoja de
       datos: la detección mira el PIN y no `PORTx`, así que un pin de salida que el programa
       conmute se interrumpe a sí mismo.
+- [x] **El disparo automático del ADC (`ADATE` con `ADTS`)** — la deuda D14, cerrada. Las ocho
+      fuentes de la tabla 23-6, cableadas y probadas: modo libre, el comparador, `INT0` y cinco
+      banderas de los temporizadores.
+
+      **Son las banderas CRUDAS, no las peticiones de vector.** El ADC se dispara con `OCF0A`
+      aunque la interrupción de `OCF0A` esté apagada —muestrear a frecuencia fija sin gastar una
+      ISR por disparo es justamente el uso—, así que los cuatro módulos que aportan fuentes
+      exportan la bandera **sin la máscara de habilitación**. Y el disparo va por el **flanco**:
+      con nivel, una sola comparación encadenaría conversiones para siempre, y además cambiar
+      `ADTS` a una fuente ya puesta **es** un flanco, que es lo que dice la hoja de datos.
+
+      **La tabla vive en el SoC, y el banco de módulo no puede decir nada sobre ella**: allí
+      `adc_trig` es un puerto. Una permutación —que `OCF0A` y `OCF1B` se crucen— pasa el banco de
+      módulo, pasa lint, pasa síntesis y sale en el chip. Por eso `sim/soc/tb_soc_trig.cpp` provoca
+      cada fuente **por su camino real** —un programa se pone `PD2` como salida y la sube para
+      fabricarse su `INT0`, precarga el Timer1 cerca del final para fabricarse su `TOV1`— y
+      comprueba cada una tres veces: que dispara con su `ADTS`, que **no** dispara con otro, y que
+      sin `ADATE` no dispara nadie. Se cruzaron dos entradas a mano para comprobar que el banco cae.
 - [x] **USART: modo síncrono y `MPCM`** — la deuda D3, cerrada.
 
       **El motor de trama es el mismo**, y de ahí que saliera barato: arranque, datos, paridad y

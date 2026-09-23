@@ -441,6 +441,15 @@ sim-soc:
 	@echo -e "$(BOLD)Mapa de I/O del SoC, barrido entero$(NC)"
 	@./$(BUILD)/vsoc/tb_soc_map
 
+# --- el disparo automatico del ADC, fuente por fuente ---
+.PHONY: sim-trig
+sim-trig:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vtrig -o tb_soc_trig --top-module tb_soc_trig_top \
+	  sim/soc/tb_soc_trig_top.v $(SOC_SRCS) sim/soc/tb_soc_trig.cpp >/dev/null
+	@echo -e "$(BOLD)Disparo automatico del ADC: las siete fuentes$(NC)"
+	@./$(BUILD)/vtrig/tb_soc_trig
+
 # --- fabric del espacio de datos ---
 .PHONY: sim-dbus
 sim-dbus:
@@ -580,7 +589,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-extint sim-irq \
-             sim-soc sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-trig sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

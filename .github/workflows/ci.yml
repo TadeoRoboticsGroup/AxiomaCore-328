@@ -289,6 +289,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-soc
 
+      - name: Disparo automatico del ADC, las siete fuentes
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-trig
+
       - name: Cachear simavr
         id: cache-simavr
         uses: actions/cache@v4

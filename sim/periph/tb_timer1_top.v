@@ -69,6 +69,11 @@ module tb_timer1_top (
         .tick_256(tick_256), .tick_1024(tick_1024),
         .t1_pin(t1_pin), .icp1_pin(icp1_pin),
         .oc1a(oc1a), .oc1a_en(oc1a_en), .oc1b(oc1b), .oc1b_en(oc1b_en),
+        /* verilator lint_off PINCONNECTEMPTY */
+        .flags_tifr(),                   // las banderas crudas son para el
+                                         // disparo del ADC, y el ADC no esta
+                                         // aqui: este banco mira el registro
+        /* verilator lint_on PINCONNECTEMPTY */
         .irq_capt(irq_capt), .irq_compa(irq_compa),
         .irq_compb(irq_compb), .irq_ovf(irq_ovf),
         .ack_capt(ack_capt), .ack_compa(ack_compa),

@@ -71,6 +71,13 @@ module axioma_ac (
     output wire       ac_a_captura,  // ACIC
     output wire       ac_o,          // la salida ya sincronizada
 
+
+    // ---- las banderas CRUDAS, para el disparo automatico del ADC ----
+    // Son las mismas que se leen en el registro de banderas, SIN la mascara de
+    // habilitacion: el disparo del ADC va por la bandera aunque su interrupcion
+    // este apagada, y por eso no vale reutilizar las peticiones de vector.
+    output wire       flag_aci,
+
     // ---- interrupción ----
     output wire       irq_ac,        // vector 23
     input  wire       ack_ac
@@ -179,6 +186,8 @@ module axioma_ac (
     // SOLO LECTURA: escribirlo no hace nada, que es lo que dice la hoja de
     // datos y lo que hace el chip.
     wire unused_ac = &{1'b0, io_re, io_wdata[5]};
+
+    assign flag_aci = aci;
 
     assign irq_ac = aci & acie;
 

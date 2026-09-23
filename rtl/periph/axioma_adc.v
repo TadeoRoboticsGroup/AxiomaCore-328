@@ -56,10 +56,30 @@
 // aproximación sucesiva en ninguna parte. El oráculo es el banco propio, con un
 // comparador escrito desde la hoja de datos.
 //
-// FUERA DE ALCANCE, y declarado en el registro de deuda como D14: el DISPARO
-// AUTOMÁTICO (`ADATE` con `ADTS`). Sus bits se almacenan y se leen de vuelta, y el resto
-// del módulo está escrito para que añadirlo sea una condición más en el
-// arranque de la conversión.
+// EL DISPARO AUTOMÁTICO, que es `ADATE` con los tres bits de `ADTS`. Ocho
+// fuentes, y la que se elige entra por `adc_trig` indexada por el propio valor
+// de `ADTS` — el índice ES el número de la tabla 23-6, que es lo que hace que
+// una fuente mal cableada se vea leyendo una línea:
+//
+//   000  modo libre         la conversión se rearma sola al terminar
+//   001  comparador analógico (ACI)      101  Timer1 comparación B (OCF1B)
+//   010  INT0 (INTF0)                    110  Timer1 desbordamiento (TOV1)
+//   011  Timer0 comparación A (OCF0A)    111  Timer1 captura (ICF1)
+//   100  Timer0 desbordamiento (TOV0)
+//
+// DISPARA EL FLANCO DE SUBIDA DE LA BANDERA, no su nivel, y eso tiene dos
+// consecuencias que la hoja de datos menciona y que casi nadie implementa:
+//
+//   - la bandera dispara AUNQUE SU INTERRUPCIÓN ESTÉ DESHABILITADA, así que lo
+//     que llega aquí son las banderas CRUDAS y no las peticiones de vector;
+//   - «switching from a trigger source that is cleared to a trigger source that
+//     is set will generate a positive edge on the trigger signal»: cambiar
+//     `ADTS` es en sí mismo un flanco si la fuente nueva ya estaba puesta. Aquí
+//     sale gratis porque lo que se vigila es la salida del multiplexor.
+//
+// EN MODO LIBRE LA PRIMERA CONVERSIÓN LA ARRANCA EL PROGRAMA con `ADSC`, y a
+// partir de ahí se rearma sola. No es un detalle: un ADC que empezara a
+// convertir en cuanto se pone `ADATE` no dejaría configurar `ADMUX` antes.
 
 `default_nettype none
 
@@ -92,6 +112,12 @@ module axioma_adc (
     // con los dos bits, asi que los dos salen de aqui.
     output wire       adc_acme,
     output wire       adc_encendido,
+
+    // ---- las ocho fuentes del disparo automático ----
+    // Indexadas por el valor de `ADTS`: `adc_trig[n]` es la fuente n de la
+    // tabla 23-6. El bit 0 no se usa —el modo libre no tiene bandera, se rearma
+    // solo— y el SoC lo ata a cero.
+    input  wire [7:0] adc_trig,
 
     // ---- interrupción ----
     output wire       irq_adc,      // vector 21
@@ -268,6 +294,26 @@ module axioma_adc (
                       hit_mux  ? r_admux            :
                       hit_didr ? {2'b00, didr}      : 8'h00;
 
+    // ------------------------------------------- el disparo automatico
+    // La fuente elegida sale del multiplexor indexado por ADTS. El modo libre
+    // -ADTS=000- no tiene bandera: se rearma al terminar la conversion.
+    wire libre     = (adts == 3'd0);
+    wire trig_sel  = libre ? 1'b0 : adc_trig[adts];
+
+    reg  trig_q;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) trig_q <= 1'b0;
+        else        trig_q <= trig_sel;
+    end
+
+    // EL FLANCO DE SUBIDA, no el nivel. Y como lo que se vigila es la SALIDA del
+    // multiplexor, cambiar ADTS a una fuente que ya estaba puesta genera un
+    // flanco — que es literalmente lo que dice la hoja de datos.
+    wire trig_flanco = trig_sel & ~trig_q;
+
+    // En modo libre el rearme es el propio final de la conversion anterior.
+    wire auto_dispara = aden & adate & (libre ? fin : trig_flanco);
+
     // ------------------------------------------------------------ escritura
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -314,6 +360,10 @@ module axioma_adc (
                 adif <= 1'b1;
             end
             if (!aden) adsc <= 1'b0;
+            // Y EL DISPARO AUTOMATICO VA DESPUES DEL FINAL, porque en modo libre
+            // las dos cosas caen en el mismo flanco: la conversion termina y la
+            // siguiente arranca. Al reves, el rearme se perderia siempre.
+            if (auto_dispara) adsc <= 1'b1;
             // Atender el vector limpia la bandera en su origen.
             if (ack_adc) adif <= 1'b0;
         end

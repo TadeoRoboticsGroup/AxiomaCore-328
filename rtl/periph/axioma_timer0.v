@@ -71,6 +71,13 @@ module axioma_timer0 (
     // La petición es la bandera Y su habilitación. El reconocimiento llega del
     // controlador cuando el núcleo salta al vector, y limpia la bandera: es lo
     // que hace el hardware del AVR al atender el vector.
+
+    // ---- las banderas CRUDAS, para el disparo automatico del ADC ----
+    // Son las mismas que se leen en el registro de banderas, SIN la mascara de
+    // habilitacion: el disparo del ADC va por la bandera aunque su interrupcion
+    // este apagada, y por eso no vale reutilizar las peticiones de vector.
+    output wire [2:0] flags_tifr,
+
     output wire       irq_ovf,
     output wire       irq_compa,
     output wire       irq_compb,
@@ -140,6 +147,7 @@ module axioma_timer0 (
     // ------------------------------------------------------------ el motor
     wire [3:0] com;
     wire [2:0] wgm, timsk, tifr;
+    assign flags_tifr = tifr;
     wire [7:0] tcnt, ocra, ocrb;
 
     axioma_timer8 motor (

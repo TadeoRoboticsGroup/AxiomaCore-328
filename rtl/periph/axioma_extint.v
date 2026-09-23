@@ -73,6 +73,13 @@ module axioma_extint (
     input  wire [7:0] pin_d,
 
     // ---- hacia el controlador de interrupciones ----
+
+    // ---- las banderas CRUDAS, para el disparo automatico del ADC ----
+    // Son las mismas que se leen en el registro de banderas, SIN la mascara de
+    // habilitacion: el disparo del ADC va por la bandera aunque su interrupcion
+    // este apagada, y por eso no vale reutilizar las peticiones de vector.
+    output wire       flag_intf0,
+
     output wire       irq_int0,
     output wire       irq_int1,
     output wire       irq_pcint0,
@@ -223,6 +230,8 @@ module axioma_extint (
                       hit_pcmsk2 ? pcmsk2_q            : 8'h00;
 
     // ------------------------------------------------------------ peticiones
+    assign flag_intf0 = eifr_vis[0];
+
     assign irq_int0 = eimsk_q[0] & (int0_nivel | eifr_vis[0]);
     assign irq_int1 = eimsk_q[1] & (int1_nivel | eifr_vis[1]);
 

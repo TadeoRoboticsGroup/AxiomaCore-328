@@ -1145,9 +1145,58 @@ CATALOG = [
 ("adc", ADC, "sim-adc", "ADIF no se limpia escribiendo un uno",
  "                if (io_wdata[4]) adif <= 1'b0;",
  "                if (1'b0) adif <= 1'b0;"),
+# ------------------------------------------- el disparo automatico (D14)
+("adc", ADC, "sim-adc", "el disparo automatico mira el NIVEL y no el flanco",
+ "    wire trig_flanco = trig_sel & ~trig_q;",
+ "    wire trig_flanco = trig_sel;"),
+("adc", ADC, "sim-adc", "ADTS no elige: siempre dispara la misma fuente",
+ "    wire trig_sel  = libre ? 1'b0 : adc_trig[adts];",
+ "    wire trig_sel  = libre ? 1'b0 : adc_trig[1];"),
+("adc", ADC, "sim-adc", "ADATE no hace falta: cualquier bandera dispara",
+ "    wire auto_dispara = aden & adate & (libre ? fin : trig_flanco);",
+ "    wire auto_dispara = aden & (libre ? fin : trig_flanco);"),
+("adc", ADC, "sim-adc", "el modo libre no se rearma",
+ "    wire auto_dispara = aden & adate & (libre ? fin : trig_flanco);",
+ "    wire auto_dispara = aden & adate & (libre ? 1'b0 : trig_flanco);"),
+("adc", ADC, "sim-adc", "el modo libre arranca solo, sin que nadie escriba ADSC",
+ "    wire auto_dispara = aden & adate & (libre ? fin : trig_flanco);",
+ "    wire auto_dispara = aden & adate & (libre ? 1'b1 : trig_flanco);"),
 ("adc", ADC, "sim-adc", "DIDR0 no apaga el bufer de entrada digital",
  "    assign didr_dis     = {2'b00, didr};",
  "    assign didr_dis     = 8'h00;"),
+
+# LA TABLA DEL DISPARO VIVE EN EL SoC, no en el ADC, y el banco de modulo no
+# puede decir nada sobre ella: alli `adc_trig` es un puerto. Estos mutantes
+# permutan los cables y los mata `sim-trig`, que provoca cada fuente por su
+# camino real. Si alguno sobreviviera, la tabla 23-6 no estaria verificada.
+("adc", SOC, "sim-trig", "OCF0A y OCF1B disparan el uno por el otro",
+ "                            t1_flags[2],    // 5  OCF1B\n"
+ "                            t0_flags[0],    // 4  TOV0\n"
+ "                            t0_flags[1],    // 3  OCF0A",
+ "                            t0_flags[1],    // 5  OCF1B\n"
+ "                            t0_flags[0],    // 4  TOV0\n"
+ "                            t1_flags[2],    // 3  OCF0A"),
+("adc", SOC, "sim-trig", "los dos desbordamientos cambiados de sitio",
+ "                            t1_flags[0],    // 6  TOV1",
+ "                            t0_flags[0],    // 6  TOV1"),
+("adc", SOC, "sim-trig", "el comparador dispara por la interrupcion externa",
+ "                            ac_aci,         // 1  ACI",
+ "                            ei_intf0,       // 1  ACI"),
+("adc", SOC, "sim-trig", "la captura del Timer1 no llega al ADC",
+ "wire [7:0] adc_trig = { t1_flags[3],    // 7  ICF1",
+ "wire [7:0] adc_trig = { 1'b0,           // 7  ICF1"),
+("adc", SOC, "sim-trig", "el multiplexor no elige: cualquier bandera dispara",
+ "        .adc_trig(adc_trig),",
+ "        .adc_trig({8{|adc_trig}}),"),
+("adc", TIMER0, "sim-trig", "el Timer0 exporta las banderas ya enmascaradas",
+ "    assign flags_tifr = tifr;",
+ "    assign flags_tifr = tifr & timsk;"),
+("adc", TIMER1, "sim-trig", "el Timer1 exporta las banderas ya enmascaradas",
+ "    assign flags_tifr = {icf, tifr};",
+ "    assign flags_tifr = {icf & icie, tifr & timsk};"),
+("adc", AC, "sim-trig", "el comparador exporta la bandera ya enmascarada",
+ "    assign flag_aci = aci;",
+ "    assign flag_aci = aci & acie;"),
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

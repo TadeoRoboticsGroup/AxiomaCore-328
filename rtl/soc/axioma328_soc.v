@@ -302,6 +302,7 @@ module axioma328_soc #(
         .tick_256(tick_256), .tick_1024(tick_1024),
         .t0_pin(pd_in[4]),                       // T0 es PD4
         .oc0a(oc0a), .oc0a_en(oc0a_en), .oc0b(oc0b), .oc0b_en(oc0b_en),
+        .flags_tifr(t0_flags),
         .irq_ovf(tm_ovf), .irq_compa(tm_compa), .irq_compb(tm_compb),
         .ack_ovf(irq_ack_v[16]), .ack_compa(irq_ack_v[14]), .ack_compb(irq_ack_v[15])
     );
@@ -327,6 +328,7 @@ module axioma328_soc #(
         // umbral sin que el programa tenga que mirar.
         .icp1_pin(ac_a_captura ? ac_o : pb_in[0]),
         .oc1a(oc1a), .oc1a_en(oc1a_en), .oc1b(oc1b), .oc1b_en(oc1b_en),
+        .flags_tifr(t1_flags),
         .irq_capt(t1_capt), .irq_compa(t1_compa),
         .irq_compb(t1_compb), .irq_ovf(t1_ovf),
         .ack_capt(irq_ack_v[10]), .ack_compa(irq_ack_v[11]),
@@ -426,6 +428,31 @@ module axioma328_soc #(
     // bufer de entrada digital de ADC0..ADC5, o sea de PC0 a PC5.
     wire [7:0] ad_rd, adc_didr;
     wire       ad_sel, ad_irq, adc_acme, adc_encendido;
+    wire [2:0] t0_flags;
+    wire [3:0] t1_flags;
+    wire       ei_intf0;
+
+    // LAS OCHO FUENTES DEL DISPARO AUTOMATICO, EN EL ORDEN DE LA TABLA 23-6, de
+    // modo que el indice ES el valor de ADTS. Puestas asi, una fuente mal
+    // cableada se ve leyendo una linea.
+    //
+    // Son las banderas CRUDAS: el disparo va por la bandera aunque su
+    // interrupcion este apagada, asi que no valen las peticiones de vector.
+    // `t0_flags` es {OCF0B, OCF0A, TOV0} y `t1_flags` {ICF1, OCF1B, OCF1A, TOV1}.
+    wire [7:0] adc_trig = { t1_flags[3],    // 7  ICF1
+                            t1_flags[0],    // 6  TOV1
+                            t1_flags[2],    // 5  OCF1B
+                            t0_flags[0],    // 4  TOV0
+                            t0_flags[1],    // 3  OCF0A
+                            ei_intf0,       // 2  INTF0
+                            ac_aci,         // 1  ACI
+                            1'b0 };         // 0  modo libre: no tiene bandera
+
+    // DOS BANDERAS QUE SI EXISTEN Y NO DISPARAN: `OCF0B` y `OCF1A` no estan en
+    // la tabla 23-6. No es un olvido de la hoja de datos ni uno mio — el ADC
+    // tiene siete fuentes, no nueve—, asi que se declaran sin usar a proposito
+    // para que lint no las tape y para que quien lea esto no las «arregle».
+    wire unused_trig = &{1'b0, t0_flags[2], t1_flags[1]};
 
     axioma_adc adc (
         .clk(clk), .rst_n(rst_n),
@@ -434,6 +461,7 @@ module axioma328_soc #(
         .adc_canal(adc_canal), .adc_ref(adc_ref),
         .adc_muestrea(adc_muestrea), .adc_dac(adc_dac), .adc_cmp(adc_cmp),
         .didr_dis(adc_didr),
+        .adc_trig(adc_trig),
         .adc_acme(adc_acme), .adc_encendido(adc_encendido),
         .irq_adc(ad_irq), .ack_adc(irq_ack_v[21])
     );
@@ -479,7 +507,7 @@ module axioma328_soc #(
     // la captura del Timer1 en lugar del pin ICP1. Las dos cosas las cablea el
     // SoC, que es quien tiene los dos extremos.
     wire [7:0] ac_rd, ac_didr;
-    wire       ac_sel, ac_irq, ac_a_captura, ac_o;
+    wire       ac_sel, ac_irq, ac_a_captura, ac_o, ac_aci;
 
     axioma_ac ac (
         .clk(clk), .rst_n(rst_n),
@@ -490,6 +518,7 @@ module axioma328_soc #(
         .adc_acme(adc_acme), .adc_encendido(adc_encendido),
         .didr_dis(ac_didr),
         .ac_a_captura(ac_a_captura), .ac_o(ac_o),
+        .flag_aci(ac_aci),
         .irq_ac(ac_irq), .ack_ac(irq_ack_v[23])
     );
 
@@ -506,6 +535,7 @@ module axioma328_soc #(
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ei_rd), .io_sel(ei_sel),
         .pin_b(pb_in), .pin_c({1'b0, pc_in[6:0]}), .pin_d(pd_in),
+        .flag_intf0(ei_intf0),
         .irq_int0(ei_int0), .irq_int1(ei_int1),
         .irq_pcint0(ei_pc0), .irq_pcint1(ei_pc1), .irq_pcint2(ei_pc2),
         .ack_int0(irq_ack_v[1]),   .ack_int1(irq_ack_v[2]),

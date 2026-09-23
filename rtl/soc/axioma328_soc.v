@@ -112,7 +112,7 @@ module axioma328_soc #(
     wire [15:0] pm_d_wdata, pm_if_data, pm_d_rdata;
 
     axioma_progmem #(.INIT_HEX(INIT_HEX)) pm (
-        .clk(clk),
+        .clk(clk), .ce(ce_cpu),
         .if_addr(pm_if_addr), .if_en(pm_if_en), .if_data(pm_if_data),
         .d_addr(pm_d_addr), .d_en(pm_d_en), .d_we(pm_d_we),
         .d_wdata(pm_d_wdata), .d_rdata(pm_d_rdata)
@@ -128,21 +128,61 @@ module axioma328_soc #(
     wire [7:0]  sram_wdata, sram_rdata;
 
     wire [7:0]  io_addr;
-    wire        io_re, io_we;
+    wire        io_re_bruto, io_we_bruto;
     wire [7:0]  io_wdata, io_rdata;
     wire        io_sel;
 
+    // ---------------------------------------------- LOS DOS RELOJES (ADR 0003)
+    // `CLKPR` divide y `PRR` apaga, y las dos cosas se hacen con una
+    // HABILITACION y no con una puerta sobre el reloj: en la FPGA es la entrada
+    // CE del biestable, que ya esta ahi, y en el flujo ASIC es de donde las
+    // herramientas derivan las celdas de puerta de reloj. Con CLKPS=0 valen 1
+    // siempre, y por eso el chip de hoy es bit a bit el de antes.
+    //
+    // SON DOS Y NO UNO porque la figura 9-1 los separa: `clk_CPU` para el
+    // nucleo y la memoria, `clk_I/O` para los perifericos. En modo `Idle` el
+    // primero se para y el segundo sigue, que es lo que hace util ese modo.
+    wire       ce_cpu, ce_io;
+    wire [7:0] prr;
+    wire       ck_sel, ck_pud, ck_ivsel, ck_dormido;
+    wire [7:0] ck_rd;
+
+    // LA ESCRITURA SE CUALIFICA CON `ce_cpu`, y esto no es adorno. El nucleo va
+    // gateado, asi que sus salidas SE QUEDAN QUIETAS mientras no le toca: con
+    // el prescaler puesto, `io_we` estaria alto 2^CLKPS ciclos seguidos. Eso no
+    // molesta mientras el periferico muestree en el mismo pulso... pero en el
+    // sueño `Idle` el nucleo se para Y LOS PERIFERICOS SIGUEN, y entonces una
+    // escritura congelada se aplicaria una vez por cada ciclo de periferico
+    // hasta que alguien despertara. Cualificarla lo cierra de raiz.
+    //
+    // Y por eso NO tiene mutante todavia: hasta que el `SLEEP` del secuenciador
+    // no llegue aqui, quitar esta `and` no cambia nada observable. Dicho, para
+    // que no parezca un olvido.
+    wire io_we = io_we_bruto & ce_cpu;
+
+    // Y LA LECTURA IGUAL, aunque parezca inocente: leer `UDR0` SACA UN BYTE del
+    // bufer de la USART. Una lectura congelada durante un sueño `Idle` vaciaria
+    // el bufer entero sin que nadie leyera nada.
+    wire io_re = io_re_bruto & ce_cpu;
+
+    // Y DE AQUI SALE UNA PROPIEDAD QUE CONVIENE TENER PRESENTE AL LEER EL RESTO
+    // DEL CHIP: con las dos cualificadas, TODO lo que un periferico hace «al
+    // escribirse un registro» ocurre ya una sola vez por ciclo de sistema, sin
+    // gatear nada mas. Lo que si hay que gatear es el estado que corre SOLO
+    // -contadores, registros de desplazamiento, sincronizadores, maquinas de
+    // estado-, que es justo lo que se para cuando se para un reloj.
+
     axioma_dbus bus (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_cpu),
         .addr(dm_addr), .re(dm_re), .we(dm_we), .wdata(dm_wdata), .rdata(dm_rdata),
         .sram_addr(sram_addr), .sram_en(sram_en), .sram_we(sram_we),
         .sram_wdata(sram_wdata), .sram_rdata(sram_rdata),
-        .io_addr(io_addr), .io_re(io_re), .io_we(io_we),
+        .io_addr(io_addr), .io_re(io_re_bruto), .io_we(io_we_bruto),
         .io_wdata(io_wdata), .io_rdata(io_rdata), .io_sel(io_sel)
     );
 
     axioma_dmem dm (
-        .clk(clk), .addr(sram_addr), .en(sram_en), .we(sram_we),
+        .clk(clk), .ce(ce_cpu), .addr(sram_addr), .en(sram_en), .we(sram_we),
         .wdata(sram_wdata), .rdata(sram_rdata)
     );
 
@@ -233,7 +273,7 @@ module axioma328_soc #(
     wire       gb_sel, gc_sel, gd_sel;
 
     axioma_gpio #(.IO_PIN(8'h03), .BITS(8'hFF)) gpio_b (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gb_rd), .io_sel(gb_sel),
         .ovr_en(ovr_b_en), .ovr_val(ovr_b_val),
@@ -243,7 +283,7 @@ module axioma328_soc #(
     );
     // El puerto C sólo tiene siete bits: PC7 no existe en el encapsulado.
     axioma_gpio #(.IO_PIN(8'h06), .BITS(8'h7F)) gpio_c (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gc_rd), .io_sel(gc_sel),
         .ovr_en(ovr_c_en), .ovr_val(ovr_c_val),
@@ -256,7 +296,7 @@ module axioma328_soc #(
         .pad_in(pc_in), .pad_out(pc_out), .pad_oe(pc_oe), .pad_pullup(pc_pu)
     );
     axioma_gpio #(.IO_PIN(8'h09), .BITS(8'hFF)) gpio_d (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gd_rd), .io_sel(gd_sel),
         .ovr_en(ovr_d_en), .ovr_val(ovr_d_val),
@@ -270,7 +310,7 @@ module axioma328_soc #(
     wire [7:0] gr_rd;
     wire       gr_sel;
     axioma_gpior gpior (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(gr_rd), .io_sel(gr_sel)
     );
@@ -284,7 +324,7 @@ module axioma328_soc #(
     wire       tm_ovf, tm_compa, tm_compb;
 
     axioma_prescaler presc (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ps_rd), .io_sel(ps_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
@@ -295,7 +335,7 @@ module axioma328_soc #(
         /* verilator lint_on PINCONNECTEMPTY */
     );
     axioma_timer0 timer0 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(tm_rd), .io_sel(tm_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
@@ -317,7 +357,7 @@ module axioma328_soc #(
     wire       t1_capt, t1_compa, t1_compb, t1_ovf;
 
     axioma_timer1 timer1 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(t1_rd), .io_sel(t1_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
@@ -341,7 +381,7 @@ module axioma328_soc #(
     wire       us_rxc, us_udre, us_txc;
 
     axioma_usart usart (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(us_rd), .io_sel(us_sel),
         // TXD es PD1 y RXD es PD0, como en el encapsulado. Ya no hay puertos
@@ -369,7 +409,7 @@ module axioma328_soc #(
     wire       presc_reset_asy;
 
     axioma_timer2 timer2 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(t2_rd), .io_sel(t2_sel),
         .presc_reset(presc_reset_asy),
@@ -385,7 +425,7 @@ module axioma328_soc #(
     wire       sp_sel, sp_irq;
 
     axioma_spi spi (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(sp_rd), .io_sel(sp_sel),
         // `pb_oe[2]` es DDB2 ya resuelto: PB2 sólo lleva anulación de
@@ -410,7 +450,7 @@ module axioma328_soc #(
     wire       tw_sel, tw_irq;
 
     axioma_twi twi (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(tw_rd), .io_sel(tw_sel),
         .scl_pin(pc_in[5]), .sda_pin(pc_in[4]),
@@ -455,7 +495,7 @@ module axioma328_soc #(
     wire unused_trig = &{1'b0, t0_flags[2], t1_flags[1]};
 
     axioma_adc adc (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ad_rd), .io_sel(ad_sel),
         .adc_canal(adc_canal), .adc_ref(adc_ref),
@@ -478,7 +518,7 @@ module axioma328_soc #(
     wire       ee_sel, ee_irq;
 
     axioma_eeprom eeprom (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ee_rd), .io_sel(ee_sel),
         .osc_tick(osc_rc_tick),
@@ -493,7 +533,7 @@ module axioma328_soc #(
     wire       wd_sel, wd_irq;
 
     axioma_wdt wdt (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(wd_rd), .io_sel(wd_sel),
         .osc_tick(osc_rc_tick),
@@ -510,7 +550,7 @@ module axioma328_soc #(
     wire       ac_sel, ac_irq, ac_a_captura, ac_o, ac_aci;
 
     axioma_ac ac (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ac_rd), .io_sel(ac_sel),
         .ac_apagado(ac_apagado), .ac_bandgap(ac_bandgap),
@@ -531,7 +571,7 @@ module axioma328_soc #(
     wire       ei_int0, ei_int1, ei_pc0, ei_pc1, ei_pc2;
 
     axioma_extint extint (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_io),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ei_rd), .io_sel(ei_sel),
         .pin_b(pb_in), .pin_c({1'b0, pc_in[6:0]}), .pin_d(pd_in),
@@ -552,9 +592,34 @@ module axioma328_soc #(
     // el OR devolvería los dos valores mezclados. El espacio es enumerable —256
     // direcciones—, así que `sim/soc/tb_soc_map.cpp` lo barre entero y comprueba
     // que como mucho uno responde a cada una.
-    assign io_rdata = gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
+    // ------------------------------------------------- el control de reloj
+    // Va con el reloj SIN dividir -es quien fabrica la division- y decide los
+    // dos `ce` de todos los demas. `sleep_pulso` y la instruccion que lo
+    // produce llegan cualificados por `ce_cpu` por lo mismo que `io_we`.
+    //
+    // DESPIERTA `core_irq_req`, que es la peticion del controlador YA
+    // enmascarada por cada `xxIE` pero SIN el bit `I` global. Es lo que dice la
+    // hoja de datos: con `I` a cero el chip despierta igual y sigue por la
+    // instruccion de despues del `SLEEP`, sin entrar en ninguna ISR.
+    axioma_clkctrl clkctrl (
+        .clk(clk), .rst_n(rst_n),
+        .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
+        .io_rdata(ck_rd), .io_sel(ck_sel),
+        .sleep_pulso(1'b0),
+        .irq_pendiente(core_irq_req),
+        .wdt_reset(wdt_reset),
+        .ce_cpu(ce_cpu), .ce_io(ce_io),
+        .prr(prr), .pud(ck_pud), .ivsel(ck_ivsel), .dormido(ck_dormido)
+    );
+
+    // `IVSEL` sale del modulo con su secuencia temporizada hecha, pero no hay
+    // seccion de arranque a donde mover los vectores hasta la fase 4: es la
+    // deuda D16. `PUD` y `dormido` se cablean en el paso siguiente.
+    wire unused_clkctrl = &{1'b0, ck_ivsel, ck_pud, ck_dormido, prr};
+
+    assign io_rdata = ck_rd | gb_rd | gc_rd | gd_rd | gr_rd | ps_rd | tm_rd | t1_rd
                     | us_rd | ei_rd | t2_rd | sp_rd | tw_rd | ad_rd | ac_rd | wd_rd | ee_rd;
-    assign io_sel   = gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
+    assign io_sel   = ck_sel | gb_sel | gc_sel | gd_sel | gr_sel | ps_sel | tm_sel
                     | t1_sel | us_sel | ei_sel | t2_sel | sp_sel | tw_sel
                     | ad_sel | ac_sel | wd_sel | ee_sel;
 
@@ -628,7 +693,7 @@ module axioma328_soc #(
 
     // ------------------------------------------------------------- núcleo
     axioma_core core (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce_cpu),
         .pm_if_addr(pm_if_addr), .pm_if_en(pm_if_en), .pm_if_data(pm_if_data),
         .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_we(pm_d_we),
         .pm_d_wdata(pm_d_wdata), .pm_d_rdata(pm_d_rdata),

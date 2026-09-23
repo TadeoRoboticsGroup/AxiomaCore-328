@@ -50,7 +50,9 @@ module tb_timer1_top (
     wire       ps_sel, t1_sel;
 
     axioma_prescaler ps (
-        .clk(clk), .rst_n(rst_n),
+        // El banco corre a reloj entero: la habilitacion es cosa de CLKPR, y
+        // este banco comprueba el prescaler de los temporizadores, que es otro.
+        .clk(clk), .rst_n(rst_n), .ce(1'b1),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(ps_rd), .io_sel(ps_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),
@@ -62,7 +64,7 @@ module tb_timer1_top (
     );
 
     axioma_timer1 t1 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(1'b1),
         .io_addr(io_addr), .io_re(io_re), .io_we(io_we), .io_wdata(io_wdata),
         .io_rdata(t1_rd), .io_sel(t1_sel),
         .tick_1(tick_1), .tick_8(tick_8), .tick_64(tick_64),

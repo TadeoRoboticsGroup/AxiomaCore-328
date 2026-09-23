@@ -44,6 +44,15 @@
 // `WDR` REARMA LA CUENTA, y es la instruccion que el programa mete en su bucle
 // principal. Llega del secuenciador como un pulso.
 //
+// LA HABILITACION DE RELOJ NO LO GATEA TODO, Y ESO ES LO IMPORTANTE DE ESTE
+// MODULO. `CLKPR` y `PRR` paran `clk_I/O`, y con el se paran la ventana de
+// `WDCE` y las escrituras de registro, que es lo correcto: son accesos del
+// programa. Pero LA CUENTA Y EL VENCIMIENTO NO SE GATEAN, porque corren con el
+// oscilador propio. Un perro guardian que se parase al pararse el reloj del
+// sistema no serviria para nada — un fallo que pare ese reloj es justo lo que
+// vigila—, y ademas es lo que permite despertar de un `Power-down`, donde
+// `clk_I/O` esta parado y no queda nadie mas mirando.
+//
 // EL OSCILADOR NO ESTA AQUI DENTRO, por lo mismo que el comparador del ADC no
 // esta en `axioma_adc` (ADR 0002): 128 kHz de RC no son logica. Entra como un
 // pulso, `osc_tick`, y quien instancia el SoC decide de donde sale — en la FPGA
@@ -54,6 +63,10 @@
 module axioma_wdt (
     input  wire       clk,
     input  wire       rst_n,
+
+    // La habilitacion de reloj (ADR 0003). OJO: aqui NO lo gatea todo, y esa
+    // es la gracia de este modulo — ver el comentario de mas abajo.
+    input  wire       ce,
 
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
@@ -96,9 +109,9 @@ module axioma_wdt (
     wire abre = io_we && hit && io_wdata[4] && io_wdata[3];
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n)          ventana <= 3'd0;
-        else if (abre)       ventana <= 3'd4;
-        else if (abierta)    ventana <= ventana - 3'd1;
+        if (!rst_n)               ventana <= 3'd0;
+        else if (ce && abre)      ventana <= 3'd4;
+        else if (ce && abierta)   ventana <= ventana - 3'd1;
     end
 
     // ---------------------------------------------------- el contador
@@ -162,6 +175,7 @@ module axioma_wdt (
         if (!rst_n) begin
             wdie <= 1'b0;  wdce <= 1'b0;  wde <= 1'b0;  wdp <= 4'd0;
         end else begin
+          if (ce) begin
             // WDCE lo lleva la ventana, no el programa: se pone al abrirla y se
             // cae solo cuando se agota.
             wdce <= abre | (abierta && ventana != 3'd1);
@@ -177,7 +191,12 @@ module axioma_wdt (
                     wdp <= {io_wdata[5], io_wdata[2:0]};
                 end
             end
-            // Al vencer con los dos habilitados, el hardware limpia WDIE.
+          end
+            // EL VENCIMIENTO NO VA GATEADO, y este `end` mal alineado esta a
+            // proposito para que se vea: lo de arriba corre con `clk_I/O` y
+            // esto corre con el OSCILADOR. Un perro guardian que se parase al
+            // pararse el reloj del sistema no serviria para nada — es
+            // exactamente el caso que vigila.
             if (vence && wdie && wde) wdie <= 1'b0;
         end
     end

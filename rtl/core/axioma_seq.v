@@ -34,6 +34,10 @@ module axioma_seq (
     input  wire        clk,
     input  wire        rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire        ce,
+
     // ---- memoria de programa ----
     output wire [13:0] pm_if_addr,
     output reg         pm_if_en,
@@ -860,7 +864,7 @@ module axioma_seq (
             dm_wdata_q <= 8'h00;
             tmp16    <= 16'h0000;
             warmup   <= 1'b1;
-        end else begin
+        end else if (ce) begin
             warmup   <= next_warmup;
             fpc      <= next_fpc;
             pc       <= next_pc;

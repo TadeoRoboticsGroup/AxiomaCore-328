@@ -110,6 +110,10 @@ module axioma_usart (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -195,9 +199,16 @@ module axioma_usart (
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)          brg <= 12'd0;
-        else if (carga_brr)  brg <= {ubrr[11:8], io_wdata};
-        else if (brg_tick)   brg <= ubrr;
-        else                 brg <= brg - 12'd1;
+        else if (ce) begin
+            // EL GENERADOR DE BAUDIOS VA GATEADO ENTERO, y es el ejemplo que
+            // motiva el ADR 0003: si contara con el reloj sin dividir, un
+            // programa que baja a f/8 para ahorrar corriente seguiria
+            // transmitiendo a la velocidad de antes y el otro extremo no
+            // entenderia nada. Es la incompatibilidad que se ve con un cable.
+            if      (carga_brr)  brg <= {ubrr[11:8], io_wdata};
+            else if (brg_tick)   brg <= ubrr;
+            else                 brg <= brg - 12'd1;
+        end
     end
 
     // ------------------------------------------------- sincrono contra asincrono
@@ -273,7 +284,7 @@ module axioma_usart (
         if (!rst_n) begin
             xck_gen <= 1'b0;  xck_sync <= 2'b00;  xck_i_q <= 1'b0;
             m_tog   <= 5'd0;
-        end else begin
+        end else if (ce) begin
             xck_sync <= {xck_sync[0], xck_pin};
             // f_XCK = f_CPU / (2*(UBRR+1)): el generador ya da un pulso cada
             // UBRR+1 ciclos, asi que basta con conmutar en cada uno.
@@ -363,7 +374,7 @@ module axioma_usart (
             tx_buf <= 9'd0;  tx_buf_full <= 1'b0;  tx_sh <= 9'd0;
             tx_bit <= 4'd0;  tx_cnt <= 5'd0;       tx_activo <= 1'b0;
             tx_par <= 1'b0;  txd_q <= 1'b1;        txc_q <= 1'b0;
-        end else begin
+        end else if (ce) begin
             // Escribir UDR0 carga el búfer. Si el transmisor está parado, la
             // trama arranca en el siguiente pulso del generador.
             if (io_we && hit_udr && txen) begin
@@ -547,7 +558,7 @@ module axioma_usart (
             rx_par    <= 1'b0;  rx_upe <= 1'b0;
             rx_fifo0  <= 11'd0; rx_fifo1 <= 11'd0;
             rx_n      <= 2'd0;  dor_q <= 1'b0;
-        end else begin
+        end else if (ce) begin
             rx_sync <= {rx_sync[1:0], rxd};
 
             if (rx_pop) begin
@@ -690,7 +701,7 @@ module axioma_usart (
             umsel <= 2'b00; upm <= 2'b00; usbs <= 1'b0;
             ucsz10 <= 2'b11;              // 8 bits al reset, como el chip
             ucpol <= 1'b0; ubrr <= 12'd0;
-        end else if (io_we) begin
+        end else if (ce && io_we) begin
             if (hit_a) begin
                 // RXC, UDRE, FE, DOR y UPE son de sólo lectura; TXC se limpia
                 // escribiendo un uno y se trata en el bloque del transmisor.

@@ -68,6 +68,10 @@ module axioma_twi (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz comun de periferico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -154,7 +158,7 @@ module axioma_twi (
         if (!rst_n) begin
             scl_s1 <= 1'b1; scl_s2 <= 1'b1; scl_f <= 1'b1;
             sda_s1 <= 1'b1; sda_s2 <= 1'b1; sda_f <= 1'b1; sda_prev <= 1'b1;
-        end else begin
+        end else if (ce) begin
             scl_s1 <= scl_pin;  scl_s2 <= scl_s1;
             sda_s1 <= sda_pin;  sda_s2 <= sda_s1;
             if (scl_s1 == scl_s2) scl_f <= scl_s2;
@@ -202,9 +206,11 @@ module axioma_twi (
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)                     libre_q <= 15'd0;
-        else if (start_det)             libre_q <= 15'h7FFF;   // bus tomado
-        else if (!scl_hi || !sda_f)    libre_q <= semiper;    // alguien tira
-        else if (!bus_libre)            libre_q <= libre_q - 15'd1;
+        else if (ce) begin
+            if      (start_det)          libre_q <= 15'h7FFF;   // bus tomado
+            else if (!scl_hi || !sda_f)  libre_q <= semiper;    // alguien tira
+            else if (!bus_libre)         libre_q <= libre_q - 15'd1;
+        end
     end
 
     // --------------------------------------------------- maquina de estados
@@ -341,7 +347,7 @@ module axioma_twi (
             dirigido_q <= 1'b0; gencall_q <= 1'b0; addr_fase_q <= 1'b0;
             ack_rx_q <= 1'b1; ack_tx_q <= 1'b0; perdido_q <= 1'b0;
             div_q <= 15'd0;
-        end else begin
+        end else if (ce) begin
             // ---------------------------------------------------- temporizador
             if (!div_fin) div_q <= div_q - 15'd1;
 

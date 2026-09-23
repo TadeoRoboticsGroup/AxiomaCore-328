@@ -70,6 +70,10 @@ module axioma_timer1 (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     input  wire [7:0] io_addr,
     input  wire       io_re,
     input  wire       io_we,
@@ -288,7 +292,7 @@ module axioma_timer1 (
             temp <= 8'h00;
             t1_sync <= 3'b000;
             icp_sync <= 4'b0000; icp_limpio <= 1'b0; icp_prev <= 1'b0;
-        end else begin
+        end else if (ce) begin
             t1_sync  <= {t1_sync[1:0], t1_pin};
             icp_sync <= {icp_sync[2:0], icp1_pin};
             if (cuatro_altas) icp_limpio <= 1'b1;

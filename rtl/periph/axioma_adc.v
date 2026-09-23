@@ -87,6 +87,10 @@ module axioma_adc (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -172,9 +176,11 @@ module axioma_adc (
     // duracion medida saldria distinta cada vez.
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)          presc <= 7'd1;
-        else if (!aden)      presc <= medio_div;
-        else if (medio_tick) presc <= medio_div;
-        else                 presc <= presc - 7'd1;
+        else if (ce) begin
+            if      (!aden)      presc <= medio_div;
+            else if (medio_tick) presc <= medio_div;
+            else                 presc <= presc - 7'd1;
+        end
     end
 
     // ------------------------------------------------- el secuenciador
@@ -222,7 +228,7 @@ module axioma_adc (
         if (!rst_n) begin
             conv <= 1'b0;  mitad <= 6'd0;  sar_q <= 10'd0;  peso <= 4'd9;
             primera <= 1'b1;  mues_q <= 1'b0;  dato <= 10'd0;  cerrojo <= 1'b0;
-        end else begin
+        end else if (ce) begin
             mues_q <= 1'b0;
 
             // Apagar el ADC aborta lo que hubiera y rearma la conversion larga.
@@ -302,8 +308,8 @@ module axioma_adc (
 
     reg  trig_q;
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) trig_q <= 1'b0;
-        else        trig_q <= trig_sel;
+        if (!rst_n)  trig_q <= 1'b0;
+        else if (ce) trig_q <= trig_sel;
     end
 
     // EL FLANCO DE SUBIDA, no el nivel. Y como lo que se vigila es la SALIDA del
@@ -320,7 +326,7 @@ module axioma_adc (
             aden <= 1'b0;  adsc <= 1'b0;  adate <= 1'b0;  adif <= 1'b0;
             adie <= 1'b0;  adps <= 3'd0;  acme <= 1'b0;   adts <= 3'd0;
             refs <= 2'd0;  adlar <= 1'b0; mux <= 4'd0;    didr <= 6'd0;
-        end else begin
+        end else if (ce) begin
             if (io_we && hit_sra) begin
                 aden  <= io_wdata[7];
                 // ADSC se pone escribiendo un uno; escribir un cero NO lo para.

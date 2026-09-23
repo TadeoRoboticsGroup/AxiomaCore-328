@@ -115,23 +115,24 @@ CATALOG = [
 ("sreg", SREG, "sim-sreg", "BSET/BCLR escribe el valor invertido",
  "q[bit_num] <= bit_val;", "q[bit_num] <= ~bit_val;"),
 ("sreg", SREG, "sim-sreg", "la entrada a ISR no limpia I",
- "end else if (irq_enter) begin\n            q[SREG_I] <= 1'b0;",
- "end else if (irq_enter) begin\n            q[SREG_I] <= 1'b1;"),
+ "end else if (ce && irq_enter) begin\n            q[SREG_I] <= 1'b0;",
+ "end else if (ce && irq_enter) begin\n            q[SREG_I] <= 1'b1;"),
 ("sreg", SREG, "sim-sreg", "RETI no pone I",
- "end else if (irq_return) begin\n            q[SREG_I] <= 1'b1;",
- "end else if (irq_return) begin\n            q[SREG_I] <= 1'b0;"),
+ "end else if (ce && irq_return) begin\n            q[SREG_I] <= 1'b1;",
+ "end else if (ce && irq_return) begin\n            q[SREG_I] <= 1'b0;"),
 ("sreg", SREG, "sim-sreg", "BST escribe en el bit equivocado",
  "q[SREG_T] <= t_val;", "q[SREG_C] <= t_val;"),
 ("sreg", SREG, "sim-sreg", "la escritura directa ignora los bits altos",
  "q <= wr_data;", "q <= {4'b0, wr_data[3:0]};"),
 ("sreg", SREG, "sim-sreg", "prioridad: la ALU gana a la entrada a ISR",
- "end else if (irq_enter) begin", "end else if (irq_enter && !alu_we) begin"),
+ "end else if (ce && irq_enter) begin", "end else if (ce && irq_enter && !alu_we) begin"),
 ("sreg", SREG, "sim-sreg", "prioridad: BSET gana a la escritura directa",
- "end else if (wr_en) begin", "end else if (wr_en && !bit_en) begin"),
+ "end else if (ce && wr_en) begin", "end else if (ce && wr_en && !bit_en) begin"),
 ("sreg", SREG, "sim-sreg", "prioridad: BST gana a BSET/BCLR",
- "end else if (bit_en) begin", "end else if (bit_en && !t_en) begin"),
+ "end else if (ce && bit_en) begin", "end else if (ce && bit_en && !t_en) begin"),
 ("sreg", SREG, "sim-sreg", "RETI gana a la entrada a ISR",
- "        end else if (irq_enter) begin", "        end else if (irq_enter && !irq_return) begin"),
+ "        end else if (ce && irq_enter) begin",
+ "        end else if (ce && irq_enter && !irq_return) begin"),
 
 # ------------------------------------------------------------ regfile
 ("regfile", REGFILE, "sim-regfile", "prioridad de escritura invertida",
@@ -164,7 +165,7 @@ CATALOG = [
 ("mem", DMEM, "sim-mem", "dmem: se pierde el bit alto de la dirección",
  "mem[addr] <= wdata;", "mem[addr & 11'h3FF] <= wdata;"),
 ("mem", DMEM, "sim-mem", "dmem: en=0 no congela la salida",
- "        if (en) begin", "        if (1'b1) begin"),
+ "        if (ce && en) begin", "        if (ce) begin"),
 ("mem", PROGMEM, "sim-mem", "progmem: la búsqueda lee una dirección de más",
  "if_data <= mem[if_addr];", "if_data <= mem[if_addr + 1'b1];"),
 ("mem", PROGMEM, "sim-mem", "progmem: la escritura por SPM no persiste",
@@ -447,8 +448,8 @@ CATALOG = [
  """        else if (brg_tick)   brg <= ubrr;""",
  """        else if (brg_tick)   brg <= ubrr - 12'd1;"""),
 ("usart", USART, "sim-usart", "escribir UBRR0L ya no recarga el prescaler",
- """        else if (carga_brr)  brg <= {ubrr[11:8], io_wdata};""",
- """        else if (1'b0)       brg <= {ubrr[11:8], io_wdata};"""),
+ """            if      (carga_brr)  brg <= {ubrr[11:8], io_wdata};""",
+ """            if      (1'b0)       brg <= {ubrr[11:8], io_wdata};"""),
 ("usart", USART, "sim-usart", "la paridad impar arranca en cero",
  """                        tx_par      <= par_odd;      // impar arranca en 1""",
  """                        tx_par      <= 1'b0;"""),
@@ -570,8 +571,8 @@ CATALOG = [
             3'd6:    ck = tk_256;
             default: ck = tk_1024;"""),
 ("timer2", TIMER2, "sim-timer2", "PSRASY no pone a cero el prescaler del Timer2",
- """        else if (presc_reset) pcnt <= 10'd0;""",
- """        else if (1'b0)        pcnt <= 10'd0;"""),
+ """            if      (presc_reset) pcnt <= 10'd0;""",
+ """            if      (1'b0)        pcnt <= 10'd0;"""),
 ("timer2", TIMER2, "sim-timer2", "el modo asincrono sigue contando el reloj del sistema",
  """    wire src = as2_q ? tosc_rise : 1'b1;""",
  """    wire src = 1'b1;"""),
@@ -917,8 +918,8 @@ CATALOG = [
  "    wire arranca = io_we && hit_cr && io_wdata[1] && abierta && !eepe;",
  "    wire arranca = io_we && hit_cr && io_wdata[1] && !eepe;"),
 ("eeprom", EEP, "sim-eeprom", "la ventana de EEMPE dura ocho ciclos",
- "        else if (io_we && hit_cr && io_wdata[2]) ventana <= 3'd4;",
- "        else if (io_we && hit_cr && io_wdata[2]) ventana <= 3'd7;"),
+ "        else if (ce && io_we && hit_cr && io_wdata[2])  ventana <= 3'd4;",
+ "        else if (ce && io_we && hit_cr && io_wdata[2])  ventana <= 3'd7;"),
 ("eeprom", EEP, "sim-eeprom", "una grabacion en marcha no bloquea la siguiente",
  "    wire arranca = io_we && hit_cr && io_wdata[1] && abierta && !eepe;",
  "    wire arranca = io_we && hit_cr && io_wdata[1] && abierta;"),
@@ -966,11 +967,11 @@ CATALOG = [
  "                if (abierta && !io_wdata[4]) begin",
  "                if (1'b1) begin"),
 ("wdt", WDT, "sim-wdt", "la ventana de WDCE no se cierra nunca",
- "        else if (abierta)    ventana <= ventana - 3'd1;",
- "        else if (abierta)    ventana <= ventana;"),
+ "        else if (ce && abierta)   ventana <= ventana - 3'd1;",
+ "        else if (ce && abierta)   ventana <= ventana;"),
 ("wdt", WDT, "sim-wdt", "la ventana dura ocho ciclos en vez de cuatro",
- "        else if (abre)       ventana <= 3'd4;",
- "        else if (abre)       ventana <= 3'd7;"),
+ "        else if (ce && abre)      ventana <= 3'd4;",
+ "        else if (ce && abre)      ventana <= 3'd7;"),
 ("wdt", WDT, "sim-wdt", "WDP3 se lee en el bit 3, con el registro ordenado",
  "    assign io_rdata = hit ? {wdif, wdie, wdp[3], wdce, wde, wdp[2:0]} : 8'h00;",
  "    assign io_rdata = hit ? {wdif, wdie, 1'b0, wdce, wde, wdp[2:0]} : 8'h00;"),
@@ -1000,8 +1001,8 @@ CATALOG = [
 
 # ======================================================= comparador analogico
 ("ac", AC, "sim-ac", "ACO no se sincroniza: el registro ve el comparador crudo",
- "        else        aco_sync <= {aco_sync[0], ac_salida};",
- "        else        aco_sync <= {ac_salida, ac_salida};"),
+ "        else if (ce) aco_sync <= {aco_sync[0], ac_salida};",
+ "        else if (ce) aco_sync <= {ac_salida, ac_salida};"),
 ("ac", AC, "sim-ac", "ACIS ignora el modo: siempre interrumpen los dos flancos",
  """    wire dispara = (acis == 2'b10) ? baja :
                    (acis == 2'b11) ? sube : (sube | baja);""",
@@ -1252,6 +1253,45 @@ CATALOG = [
 ("clkctrl", CLKC, "sim-clkctrl", "IVSEL se escribe sin su ventana",
  "                if (cierra_ivce) ivsel_q <= io_wdata[1];",
  "                ivsel_q <= io_wdata[1];"),
+
+# --- QUE LA HABILITACION LLEGUE ---
+# Estos mutantes existen por un agujero que la conversion a habilitacion de
+# reloj abre a proposito: con CLKPS=0 el chip es bit a bit el de antes, asi que
+# un modulo al que se le OLVIDE la habilitacion pasa su banco, pasa lint, pasa
+# sintesis y pasa el diferencial. Solo lo ve `sim-clk`, que baja el reloj de
+# verdad y mide por el pin.
+("clkctrl", SOC, "sim-clk", "el nucleo se queda sin habilitacion",
+ "    axioma_core core (\n        .clk(clk), .rst_n(rst_n), .ce(ce_cpu),",
+ "    axioma_core core (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
+("clkctrl", SOC, "sim-clk", "el prescaler compartido se queda sin habilitacion",
+ "    axioma_prescaler presc (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io),",
+ "    axioma_prescaler presc (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
+("clkctrl", SOC, "sim-clk", "el Timer0 se queda sin habilitacion",
+ "    axioma_timer0 timer0 (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io),",
+ "    axioma_timer0 timer0 (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
+("clkctrl", SOC, "sim-clk", "la USART se queda sin habilitacion",
+ "    axioma_usart usart (\n        .clk(clk), .rst_n(rst_n), .ce(ce_io),",
+ "    axioma_usart usart (\n        .clk(clk), .rst_n(rst_n), .ce(1'b1),"),
+("clkctrl", USART, "sim-clk", "el generador de baudios no se divide",
+ "            if      (carga_brr)  brg <= {ubrr[11:8], io_wdata};\n"
+ "            else if (brg_tick)   brg <= ubrr;\n"
+ "            else                 brg <= brg - 12'd1;\n"
+ "        end",
+ "            if      (carga_brr)  brg <= {ubrr[11:8], io_wdata};\n"
+ "        end\n"
+ "        else if (brg_tick)   brg <= ubrr;\n"
+ "        else                 brg <= brg - 12'd1;"),
+("clkctrl", SOC, "sim-clk", "el oscilador del perro guardian tambien se divide",
+ "        .osc_tick(osc_rc_tick),\n"
+ "        .wdr(core_wdr),",
+ "        .osc_tick(osc_rc_tick & ce_io),\n"
+ "        .wdr(core_wdr),"),
+# La cualificacion de `io_we` con `ce_cpu` NO tiene mutante todavia, y esta
+# dicho aqui para que no parezca un olvido: con el prescaler puesto da igual
+# -el periferico muestrea en el mismo pulso, asi que ve la escritura una sola
+# vez de las dos maneras-. Lo que la hace necesaria es el sueño `Idle`, donde
+# el nucleo se para Y LOS PERIFERICOS SIGUEN y una escritura congelada se
+# aplicaria una vez por ciclo de periferico. El mutante entra con el sueño.
 ]
 
 GREEN, RED, YELLOW, DIM, NC = "\033[0;32m", "\033[0;31m", "\033[0;33m", "\033[2m", "\033[0m"

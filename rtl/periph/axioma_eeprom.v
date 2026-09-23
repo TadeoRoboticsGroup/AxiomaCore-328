@@ -39,6 +39,14 @@
 // interno, igual que el del perro guardian, y por eso entra de fuera como un
 // pulso: 3,4 ms son 435 ciclos de 128 kHz, y 1,8 ms son 230.
 //
+// LA TEMPORIZACION DE LA ESCRITURA NO SE GATEA CON `ce`, por lo mismo que la
+// cuenta del perro guardian: los 3,4 ms los cuenta el oscilador, no el reloj
+// del sistema. Una escritura empezada antes de dormirse TIENE que terminar
+// -son milisegundos, y el chip se duerme justo para esperarlos-, y con
+// `EE_READY` habilitada eso es ademas lo que despierta. Lo que si se gatea es
+// la ventana de `EEMPE` y las escrituras de registro, que son accesos del
+// programa.
+//
 // `EE_READY` NO ES UNA BANDERA, ES UN NIVEL, y es de las pocas interrupciones
 // del chip que funcionan asi: «the interrupt is constantly triggered when EEPE
 // is cleared». No hay nada que limpiar — la ISR tiene que quitar `EERIE` o
@@ -56,6 +64,10 @@ module axioma_eeprom #(
 )(
     input  wire       clk,
     input  wire       rst_n,
+
+    // La habilitacion de reloj (ADR 0003). Como en el perro guardian, aqui NO
+    // lo gatea todo: la temporizacion de la escritura corre con el oscilador.
+    input  wire       ce,
 
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
@@ -97,9 +109,9 @@ module axioma_eeprom #(
     wire      abierta = (ventana != 3'd0);
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n)                          ventana <= 3'd0;
-        else if (io_we && hit_cr && io_wdata[2]) ventana <= 3'd4;
-        else if (abierta)                    ventana <= ventana - 3'd1;
+        if (!rst_n)                                    ventana <= 3'd0;
+        else if (ce && io_we && hit_cr && io_wdata[2])  ventana <= 3'd4;
+        else if (ce && abierta)                         ventana <= ventana - 3'd1;
     end
 
     // --------------------------------------------------- la memoria
@@ -174,7 +186,7 @@ module axioma_eeprom #(
         if (!rst_n) begin
             eepm <= 2'b00; eerie <= 1'b0; eempe <= 1'b0;
             eear <= 10'd0; eedr <= 8'h00;
-        end else begin
+        end else if (ce) begin
             // EEMPE lo lleva la ventana, no el programa.
             eempe <= (io_we && hit_cr && io_wdata[2]) ||
                      (abierta && ventana != 3'd1);

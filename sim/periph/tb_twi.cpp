@@ -407,6 +407,7 @@ static void reset_dut() {
     mm_reposo();
     esclavo = EsclavoI2C();
     dut->rst_n = 0; dut->io_we = 0; dut->io_re = 0; dut->io_addr = 0;
+    dut->ce = 1;   // a reloj entero: la habilitacion es cosa de CLKPR (ADR 0003)
     for (int i = 0; i < 4; i++) tick();
     dut->rst_n = 1;
     for (int i = 0; i < 4; i++) tick();

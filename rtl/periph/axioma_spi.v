@@ -78,6 +78,10 @@ module axioma_spi (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -172,7 +176,7 @@ module axioma_spi (
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             sck_s  <= 3'b000;  ss_s <= 3'b111;  mosi_s <= 3'b000;
-        end else begin
+        end else if (ce) begin
             sck_s  <= {sck_s[1:0],  sck_pin};
             ss_s   <= {ss_s[1:0],   ss_pin};
             mosi_s <= {mosi_s[1:0], mosi_pin};
@@ -254,7 +258,7 @@ module axioma_spi (
             bitcnt_q <= 3'd0; busy_q <= 1'b0; cerrando_q <= 1'b0;
             div_q <= 7'd0;  sck_q <= 1'b0;
             spsr_leido <= 1'b0;
-        end else begin
+        end else if (ce) begin
             // ---------------- escrituras de control ----------------
             if (io_we && hit_spcr) begin
                 spie_q <= io_wdata[7];

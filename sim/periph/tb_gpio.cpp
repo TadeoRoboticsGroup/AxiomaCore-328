@@ -99,6 +99,9 @@ int main(int argc, char **argv) {
     const uint8_t mascara_original = BITS;
 
     dut->rst_n = 0; dut->clk = 0;
+    // A reloj entero: la habilitacion la gobierna CLKPR y eso se comprueba en
+    // su propio banco. Aqui vale 1 siempre, que es el caso por defecto del chip.
+    dut->ce = 1;
     dut->io_addr = 0; dut->io_re = 0; dut->io_we = 0; dut->io_wdata = 0;
     dut->pad_in = 0; dut->ovr_en = 0; dut->ovr_val = 0;
     dut->dir_ovr_en = 0; dut->dir_ovr_val = 0; dut->eval();

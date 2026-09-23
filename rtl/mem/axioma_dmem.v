@@ -19,6 +19,11 @@ module axioma_dmem #(
     parameter integer BYTES = 2048
 )(
     input  wire        clk,
+    // La habilitacion de reloj (ADR 0003). OJO: este modulo registra en el
+    // FLANCO DE BAJADA (ADR 0001), y `ce` se muestrea igual — vale durante
+    // todo el ciclo de sistema, asi que el flanco de bajada de ese ciclo la
+    // ve alta. No hay que cruzar nada.
+    input  wire        ce,
     input  wire [10:0] addr,
     input  wire        en,
     input  wire        we,
@@ -41,7 +46,7 @@ module axioma_dmem #(
     // Coste: el camino de memoria dispone de media década de reloj.
     // Ver docs/adr/0001-memorias-en-flanco-de-bajada.md
     always @(negedge clk) begin
-        if (en) begin
+        if (ce && en) begin
             if (we) begin
                 mem[addr] <= wdata;
                 rdata     <= wdata;         // lectura-tras-escritura coherente

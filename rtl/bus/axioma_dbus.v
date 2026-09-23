@@ -32,6 +32,11 @@
 
 module axioma_dbus (
     input  wire        clk,
+    // La habilitacion de reloj (ADR 0003). OJO: este modulo registra en el
+    // FLANCO DE BAJADA (ADR 0001), y `ce` se muestrea igual — vale durante
+    // todo el ciclo de sistema, asi que el flanco de bajada de ese ciclo la
+    // ve alta. No hay que cruzar nada.
+    input  wire        ce,
     input  wire        rst_n,
 
     // ------------------------------------------------ lado del núcleo
@@ -119,7 +124,7 @@ module axioma_dbus (
             hit_io_q   <= 1'b0;
             hit_sram_q <= 1'b0;
             io_rdata_q <= 8'h00;
-        end else if (re) begin
+        end else if (ce && re) begin
             hit_io_q   <= hit_io;
             hit_sram_q <= hit_sram;
             io_rdata_q <= (hit_io && io_sel) ? io_rdata : 8'h00;

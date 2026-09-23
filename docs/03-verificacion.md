@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 272
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 294
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -406,6 +406,35 @@ interna. Comprueba tres cosas:
    existe; una de más, un registro que responde donde no debe;
 3. **que los huecos se lean como `0x00`** — una dirección reservada del 328P no es RAM.
 
+### El agujero que abre una conversión segura
+
+Pasar el chip entero a habilitación de reloj (ADR 0003) es seguro **porque con
+`CLKPS`=0 la habilitación vale uno siempre y el dispositivo queda bit a bit como estaba**: los
+treinta y seis objetivos de la regresión siguen pasando sin tocar una línea, y si un módulo se
+convierte mal lo dice su propio banco.
+
+Y eso mismo significa que **nadie comprueba la habilitación**. Un módulo al que se le olvide —o un
+`.ce()` que el SoC no cablee— pasa su banco, pasa lint, pasa síntesis y pasa el diferencial, porque
+todos corren a reloj entero. El fallo sólo aparece el día que un programa baja el reloj para
+ahorrar corriente, y aparece como un baudio que no cuadra.
+
+`make sim-clk` lo cierra **midiendo por fuera, con programas de verdad**, y con cuatro patas
+porque cada una recorre un camino distinto:
+
+1. **un bucle que mueve un pin** — el núcleo, el bus y el puerto de E/S;
+2. **`OC0A` en modo CTC, con dos tomas del prescaler** — la base de tiempo de un periférico. Las dos
+   tomas no son redundancia: con `CS`=001 el reloj del temporizador sale directo de `clk_I/O` y **no
+   pasa por el contador de diez bits compartido**, así que esa medida sola deja el contador sin
+   comprobar. Se quitó su habilitación a mano y la medida seguía pasando;
+3. **el ancho del bit de arranque de la USART** — que es el ejemplo que motiva el ADR. Al convertir
+   el chip, el generador de baudios se quedó sin gatear y **ningún otro banco lo notó**;
+4. **el intervalo entre dos mordiscos del perro guardián** — que tiene que salir **igual** con
+   cualquier `CLKPS`, porque su cuenta corre con otro reloj.
+
+La cuarta pata nació de un mutante superviviente, y la lección es la de siempre: la primera versión
+contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
+igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
+
 ### El mismo agujero, otra vez: los cables entre periféricos
 
 El mapa de direcciones no es lo único que vive en el SoC y no en ningún módulo. **Las fuentes del
@@ -437,7 +466,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 44 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 46 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -457,7 +486,7 @@ tocar al añadir un periférico, y lo destapó esta puerta al bajar de 99,6 % a 
 | Las tres interrupciones de la USART | Los vectores 18, 19 y 20 nunca dispararon. El cableado de vectores es justo donde apareció el primer fallo del Timer0 |
 | `sreg_wr_en` / `sreg_wr_data` | **Lógica muerta**: dos puertos y una puerta OR que no podían activarse nunca. Eliminados |
 
-Hoy está en **99,5 %** —3 022 de 3 036 puntos—, con **21 de 26 módulos al 100 %**. Los catorce
+Hoy está en **99,6 %** —3 158 de 3 171 puntos—, con **22 de 27 módulos al 100 %**. Los catorce
 puntos que faltan **no son alcanzables** y están adjudicados uno a uno:
 
 | Módulo | Puntos | Qué son |
@@ -514,7 +543,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 272 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 294 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

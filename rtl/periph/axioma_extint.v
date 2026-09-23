@@ -57,6 +57,10 @@ module axioma_extint (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -138,7 +142,7 @@ module axioma_extint (
         if (!rst_n) begin
             syn_b <= 8'h00;  syn_c <= 8'h00;  syn_d <= 8'h00;
             prv_b <= 8'h00;  prv_c <= 8'h00;  prv_d <= 8'h00;
-        end else begin
+        end else if (ce) begin
             syn_b <= pin_b;  syn_c <= pin_c;  syn_d <= pin_d;
             prv_b <= syn_b;  prv_c <= syn_c;  prv_d <= syn_d;
         end
@@ -181,7 +185,7 @@ module axioma_extint (
             pcmsk0_q <= 8'h00;
             pcmsk1_q <= 8'h00;
             pcmsk2_q <= 8'h00;
-        end else begin
+        end else if (ce) begin
             if (io_we) begin
                 if (hit_eicra)  eicra_q  <= io_wdata[3:0];
                 if (hit_eimsk)  eimsk_q  <= io_wdata[1:0];

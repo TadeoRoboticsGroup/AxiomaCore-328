@@ -29,6 +29,10 @@ module axioma_sreg (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire        ce,
+
     input  wire       alu_we,        // la ALU escribe
     input  wire [7:0] alu_value,     // valores nuevos de los flags
     input  wire [7:0] alu_mask,      // qué bits escribe
@@ -54,20 +58,24 @@ module axioma_sreg (
     reg [7:0] q;
     assign sreg = q;
 
+    // `ce` va en CADA condicion y no envolviendo la cadena: es equivalente
+    // -la cadena no tiene `else` final, asi que con `ce` a cero no se toma
+    // ninguna rama- y deja la prioridad a la vista, que es lo que de verdad
+    // hay que poder leer aqui.
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             q <= 8'h00;
-        end else if (irq_enter) begin
+        end else if (ce && irq_enter) begin
             q[SREG_I] <= 1'b0;
-        end else if (irq_return) begin
+        end else if (ce && irq_return) begin
             q[SREG_I] <= 1'b1;
-        end else if (wr_en) begin
+        end else if (ce && wr_en) begin
             q <= wr_data;
-        end else if (bit_en) begin
+        end else if (ce && bit_en) begin
             q[bit_num] <= bit_val;
-        end else if (t_en) begin
+        end else if (ce && t_en) begin
             q[SREG_T] <= t_val;
-        end else if (alu_we) begin
+        end else if (ce && alu_we) begin
             q <= (q & ~alu_mask) | (alu_value & alu_mask);
         end
     end

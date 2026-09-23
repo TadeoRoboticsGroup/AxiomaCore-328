@@ -294,6 +294,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-clkctrl
 
+      - name: El prescaler del reloj, medido en el pin
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-clk
+
       - name: Disparo automatico del ADC, las siete fuentes
         run: |
           source ~/eda/oss-cad-suite/environment

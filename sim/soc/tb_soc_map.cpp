@@ -93,6 +93,11 @@ static const Esperado MAPA[] = {
     {0x21, "eeprom", "EEARL"},  {0x22, "eeprom", "EEARH"},
     {0x40, "wdt",    "WDTCSR"},
     {0x30, "ac",     "ACSR"},   {0x5F, "ac",     "DIDR1"},
+    // El control de reloj, que no esta junto en el mapa: `SMCR`, `MCUSR` y
+    // `MCUCR` viven entre los registros del nucleo y `CLKPR` y `PRR` arriba.
+    {0x33, "clkctrl","SMCR"},   {0x34, "clkctrl","MCUSR"},
+    {0x35, "clkctrl","MCUCR"},  {0x41, "clkctrl","CLKPR"},
+    {0x44, "clkctrl","PRR"},
     {0x58, "adc",    "ADCL"},   {0x59, "adc",    "ADCH"},   {0x5A, "adc", "ADCSRA"},
     {0x5B, "adc",    "ADCSRB"}, {0x5C, "adc",    "ADMUX"},  {0x5E, "adc", "DIDR0"},
 };
@@ -150,6 +155,7 @@ int main(int argc, char **argv) {
                 {"adc",    dut->sel_adc},   {"ac",     dut->sel_ac},
                 {"wdt",    dut->sel_wdt},
                 {"eeprom", dut->sel_eeprom},
+                {"clkctrl",dut->sel_clkctrl},
             };
             int n = 0;
             for (auto &q : quien)

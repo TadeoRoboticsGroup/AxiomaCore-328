@@ -45,6 +45,10 @@ module axioma_prescaler (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -97,7 +101,7 @@ module axioma_prescaler (
             tsm_q     <= 1'b0;
             psrasy_q  <= 1'b0;
             psrsync_q <= 1'b0;
-        end else begin
+        end else if (ce) begin
             if (io_we && hit) begin
                 // «This bit is normally cleared immediately by hardware,
                 // except if the TSM bit is set»: sin TSM, escribir PSRSYNC

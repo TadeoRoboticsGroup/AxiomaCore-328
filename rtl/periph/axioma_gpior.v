@@ -26,6 +26,10 @@ module axioma_gpior (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     input  wire [7:0] io_addr,
     input  wire       io_re,
     input  wire       io_we,
@@ -53,7 +57,7 @@ module axioma_gpior (
             r0 <= 8'h00;
             r1 <= 8'h00;
             r2 <= 8'h00;
-        end else if (io_we) begin
+        end else if (ce && io_we) begin
             if (hit0) r0 <= io_wdata;
             if (hit1) r1 <= io_wdata;
             if (hit2) r2 <= io_wdata;

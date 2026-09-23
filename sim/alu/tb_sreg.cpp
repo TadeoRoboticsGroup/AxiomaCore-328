@@ -34,7 +34,8 @@ static void check(const std::string &what, int expect) {
 }
 
 static void reset() {
-    idle(); dut->rst_n = 0; tick(); tick(); dut->rst_n = 1;
+    idle(); dut->ce = 1;   // a reloj entero: la habilitacion es cosa de CLKPR (ADR 0003)
+    dut->rst_n = 0; tick(); tick(); dut->rst_n = 1;
 }
 
 // Escribe los 8 bits del SREG de golpe (equivale a OUT SREG,Rr)

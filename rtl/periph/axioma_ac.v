@@ -46,6 +46,10 @@ module axioma_ac (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -103,8 +107,8 @@ module axioma_ac (
     wire      aco = aco_sync[1] & ~acd;
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) aco_sync <= 2'b00;
-        else        aco_sync <= {aco_sync[0], ac_salida};
+        if (!rst_n)  aco_sync <= 2'b00;
+        else if (ce) aco_sync <= {aco_sync[0], ac_salida};
     end
 
     // ------------------------------------------------- deteccion de flanco
@@ -121,7 +125,7 @@ module axioma_ac (
         if (!rst_n) begin
             aco_q <= 1'b0;
             aci   <= 1'b0;
-        end else begin
+        end else if (ce) begin
             aco_q <= aco;
             // El hardware manda sobre la bandera y va DESPUES de la escritura:
             // si el programa la limpia en el mismo ciclo en que llega el
@@ -155,7 +159,7 @@ module axioma_ac (
         if (!rst_n) begin
             acd <= 1'b0;  acbg <= 1'b0;  acie <= 1'b0;  acic <= 1'b0;
             acis <= 2'b00; didr1 <= 2'b00;
-        end else begin
+        end else if (ce) begin
             if (io_we && hit_acsr) begin
                 acd  <= io_wdata[7];
                 acbg <= io_wdata[6];

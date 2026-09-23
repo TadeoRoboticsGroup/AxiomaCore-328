@@ -62,6 +62,8 @@ int main(int argc, char **argv) {
     dut = new Vaxioma_ac;
 
     dut->rst_n = 0; dut->clk = 0;
+
+    dut->ce = 1;   // a reloj entero: la habilitacion es cosa de CLKPR (ADR 0003)
     dut->io_addr = 0; dut->io_re = 0; dut->io_we = 0; dut->io_wdata = 0;
     dut->ac_salida = 0; dut->adc_acme = 0; dut->adc_encendido = 0;
     dut->ack_ac = 0;

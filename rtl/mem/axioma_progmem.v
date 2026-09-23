@@ -29,6 +29,9 @@ module axioma_progmem #(
 )(
     input  wire        clk,
 
+    // La habilitacion de reloj (ADR 0003): `clk_FLASH` va con `clk_CPU`.
+    input  wire        ce,
+
     input  wire [13:0] if_addr,
     input  wire        if_en,
     output reg  [15:0] if_data,
@@ -63,7 +66,7 @@ module axioma_progmem #(
     // dura 3 ciclos y va sobrado.
     //
     // Ver docs/adr/0001-memorias-en-flanco-de-bajada.md
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         if (if_en)
             if_data <= mem[if_addr];
         if (d_en) begin

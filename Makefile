@@ -429,7 +429,7 @@ SOC_SRCS := rtl/soc/axioma328_soc.v \
             rtl/periph/axioma_extint.v rtl/periph/axioma_spi.v \
             rtl/periph/axioma_twi.v rtl/periph/axioma_adc.v \
             rtl/periph/axioma_ac.v rtl/periph/axioma_wdt.v \
-            rtl/periph/axioma_eeprom.v \
+            rtl/periph/axioma_eeprom.v rtl/periph/axioma_clkctrl.v \
             rtl/fpga/axioma_adc_frente.v \
             rtl/periph/axioma_irq.v
 
@@ -449,6 +449,15 @@ sim-clkctrl:
 	  rtl/periph/axioma_clkctrl.v sim/periph/tb_clkctrl.cpp >/dev/null
 	@echo -e "$(BOLD)Control de reloj contra la hoja de datos$(NC)"
 	@./$(BUILD)/vclk/tb_clkctrl
+
+# --- que la habilitacion de reloj LLEGUE, medido por fuera ---
+.PHONY: sim-clk
+sim-clk:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vclks -o tb_soc_clk --top-module tb_soc_clk_top \
+	  sim/soc/tb_soc_clk_top.v $(SOC_SRCS) sim/soc/tb_soc_clk.cpp >/dev/null
+	@echo -e "$(BOLD)El prescaler del reloj, medido en el pin$(NC)"
+	@./$(BUILD)/vclks/tb_soc_clk
 
 # --- el disparo automatico del ADC, fuente por fuente ---
 .PHONY: sim-trig
@@ -598,7 +607,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-trig sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-trig sim-clk sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

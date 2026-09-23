@@ -41,6 +41,10 @@ module axioma_timer0 (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -116,8 +120,8 @@ module axioma_timer0 (
     // temporización documentada del `nop`.
     reg [2:0] t0_sync;
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) t0_sync <= 3'b000;
-        else        t0_sync <= {t0_sync[1:0], t0_pin};
+        if (!rst_n)  t0_sync <= 3'b000;
+        else if (ce) t0_sync <= {t0_sync[1:0], t0_pin};
     end
     wire t0_rise = (t0_sync[2:1] == 2'b01);
     wire t0_fall = (t0_sync[2:1] == 2'b10);
@@ -127,7 +131,7 @@ module axioma_timer0 (
     reg [2:0] cs_q;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)                     cs_q <= 3'h0;
-        else if (io_we && hit_tccrb)    cs_q <= io_wdata[2:0];
+        else if (ce && io_we && hit_tccrb) cs_q <= io_wdata[2:0];
     end
 
     reg ck;
@@ -151,7 +155,7 @@ module axioma_timer0 (
     wire [7:0] tcnt, ocra, ocrb;
 
     axioma_timer8 motor (
-        .clk(clk), .rst_n(rst_n), .ck(ck),
+        .clk(clk), .rst_n(rst_n), .ce(ce), .ck(ck),
         .wdata(io_wdata),
         .we_tccra(io_we & hit_tccra), .we_tccrb(io_we & hit_tccrb),
         .we_tcnt (io_we & hit_tcnt),  .we_ocra (io_we & hit_ocra),

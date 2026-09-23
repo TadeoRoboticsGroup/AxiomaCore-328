@@ -29,6 +29,10 @@ module axioma_core (
     input  wire        clk,
     input  wire        rst_n,
 
+    // La habilitacion de reloj (ADR 0003): `clk_CPU`. Se para en el sueño y se
+    // divide con `CLKPR`, y el nucleo entero cuelga de ella.
+    input  wire        ce,
+
     // Memoria de programa
     output wire [13:0] pm_if_addr,
     output wire        pm_if_en,
@@ -161,7 +165,7 @@ module axioma_core (
 
     // ------------------------------------------------------- instancias
     axioma_seq seq (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce),
         .pm_if_addr(pm_if_addr), .pm_if_en(pm_if_en), .pm_if_data(pm_if_data),
         .pm_d_addr(pm_d_addr), .pm_d_en(pm_d_en), .pm_d_we(pm_d_we),
         .pm_d_wdata(pm_d_wdata), .pm_d_rdata(pm_d_rdata),
@@ -200,7 +204,7 @@ module axioma_core (
     );
 
     axioma_sreg sregi (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce),
         .alu_we(sreg_alu_we_w), .alu_value(alu_sreg_out_w), .alu_mask(alu_sreg_mask_w),
         .wr_en(sreg_wr_final), .wr_data(sreg_wr_data_fin),
         .bit_en(sreg_bit_en_w), .bit_num(sreg_bit_num_w), .bit_val(sreg_bit_val_w),
@@ -210,7 +214,7 @@ module axioma_core (
     );
 
     axioma_regfile rf (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .ce(ce),
         .rd_addr(s_rf_rd_addr), .rr_addr(s_rf_rr_addr),
         .rd_data(rf_rd_data), .rr_data(rf_rr_data),
         .we(rf_we_final), .w_addr(rf_w_addr_fin), .w_data(rf_w_data_fin),

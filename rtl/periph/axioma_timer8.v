@@ -59,6 +59,10 @@ module axioma_timer8 (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // Un pulso de un ciclo cada vez que al temporizador le toca contar. Lo
     // produce el selector de reloj de cada temporizador.
     input  wire       ck,
@@ -199,7 +203,7 @@ module axioma_timer8 (
             tcnt_block <= 1'b0;
             oca_q      <= 1'b0;
             ocb_q      <= 1'b0;
-        end else begin
+        end else if (ce) begin
             // ---------------- contador ----------------
             if (ck) begin
                 tcnt_q     <= tcnt_next;

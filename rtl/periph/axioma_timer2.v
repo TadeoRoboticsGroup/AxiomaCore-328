@@ -71,6 +71,10 @@ module axioma_timer2 (
     input  wire       clk,
     input  wire       rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire       ce,
+
     // ---- interfaz común de periférico (docs/01-arquitectura.md §2) ----
     input  wire [7:0] io_addr,
     input  wire       io_re,
@@ -131,7 +135,7 @@ module axioma_timer2 (
         if (!rst_n) begin
             as2_q   <= 1'b0;
             exclk_q <= 1'b0;
-        end else if (io_we && hit_assr) begin
+        end else if (ce && io_we && hit_assr) begin
             exclk_q <= io_wdata[6];
             as2_q   <= io_wdata[5];
         end
@@ -143,8 +147,8 @@ module axioma_timer2 (
     // son sus flancos de subida en los dos casos.
     reg [2:0] tosc_sync;
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) tosc_sync <= 3'b000;
-        else        tosc_sync <= {tosc_sync[1:0], tosc};
+        if (!rst_n)  tosc_sync <= 3'b000;
+        else if (ce) tosc_sync <= {tosc_sync[1:0], tosc};
     end
     wire tosc_rise = (tosc_sync[2:1] == 2'b01);
 
@@ -157,8 +161,10 @@ module axioma_timer2 (
     reg [9:0] pcnt;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)           pcnt <= 10'd0;
-        else if (presc_reset) pcnt <= 10'd0;
-        else if (src)         pcnt <= pcnt + 10'd1;
+        else if (ce) begin
+            if      (presc_reset) pcnt <= 10'd0;
+            else if (src)         pcnt <= pcnt + 10'd1;
+        end
     end
 
     // Una toma da un pulso cuando los bits bajos están todos a uno, es decir
@@ -175,7 +181,7 @@ module axioma_timer2 (
     reg [2:0] cs_q;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)                  cs_q <= 3'h0;
-        else if (io_we && hit_tccrb) cs_q <= io_wdata[2:0];
+        else if (ce && io_we && hit_tccrb) cs_q <= io_wdata[2:0];
     end
 
     reg ck;
@@ -198,7 +204,7 @@ module axioma_timer2 (
     wire [7:0] tcnt, ocra, ocrb;
 
     axioma_timer8 motor (
-        .clk(clk), .rst_n(rst_n), .ck(ck),
+        .clk(clk), .rst_n(rst_n), .ce(ce), .ck(ck),
         .wdata(io_wdata),
         .we_tccra(io_we & hit_tccra), .we_tccrb(io_we & hit_tccrb),
         .we_tcnt (io_we & hit_tcnt),  .we_ocra (io_we & hit_ocra),

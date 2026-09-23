@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
     // pero no en el modelo. Fallo latente que solo aparece cuando la secuencia
     // aleatoria activa una escritura en el ciclo 0.
     dut->rst_n = 0; dut->we = 0; dut->we16 = 0; dut->ds_addr = 0;
+    dut->ce = 1;   // a reloj entero: la habilitacion es cosa de CLKPR (ADR 0003)
     dut->a16_pair = 0; dut->w16_pair = 0;
     dut->clk = 0; dut->eval(); dut->clk = 1; dut->eval();
     dut->clk = 0; dut->eval(); dut->clk = 1; dut->eval();

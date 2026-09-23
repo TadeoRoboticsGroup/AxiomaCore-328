@@ -38,6 +38,10 @@ module axioma_regfile (
     input  wire        clk,
     input  wire        rst_n,
 
+    // La habilitacion de reloj: un pulso por ciclo de sistema (ADR 0003).
+    // Con CLKPS=0 vale 1 siempre y este modulo se comporta como antes.
+    input  wire        ce,
+
     // Lecturas de 8 bits
     input  wire [4:0]  rd_addr,
     input  wire [4:0]  rr_addr,
@@ -79,7 +83,7 @@ module axioma_regfile (
         if (!rst_n) begin
             for (i = 0; i < 32; i = i + 1)
                 r[i] <= 8'h00;
-        end else begin
+        end else if (ce) begin
             if (we16) begin
                 r[{w16_pair, 1'b0}] <= w16_data[7:0];
                 r[{w16_pair, 1'b1}] <= w16_data[15:8];

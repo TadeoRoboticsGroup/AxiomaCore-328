@@ -459,6 +459,17 @@ sim-clk:
 	@echo -e "$(BOLD)El prescaler del reloj, medido en el pin$(NC)"
 	@./$(BUILD)/vclks/tb_soc_clk
 
+# --- el barrido de direcciones I2C, con un esclavo de verdad ---
+.PHONY: sim-i2c
+sim-i2c:
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -CFLAGS "-I$(CURDIR)/sim/periph" \
+	  -Mdir $(BUILD)/vi2c -o tb_soc_i2c \
+	  --top-module tb_soc_i2c_top \
+	  sim/soc/tb_soc_i2c_top.v $(SOC_SRCS) sim/soc/tb_soc_i2c.cpp >/dev/null
+	@echo -e "$(BOLD)Barrido de direcciones I2C$(NC)"
+	@./$(BUILD)/vi2c/tb_soc_i2c
+
 # --- que la base de tiempo no derive ---
 .PHONY: sim-micros
 sim-micros:
@@ -472,7 +483,7 @@ sim-micros:
 .PHONY: sim-bits
 sim-bits:
 	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
-	  $(INCDIRS) -Isim/soc -Mdir $(BUILD)/vbits -o tb_soc_bits --top-module tb_soc_top \
+	  $(INCDIRS) -Mdir $(BUILD)/vbits -o tb_soc_bits --top-module tb_soc_top \
 	  sim/soc/tb_soc_top.v $(SOC_SRCS) sim/soc/tb_soc_bits.cpp >/dev/null
 	@echo -e "$(BOLD)Barrido semantico: los bits reservados$(NC)"
 	@./$(BUILD)/vbits/tb_soc_bits
@@ -652,7 +663,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-bits sim-micros sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-bits sim-micros sim-i2c sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

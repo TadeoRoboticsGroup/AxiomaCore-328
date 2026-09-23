@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~9 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 315
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 317
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -452,6 +452,26 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### El barrido de direcciones I2C, con un esclavo de verdad
+
+La tercera cláusula del criterio de aceptación, y está bien elegida porque es la prueba que más
+cosas tiene que atravesar a la vez: el núcleo ejecutando un bucle con saltos condicionales y espera
+por bandera; el TWI generando START, dirección, ACK/NACK y STOP **ciento veintisiete veces
+seguidas** sin colgarse ni una; los códigos de estado de `TWSR` siendo los de la tabla **porque el
+programa decide con ellos**; y los pines como colector abierto de verdad, con el esclavo
+contestando al tirar de la línea que el maestro acaba de soltar.
+
+`make sim-i2c` usa **el mismo `EsclavoI2C`** que el banco del periférico —escrito desde la hoja de
+datos, sin una línea en común con el RTL—, y que sea el mismo importa: si el barrido usara otro,
+estaría probando el esclavo nuevo. Por eso el modelo vive ahora en `sim/periph/esclavo_i2c.h`.
+
+**Y la prueba no es «encuentra el esclavo».** Es **encuentra el esclavo y no encuentra nada más**:
+un TWI que contestara ACK a todo pasaría la primera mitad con nota. Las 126 direcciones vacías valen
+tanto como la que responde. Y hay una tercera pasada con el esclavo **mudo**, donde no puede
+aparecer ninguna: sin ella, un barrido que devolviera siempre `0x50` también pasaría.
+
+Medido: **127 direcciones en 48 533 ciclos, una sola contesta; con el esclavo mudo, ninguna.**
+
 ### `micros()` no deriva, y qué significa eso en un chip
 
 Es una de las tres cláusulas del criterio de aceptación de la fase 3, y conviene decir qué se
@@ -603,7 +623,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 51 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 52 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -680,7 +700,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **26 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **33 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 315 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 317 mutantes | Tarda ~9 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

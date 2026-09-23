@@ -81,8 +81,8 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   41/41 objetivos en verde
-mutación   315/315 fallos inyectados, 315 detectados
+regresión   42/42 objetivos en verde
+mutación   317/317 fallos inyectados, 317 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 27 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
@@ -116,10 +116,10 @@ cuenta se hace con esos pesos, no a ojo:
 | 0 · fundación | 1 | 100 % | 1,00 |
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
-| 3 · periféricos | 5 | 97 % — **los diez** dentro y el mapa barrido bit a bit; falta el criterio: `micros()` sin deriva y el scanner I2C | 4,85 |
+| 3 · periféricos | 5 | 98 % — todo hecho salvo el vector 25, que depende de la fase 4 | 4,90 |
 | 4 · Arduino | 3 | 0 % | 0,00 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **11,65** |
+| | **17** | | **11,70** |
 
 Salen **~68 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
 un 43 % y un 50 %, y **~46 %** tomando el punto medio. Es el presupuesto del propio plan, no una
@@ -130,10 +130,12 @@ bit**: 656 bits en 82 registros, 393 de almacenamiento, 134 con comportamiento p
 reservados, **ninguno sin clasificar**. De los 25 vectores de interrupción **sólo `SPM_READY` sigue
 sin fuente**, que es de la fase 4.
 
-Las **tareas** de la fase están hechas; su **criterio de aceptación**, casi. Son tres cláusulas:
-los 25 vectores —hoy 24, y el que falta depende de la fase 4—, que **`micros()` no derive**
-—demostrado: 200 y 800 periodos dan el mismo desvío de 13 ciclos, así que es latencia acotada y no
-deriva— y que el **scanner I2C detecte un esclavo real**, que sigue sin demostrar.
+El **criterio de aceptación** de la fase son tres cláusulas, y **dos están demostradas**:
+`micros()` **no deriva** —200 y 800 periodos dan el mismo desvío de 13 ciclos, así que es latencia
+acotada y no deriva— y el **scanner I2C encuentra un esclavo real y sólo a él** —127 direcciones
+barridas, una contesta; con el esclavo mudo, ninguna—. La tercera, los 25 vectores, está en 24: el
+que falta es `SPM_READY`, cuya fuente es el `SPM` por páginas de la **fase 4**. **No se puede
+cerrar antes**, y por eso la fase queda abierta.
 
 > Este README documenta el estado **medido**. Una versión anterior describía un diseño terminado
 > y listo para producción que no existía. La regla desde entonces es simple: si no hay un comando
@@ -222,14 +224,14 @@ Ya pasó con la cuenta de objetivos.
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 315 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 317 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 **Los treinta y tres objetivos deben pasar**, y tardan unos cinco minutos en un portátil —
 `synth-check` es casi todo, porque sintetiza los catorce módulos. La prueba de mutación va aparte:
 
 ```bash
-make mutation      # 315 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
+make mutation      # 317 fallos inyectados, ~10 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son

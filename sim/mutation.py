@@ -1414,6 +1414,19 @@ CATALOG = [
 # limpiarla es lo correcto y lo que hace el chip-, y el mutante no, porque un
 # mutante que nadie puede matar no mide nada. `sim-micros` demuestra una
 # clausula del criterio de aceptacion, que es otro trabajo y tambien vale.
+# --- el barrido de direcciones I2C ---
+# Lo que `sim-i2c` caza y no caza nadie mas es que los CODIGOS DE ESTADO sean
+# los de la tabla, porque el programa DECIDE con ellos. Cambiar 0x18 por 0x20 no
+# rompe ninguna forma de onda: rompe la respuesta a «hay alguien ahi».
+("twi", TWI, "sim-i2c", "ACK y NACK de SLA+W dan el codigo del otro",
+ "                            status_q <= mtx_q ? (ack_rx_q ? ST_MT_SLA_N : ST_MT_SLA_A)",
+ "                            status_q <= mtx_q ? (ack_rx_q ? ST_MT_SLA_A : ST_MT_SLA_N)"),
+# Aqui NO va un mutante del reconocimiento de direccion del esclavo: en este
+# banco el DUT es el MAESTRO y el esclavo es el modelo de C++, asi que esa logica
+# no se pisa. Se escribio, sobrevivio, y su sitio es `sim-twi`, donde ya lo hay.
+("twi", TWI, "sim-i2c", "el STOP no baja TWSTO: el programa se cuelga esperando",
+ "                    twsto_q   <= 1'b0;          // TWSTO se limpia solo al ejecutarlo",
+ "                    twsto_q   <= 1'b1;          // TWSTO se limpia solo al ejecutarlo"),
 ("adc", ADC, "sim-bits", "ADMUX devuelve su bit 4, que es reservado",
  "    wire [7:0] r_admux  = {refs, adlar, 1'b0, mux};",
  "    wire [7:0] r_admux  = {refs, adlar, mux[3], mux};"),

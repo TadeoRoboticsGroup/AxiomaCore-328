@@ -299,6 +299,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make sim-clk
 
+      - name: Barrido de direcciones I2C
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-i2c
+
       - name: La base de tiempo, que no derive
         run: |
           source ~/eda/oss-cad-suite/environment

@@ -1276,10 +1276,13 @@ correcta —hoy lo hacen 24—; `micros()` no deriva; el scanner I2C detecta un 
 >   que es latencia acotada y no deriva; un solo ciclo de deriva por periodo habría dado 800. Y con
 >   una ISR casi tan larga como el periodo, barriendo su longitud, no se pierde ninguno mientras
 >   quepa —cuando ya no cabe, un AVR de verdad también lo pierde—.
-> - **el scanner I2C detecta un esclavo real** — no demostrado a nivel de SoC. El banco del TWI
->   tiene un esclavo escrito desde la hoja de datos, pero el barrido de direcciones que hace un
->   sketch no se ha ejecutado sobre el chip.
+> - **el scanner I2C detecta un esclavo real** — **DEMOSTRADO** (`make sim-i2c`). Un programa
+>   barre las 127 direcciones con START, SLA+W, lectura de `TWSR` y STOP, sobre un bus de colector
+>   abierto de verdad y con el mismo `EsclavoI2C` del banco del periférico. **127 direcciones en
+>   48 533 ciclos, una sola contesta**; y con el esclavo mudo, ninguna — sin esa tercera pasada, un
+>   barrido que devolviera siempre `0x50` también pasaría.
 >
+> O sea: **dos de las tres cláusulas están demostradas y la tercera está bloqueada por la fase 4.**
 > Se dice aquí y no se redondea: la lista de tareas y el criterio **no son lo mismo**, y este
 > documento existe para que no se confundan.
 

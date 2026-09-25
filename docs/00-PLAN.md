@@ -1359,8 +1359,35 @@ correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
       28 comprobaciones contra el capítulo 26 —el arnés diferencial no sirve aquí: un programa que
       se reescribe la Flash cambia el código que los dos lados ejecutan—, 13 mutantes, 179 LUT4, y
       `make sim-robust` corriendo **la secuencia entera de un gestor de arranque** sobre el SoC.
-- [ ] Paquete de placas para Arduino IDE + JSON en GitHub Pages.
-- [ ] `axioma.conf` para avrdude con signature bytes propios.
+- [~] **Paquete de placas para Arduino IDE.** `sw/arduino/boards.txt` está y se usa hoy copiándolo
+      al `boards.txt` del núcleo AVR del IDE. No hace falta un núcleo propio —`build.core=arduino`
+      y `build.variant=standard` apuntan al mismo código que compila un Uno—, y **eso es en sí la
+      prueba de que la compatibilidad es real**: si hiciera falta un núcleo propio, sería que el
+      chip no lo es y lo estaríamos disimulando con software.
+
+      `make check-arduino` comprueba las once claves que el IDE necesita y, sobre todo, **que las
+      cifras cuadren con el resto del repositorio**: el tamaño máximo del sketch contra el gestor
+      **compilado** —no contra una constante—, y `f_cpu` y `upload.speed` contra las banderas con
+      las que el `Makefile` compila el gestor. Tres números que viven en dos sitios cada uno.
+
+      **Falta el `package_axioma_index.json`** del Gestor de Tarjetas, y está sin hacer a propósito:
+      ese fichero lleva la URL de un paquete comprimido y su SHA-256, y escribirlo antes de que el
+      paquete exista sería poner un resumen criptográfico inventado junto a un enlace muerto. Es un
+      paso de **publicación**, no de código: se hace cuando haya una versión etiquetada y subida.
+- [x] **`axioma.conf` para avrdude con signature bytes propios.** `sw/avrdude/axioma.conf`
+      define la pieza `axioma328` heredando del `m328p` y cambiando **sólo la firma**
+      (0x1E 0xA0 0x01). Hereda a propósito: repetir los tamaños y tiempos es garantizar que un día
+      se desincronicen, y son los mismos porque este chip **es** un 328P por dentro.
+
+      **Lo valida el propio avrdude** (`make check-avrdude`), y con las dos mitades: que con el
+      fichero liste `axioma328 = AxiomaCore-328`, **y que sin él no lo reconozca**. Sin la segunda,
+      la primera pasaría igual el día que la pieza viniera de la configuración del sistema y este
+      fichero hubiera dejado de hacer falta sin que nadie se enterara.
+
+      **Son dos caminos y los dos están elegidos por escrito.** El gestor contesta por defecto la
+      firma del 328P, y con eso el IDE funciona sin instalar nada — que es el criterio de esta fase.
+      Este fichero es el camino B: compilar con `-DFIRMA_PROPIA` y que el chip no se haga pasar por
+      otro. La decisión no es técnica sino de cómo se quiere presentar el chip.
 - [ ] Suite de sketches (Capa 5).
 
 **Criterio de aceptación:** desde el Arduino IDE, sin herramientas externas: seleccionar la placa,

@@ -1,0 +1,61 @@
+# AxiomaCore-328 - definición de la placa para el IDE de Arduino
+# SPDX-License-Identifier: Apache-2.0
+#
+# CÓMO SE INSTALA, hoy:
+#
+#   Añade estas líneas al final del `boards.txt` del núcleo AVR de Arduino,
+#   que vive en `hardware/arduino/avr/boards.txt` dentro de la instalación del
+#   IDE (o en `~/.arduino15/packages/arduino/hardware/avr/<versión>/`).
+#   Reinicia el IDE y la placa aparece en *Herramientas → Placa*.
+#
+# No hace falta nada más porque **este chip usa el núcleo AVR de Arduino tal
+# cual**: `build.core=arduino` y `build.variant=standard` apuntan al mismo
+# código que compila un Uno. Ésa es justamente la prueba de que la
+# compatibilidad es real — si hiciera falta un núcleo propio, sería que el chip
+# no es compatible y estaríamos disimulándolo con software.
+#
+# ---------------------------------------------------------------------------
+# LO QUE NO HAY, y por qué
+# ---------------------------------------------------------------------------
+#
+# **No hay `package_axioma_index.json` para el Gestor de Tarjetas.** Ese fichero
+# lleva la URL de un paquete comprimido y su SHA-256, y escribirlo antes de que
+# exista el paquete publicado sería poner un resumen criptográfico inventado
+# junto a un enlace que no lleva a ninguna parte. Es un paso de *publicación*,
+# no de código: se hace cuando haya una versión etiquetada y subida.
+#
+# ---------------------------------------------------------------------------
+# EL RELOJ NO SON 16 MHz, Y ESO IMPORTA
+# ---------------------------------------------------------------------------
+#
+# `F_CPU` son 12 500 000, que es a lo que corre el diseño en la ULX3S. El
+# núcleo de Arduino calcula con eso `delay()`, `millis()`, `micros()`, el
+# divisor de `Serial` y la temporización de `Servo` y `SoftwareSerial`. Poner
+# 16 MHz porque «es lo normal» haría que todos los tiempos salieran un 28 %
+# cortos, y lo peor es que la mayoría de los sketches seguirían funcionando —
+# sólo fallarían los que miden tiempo, que son los que más cuesta depurar.
+#
+# La velocidad de subida son 19 200 y no 115 200 por el mismo motivo: a
+# 12,5 MHz ese baudio deja un error del −3,1 %, y una trama 8N1 no lo aguanta.
+# A 19 200 el error es del −0,76 %.
+
+axioma328.name=AxiomaCore-328 (FPGA)
+
+axioma328.upload.tool=avrdude
+axioma328.upload.protocol=arduino
+axioma328.upload.maximum_size=32256
+axioma328.upload.maximum_data_size=2048
+axioma328.upload.speed=19200
+
+# El gestor de arranque ocupa los últimos 512 bytes, así que al sketch le
+# quedan 32 256 de los 32 768. Si el gestor creciera, este número tendría que
+# crecer con él: el `Makefile` falla si pasa de 512, que es lo que mantiene
+# las dos cifras de acuerdo.
+axioma328.bootloader.tool=avrdude
+axioma328.bootloader.file=axioma/boot.hex
+
+axioma328.build.mcu=atmega328p
+axioma328.build.f_cpu=12500000L
+axioma328.build.board=AVR_AXIOMA328
+axioma328.build.core=arduino
+axioma328.build.variant=standard

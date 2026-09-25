@@ -626,6 +626,34 @@ $(FW_DIR)/hello.bin: fw/hello/hello.c
 	@$(AVR_CC) -o $(FW_DIR)/hello.elf $<
 	@avr-objcopy -j .text -j .data -O binary $(FW_DIR)/hello.elf $@
 
+# --- la placa del IDE de Arduino ---
+.PHONY: check-arduino
+check-arduino: $(FW_DIR)/boot.bin
+	@echo -e "$(BOLD)La placa del IDE de Arduino$(NC)"
+	@$(PYTHON) tools/check_arduino.py
+
+# --- la pieza de avrdude, validada por el propio avrdude ---
+# `AVRDUDE_CONF` lo exporta env.sh: esta version de avrdude trae dentro una
+# ruta de configuracion que no existe -apunta al servidor de construccion de
+# quien la empaqueto-, asi que `-C` no es opcional.
+.PHONY: check-avrdude
+check-avrdude:
+	@if [ -z "$$AVRDUDE_CONF" ]; then \
+	   echo -e "$(RED)falta AVRDUDE_CONF: ejecuta 'source env.sh'$(NC)"; exit 1; fi
+	@echo -e "$(BOLD)La pieza de avrdude$(NC)"
+	@# 1. avrdude la reconoce y la lista con su descripcion.
+	@if avrdude -C "$$AVRDUDE_CONF" -C +sw/avrdude/axioma.conf -p '?' 2>&1 \
+	     | grep -q "axioma328 = AxiomaCore-328"; then \
+	   echo -e "  $(GREEN)avrdude reconoce la pieza$(NC)   axioma328 = AxiomaCore-328"; \
+	 else echo -e "  $(RED)avrdude no reconoce axioma328$(NC)"; exit 1; fi
+	@# 2. Y SIN EL FICHERO NO LA RECONOCE. Sin esta mitad, la de arriba pasaria
+	@#    igual el dia que la pieza viniera de la configuracion del sistema, y
+	@#    este fichero habria dejado de hacer falta sin que nadie se enterara.
+	@if avrdude -C "$$AVRDUDE_CONF" -p axioma328 -c arduino -P /dev/null 2>&1 \
+	     | grep -q 'not found'; then \
+	   echo -e "  $(GREEN)y sin el fichero, no$(NC)          la pieza la trae este fichero"; \
+	 else echo -e "  $(RED)axioma328 se reconoce sin el fichero$(NC)"; exit 1; fi
+
 # --- el gestor de arranque STK500v1 (fase 4) ---
 # El enlazado es el de un gestor de verdad: en la seccion de arranque y sin
 # ficheros de inicio, porque `main` ES el punto de entrada. `-fno-jump-tables`
@@ -698,6 +726,7 @@ sim-random: $(BUILD)/vdiff/Vaxioma_sim_top $(PERF_DIR)/cycles.bin
 # No se paran en el primer fallo a proposito: si algo se rompe, interesa saber
 # QUE MAS se rompio, no solo lo primero.
 REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
+             check-avrdude check-arduino \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-spm sim-clkctrl sim-extint sim-irq \

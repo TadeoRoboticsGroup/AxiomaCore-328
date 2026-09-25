@@ -309,6 +309,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make check-avrdude check-arduino
 
+      - name: NeoPixel, la trama WS2812B cronometrada
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-neopixel
+
       - name: Gestor de arranque STK500v1
         run: |
           source ~/eda/oss-cad-suite/environment

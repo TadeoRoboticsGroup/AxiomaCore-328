@@ -1388,7 +1388,31 @@ correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
       firma del 328P, y con eso el IDE funciona sin instalar nada — que es el criterio de esta fase.
       Este fichero es el camino B: compilar con `-DFIRMA_PROPIA` y que el chip no se haga pasar por
       otro. La decisión no es técnica sino de cómo se quiere presentar el chip.
-- [ ] Suite de sketches (Capa 5).
+- [~] **Suite de sketches (Capa 5).** Empezada por el que el criterio nombra: **NeoPixel**, que es
+      el único que no se puede aprobar «a ojo» porque **el bit es la anchura del pulso**. Una tira
+      WS2812B no tiene reloj: un cero son 350 ns de alto y un uno 700, con 150 de margen. A
+      12,5 MHz un ciclo son 80 ns, así que todo se juega en cuatro instrucciones.
+
+      Por eso es el que de verdad ejercita el nivel **L3**: el resto del repositorio comprueba que
+      las instrucciones *hagan* lo correcto, y aquí se comprueba que *duren* lo que dice el manual.
+      Un `SBI` que costara tres ciclos en vez de dos no rompería ningún otro banco — y en una tira
+      se vería como colores equivocados.
+
+      `make sim-neopixel` **cronometra el pin**, como un analizador lógico: no mira una sola señal
+      interna. Medido: **T0H 320 ns, T1H 720 ns, periodo 1 315 ns y un reposo de 642 µs**, los tres
+      dentro de la hoja de datos, y los 24 bits reconstruidos de las anchuras dan el color exacto
+      que el programa dijo que iba a mandar.
+
+      **La trama se busca por su FINAL y no por su principio**, que parece un rodeo y no lo es: en
+      el WS2812B lo que delimita una trama es el reposo, no un bit de arranque, y el muestreo puede
+      empezar a mitad de una. La primera versión buscaba el principio y contaba desplazada.
+
+      **No se usa la biblioteca de Adafruit**, y no por preferencia: sus rutinas están escritas a
+      mano para 8, 12 y 16 MHz, con un bloque de ensamblador por frecuencia, y 12,5 MHz no es
+      ninguna. Eso le pasaría igual a un ATmega328P con ese cristal. Lo que aquí se comprueba es el
+      chip, no la biblioteca.
+
+      Faltan los otros nueve sketches.
 
 **Criterio de aceptación:** desde el Arduino IDE, sin herramientas externas: seleccionar la placa,
 pulsar *Upload* y que el sketch corra en la FPGA. Diez sketches de la suite pasando, **NeoPixel

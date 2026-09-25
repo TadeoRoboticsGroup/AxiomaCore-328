@@ -90,7 +90,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   46/46 objetivos en verde
+regresión   47/47 objetivos en verde
 mutación   327/327 fallos inyectados, 327 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 28 módulos al 100 %; los 14 puntos restantes, adjudicados:
@@ -126,12 +126,12 @@ cuenta se hace con esos pesos, no a ojo:
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
 | 3 · periféricos | 5 | **100 %** — las tareas y las tres cláusulas del criterio | 5,00 |
-| 4 · Arduino | 3 | 65 % — `SPM`, gestor de arranque, `axioma.conf` y `boards.txt`; falta la suite de sketches y publicar el paquete | 1,95 |
+| 4 · Arduino | 3 | 75 % — `SPM`, gestor de arranque, `axioma.conf`, `boards.txt` y NeoPixel cronometrado; faltan nueve sketches y publicar el paquete | 2,25 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **13,75** |
+| | **17** | | **14,05** |
 
-Salen **~81 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
-un 51 % y un 60 %, y **~55 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+Salen **~83 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 52 % y un 61 %, y **~56 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
 Los **diez periféricos de la fase 3 están dentro**, más el `SPM` por páginas que abre la fase 4, y
@@ -168,7 +168,9 @@ en cuatro niveles, y sólo tres son alcanzables con herramientas libres.
 | **L4 — Eléctrica** | 5 V, DIP-28, pinout idéntico | **No en el die.** Sí en el módulo | Sky130 no da 5 V; se resuelve con level shifters en la PCB |
 
 De L3 dependen `_delay_ms()`, `micros()`, `SoftwareSerial`, `Servo` y cualquier protocolo
-bit-bangeado como el de las tiras NeoPixel. Por eso se mide desde la fase 1 y no al final.
+bit-bangeado como el de las tiras NeoPixel. Por eso se mide desde la fase 1 y no al final — y desde
+la fase 4 se mide **con un cronómetro en el pin**: `make sim-neopixel` decodifica una trama WS2812B
+de la anchura de sus pulsos y comprueba que T0H, T1H y el periodo caen dentro de la hoja de datos.
 
 ---
 

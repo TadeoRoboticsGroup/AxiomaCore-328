@@ -453,6 +453,31 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### NeoPixel: el nivel L3 medido con un cronómetro
+
+Todo lo demás de este documento comprueba que las instrucciones **hagan** lo correcto. Éste
+comprueba que **duren** lo que dice el manual, que es la otra mitad del contrato y la que nadie
+suele medir.
+
+Una tira WS2812B no tiene reloj: **el bit es la anchura del pulso**. Un cero son 350 ns de alto y
+un uno 700, con 150 ns de margen cada uno. A 12,5 MHz un ciclo son 80 nanosegundos, así que la
+diferencia entre un color y otro se juega en cuatro instrucciones. Un `SBI` que costara tres ciclos
+en vez de dos **no rompería ningún otro banco de este repositorio** — y en una tira de verdad se
+vería como colores equivocados.
+
+`make sim-neopixel` cronometra PB0 como lo haría un analizador lógico, sin mirar una sola señal
+interna, y reconstruye los 24 bits **de las anchuras**. Medido: **T0H 320 ns, T1H 720 ns, periodo
+1 315 ns, reposo 642 µs**, los tres dentro de la hoja de datos, y el color exacto.
+
+Dos cosas que costaron y merecen quedarse:
+
+- **La trama se busca por su final, no por su principio.** En el WS2812B lo que delimita una trama
+  es el reposo, no un bit de arranque, y el muestreo puede empezar a mitad de una. Buscar el
+  principio parece lo natural y cuenta desplazado.
+- **`brcs` tomado cuesta dos ciclos, no uno.** La primera versión del bucle repartía los `nop` como
+  si costara uno y el pulso del uno salía de 800 ns — dentro de tolerancia, pero rozando el borde
+  por un error de cuenta y no por decisión.
+
 ### `SPM`: cuando el oráculo no puede existir
 
 De casi todo este chip hay un tercero que dice qué debería pasar. De `SPM` **no puede haberlo**, y
@@ -662,7 +687,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 55 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 56 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su

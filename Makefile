@@ -654,6 +654,21 @@ check-avrdude:
 	   echo -e "  $(GREEN)y sin el fichero, no$(NC)          la pieza la trae este fichero"; \
 	 else echo -e "  $(RED)axioma328 se reconoce sin el fichero$(NC)"; exit 1; fi
 
+# --- NeoPixel: el nivel L3 medido con cronometro (fase 4) ---
+$(FW_DIR)/neopixel.bin: fw/examples/neopixel.c
+	@mkdir -p $(FW_DIR)
+	@$(AVR_CC) -o $(FW_DIR)/neopixel.elf $<
+	@avr-objcopy -j .text -j .data -O binary $(FW_DIR)/neopixel.elf $@
+
+.PHONY: sim-neopixel
+sim-neopixel: $(FW_DIR)/neopixel.bin
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vneo -o tb_soc_neopixel \
+	  --top-module tb_soc_uart_top \
+	  sim/soc/tb_soc_uart_top.v $(SOC_SRCS) sim/soc/tb_soc_neopixel.cpp >/dev/null
+	@echo -e "$(BOLD)NeoPixel: la trama WS2812B, cronometrada en el pin$(NC)"
+	@./$(BUILD)/vneo/tb_soc_neopixel $(FW_DIR)/neopixel.bin
+
 # --- el gestor de arranque STK500v1 (fase 4) ---
 # El enlazado es el de un gestor de verdad: en la seccion de arranque y sin
 # ficheros de inicio, porque `main` ES el punto de entrada. `-fno-jump-tables`
@@ -730,7 +745,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-spm sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-bits sim-micros sim-i2c sim-boot sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-bits sim-micros sim-i2c sim-boot sim-neopixel sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

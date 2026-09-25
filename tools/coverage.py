@@ -159,6 +159,8 @@ def main():
               f'-CFLAGS "-I{ROOT}/sim/periph"')
     construir("build/vcovtr", "trigc", "tb_soc_trig_top",
               f"sim/soc/tb_soc_trig_top.v {RTL}{FRENTE} sim/soc/tb_soc_trig.cpp")
+    construir("build/vcovne", "neoc", "tb_soc_uart_top",
+              f"sim/soc/tb_soc_uart_top.v {RTL}{FRENTE} sim/soc/tb_soc_neopixel.cpp")
     construir("build/vcovbo", "bootc", "tb_soc_uart_top",
               f"sim/soc/tb_soc_uart_top.v {RTL}{FRENTE} sim/soc/tb_soc_boot.cpp")
     construir("build/vcovh", "helloc", "tb_soc_uart_top",
@@ -195,6 +197,7 @@ def main():
     sh("AXIOMA_COV=build/cov/micros.dat ./build/vcovmi/micc"); n += 1
     sh("AXIOMA_COV=build/cov/i2c.dat ./build/vcovi2/i2cc"); n += 1
     sh("AXIOMA_COV=build/cov/trig.dat ./build/vcovtr/trigc"); n += 1
+    sh("AXIOMA_COV=build/cov/neo.dat ./build/vcovne/neoc build/fw/neopixel.bin"); n += 1
     sh("AXIOMA_COV=build/cov/boot.dat ./build/vcovbo/bootc build/fw/boot.bin"); n += 1
     sh("AXIOMA_COV=build/cov/hello.dat ./build/vcovh/helloc build/fw/hello.bin"); n += 1
     print(f"  {n} ejecuciones instrumentadas")

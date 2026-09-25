@@ -299,20 +299,62 @@ Estrategia completa, en seis capas: [`docs/03-verificacion.md`](docs/03-verifica
   <sub>
     ULX3S · fotografía del repositorio <a href="https://github.com/emard/ulx3s">emard/ulx3s</a>,
     © 2016-2018 EMARD, bajo licencia tipo MIT. La unidad fotografiada monta un LFE5U-12F;
-    la variante objetivo de este proyecto es la de <strong>25F</strong>, misma placa.
+    la variante que este proyecto tiene medida es la de <strong>25F</strong>. Es la misma
+    placa en las cuatro: lo único que cambia es el tamaño de la FPGA.
   </sub>
 </div>
 
-La **ULX3S 25F** es la plataforma primaria: ECP5 `LFE5U-25F`, 24 k LUT4 y 1008 Kbit de EBR, con
-toolchain completamente libre (yosys + nextpnr-ecp5 + prjtrellis). Sobra memoria para los 32 KB de
-programa, los 2 KB de SRAM y el 1 KB de EEPROM, y sobran pines para sacar los tres puertos.
+La **ULX3S** es la plataforma primaria: ECP5 con toolchain enteramente libre (yosys + nextpnr-ecp5 +
+prjtrellis). El bitstream que hay medido es el de la variante **25F** —`LFE5U-25F`, 24 k LUT4— y
+ocupa el **35,4 % de las LUT y el 60,7 % de la BRAM**, así que sobra sitio para el programa de
+32 KB, los 2 KB de SRAM y el 1 KB de EEPROM, y sobran pines para los tres puertos.
 
-| Placa | FPGA | Lógica | Memoria | Precio aprox. | Papel |
-|-------|------|--------|---------|---------------|-------|
-| **ULX3S 25F** | ECP5 LFE5U-25F | 24 k LUT4 | 1008 Kbit EBR + 32 MB SDRAM | ~120 USD | **Primaria.** Recursos de sobra y mucha E/S |
-| Colorlight 5A-75B | ECP5 LFE5U-25F | 24 k LUT4 | 1008 Kbit + SDRAM | ~20 USD | Mejor relación precio/prestaciones; necesita placa adaptadora |
-| Tang Nano 9K | Gowin GW1NR-9 | 8,6 k LUT4 | 468 Kbit BSRAM | ~18 USD | Secundaria. Toolchain abierta algo menos madura |
-| iCEBreaker | iCE40 UP5K | 5,3 k LUT4 | 128 KB SPRAM | ~70 USD | Secundaria. La cadena más madura; ajustado en LUTs |
+### Dónde comprarla, con enlaces comprobados
+
+| Placa | FPGA | Lógica | Ocupa el SoC | Dónde comprar | Precio |
+|-------|------|--------|--------------|---------------|--------|
+| **ULX3S 45F** | ECP5 `LFE5U-45F` | 44 k LUT4 | ~18 % | [Mouser `CS-ULX3S-02`](https://www.mouser.com/ProductDetail/Radiona/CS-ULX3S-02) · [Electromaker](https://www.electromaker.io/shop/product/ulx3s-with-ecp5-45f) | USD, ver enlace |
+| **ULX3S 85F** | ECP5 `LFE5U-85F` | 84 k LUT4 | ~10 % | [Mouser `CS-ULX3S-03`](https://www.mouser.com/en/ProductDetail/Radiona/CS-ULX3S-03) **(con existencias)** · [Crowd Supply](https://www.crowdsupply.com/radiona/ulx3s) | ~155 USD en Crowd Supply |
+| ULX3S 12F | ECP5 `LFE5U-12F` | 12 k LUT4 | ~66 %, **sin medir** | [Mouser `CS-ULX3S-01`](https://www.mouser.com/ProductDetail/Radiona/CS-ULX3S-01) (bajo pedido) | USD, ver enlace |
+| Colorlight 5A-75B | ECP5 `LFE5U-25F` | 24 k LUT4 | 35 % | AliExpress y eBay, varios vendedores | ~20 USD |
+| Tang Nano 9K | Gowin GW1NR-9 | 8,6 k LUT4 | **no cabe** | [Sipeed en AliExpress](https://www.aliexpress.com/w/wholesale-tang-nano-9k.html) | ~18 USD |
+
+**Tres cosas que conviene saber antes de pagar**, y que salieron de comprobar los enlaces uno a uno
+el **24 de septiembre de 2026**:
+
+1. **La variante 25F no se vende como referencia suelta.** Radiona la documenta, pero las
+   referencias que los distribuidores tienen en catálogo son `CS-ULX3S-01` (12F), `-02` (45F) y
+   `-03` (85F). Este proyecto está medido en la 25F porque es lo que fija el `Makefile`
+   (`ECP5_DEV ?= 25k`), y en una 45F o una 85F entra con más holgura todavía: **son placas
+   idénticas con la FPGA más grande**.
+2. **La tienda del fabricante no envía a Colombia.** [Lectronz](https://lectronz.com/products/ulx3s-85f-v3-1-8)
+   —la tienda de Intergalaktik, en Zagreb— pide **247,80 USD** por la 85F, estaba **agotada**, y su
+   propia ficha dice *«This product does not ship to Colombia»*. **Mouser sí envía**, y es el camino
+   sensato desde aquí.
+3. **Los precios de Mouser y Crowd Supply no se pueden leer automáticamente** —las dos webs
+   rechazan la lectura—, así que en la tabla van los enlaces y no una cifra inventada. El único
+   precio leído directamente de su página es el de Lectronz.
+
+**En pesos, para hacerse una idea.** La TRM del **24-sep-2026** fue de **3 264,39 COP/USD**
+([Banco de la República](https://suameca.banrep.gov.co/estadisticas-economicas/informacionSerie/1/tasa_cambio_peso_colombiano_trm_dolar_usd)),
+así que los **155 USD** de la 85F en Crowd Supply son unos **506 000 COP** *antes* de envío y de
+aranceles de importación, que Mouser calcula en el carrito y que en Colombia no son pequeños. La
+TRM cambia todos los días: el número sirve de referencia, no de presupuesto.
+
+### Si el objetivo es un SoC con Linux, no un ATmega
+
+Merece una aclaración, porque cambia qué placa comprar. **Una ECP5 no puede ser una Raspberry Pi 3
+o 5**: ésas son SoC ARM de silicio fijo con GPU, fabricadas a 28 y 16 nm, y no existe RTL de ellas
+ni cabrían. Lo que una ECP5 **sí** hace —y es justo aquello por lo que la ULX3S es conocida— es
+llevar un **SoC RISC-V capaz de arrancar Linux** (LiteX, SaxonSoc), con la SDRAM, el HDMI y la
+tarjeta SD de la propia placa.
+
+Para eso, **la 85F es la compra correcta**: los 84 k LUT4 dan sitio de sobra para un núcleo RISC-V
+con MMU, caches y periféricos, donde la 25F se queda corta. Está además la
+[**ULX4M**](https://www.crowdsupply.com/intergalaktik/ulx4m), del mismo equipo, pensada como módulo
+con hasta 1 GB de DDR3 — pero su
+[repositorio](https://github.com/intergalaktik/ULX4M) la describe todavía **en desarrollo y sin
+canal de venta**, así que hoy no es una opción de compra, sólo algo que vigilar.
 
 El SoC está escrito para que cambiar de familia sea cambiar el top y las constraints bajo
 `rtl/fpga/`: la memoria se infiere y no hay ni una primitiva del fabricante dentro del dispositivo.

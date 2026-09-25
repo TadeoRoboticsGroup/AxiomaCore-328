@@ -1315,7 +1315,33 @@ correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 
 ### Fase 4 — Compatibilidad Arduino (3 semanas)
 
-- [ ] Bootloader STK500v1 propio, ≤ 512 B.
+- [x] **Gestor de arranque STK500v1 propio, ≤ 512 B.** `fw/bootloader/axioma_boot.c`: **500 bytes
+      de los 512**, y el `Makefile` falla si se pasa. Habla el subconjunto que `avrdude` usa de
+      verdad con `-c arduino`, y lo desconocido lo reconoce y lo ignora, como Optiboot.
+
+      **No tiene código de Flash propio**: para borrar y escribir usa `<avr/boot.h>` de **avr-libc,
+      sin tocar nada**. Eso lo convierte en una prueba del RTL — si `axioma_spm` no implementara la
+      secuencia de cuatro ciclos, el búfer de página y la espera de `SPMEN` exactamente como manda
+      la hoja de datos, la cabecera oficial no funcionaría. No hay capa de compatibilidad en medio.
+
+      `make sim-boot` hace de `avrdude`: **pone y quita bits en `RXD` y lee `TXD`**, sin llamar a
+      ninguna función ni mirar ninguna señal interna. Sincroniza, pide la firma, programa una página
+      de 128 bytes y la relee con `LPM`. Y relee además **una página que nadie ha programado**, que
+      tiene que salir borrada: sin eso, un `READ_PAGE` que devolviera lo último escrito pasaría con
+      nota. El periodo de bit **no se supone**: se lee de `UBRR0` y `U2X0`, que es lo que el propio
+      gestor acaba de calcular.
+
+      **La firma que contesta es la del ATmega328P** (0x1E 0x95 0x0F), y es una decisión: con una
+      firma propia el IDE no reconoce la placa hasta instalar un fichero de configuración, y el
+      criterio de esta fase es «sin herramientas externas». Queda `-DFIRMA_PROPIA` para el otro
+      camino.
+
+      **Lo que costó encontrar**, y merece quedarse escrito: el gestor se colgaba en el bucle de
+      limpieza de `.bss` que genera el enlazador. El bucle estaba bien —se llevó a la co-simulación
+      contra simavr, `sim/diff/tests/bss_clear.S`, y salió idéntico—; lo que pasaba es que
+      **terminaba y seguía hacia la nada**: con `-nostartfiles` no hay `crt0`, así que **nadie llama
+      a `main`**, y la ejecución caía en la siguiente función de `.text`. Se arregla poniendo `main`
+      en `.init9`, que es donde `crt0` pondría el salto — el mismo truco que Optiboot.
 - [x] **`SPM` funcional sobre el backend de BRAM** — la deuda D2, cerrada. `rtl/periph/axioma_spm.v`
       con `SPMCSR`, el búfer temporal de 64 palabras y las tres operaciones: llenar, borrar la
       página y volcarla. **El núcleo ya no escribe la Flash**: `SPM` pasa de ser una escritura a ser

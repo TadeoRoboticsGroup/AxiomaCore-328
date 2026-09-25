@@ -662,7 +662,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 53 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 54 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -738,7 +738,7 @@ TRES trabajos separados a propósito:
 | Trabajo | Qué ejecuta | Por qué va aparte |
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
-| **Verificación del núcleo** | las **36 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **43 objetivos** de una vez |
+| **Verificación del núcleo** | las **37 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **44 objetivos** de una vez |
 | **Mutación** | `make mutation`, los 327 mutantes | Tarda ~25 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad

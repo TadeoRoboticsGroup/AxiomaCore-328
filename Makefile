@@ -626,6 +626,34 @@ $(FW_DIR)/hello.bin: fw/hello/hello.c
 	@$(AVR_CC) -o $(FW_DIR)/hello.elf $<
 	@avr-objcopy -j .text -j .data -O binary $(FW_DIR)/hello.elf $@
 
+# --- el gestor de arranque STK500v1 (fase 4) ---
+# El enlazado es el de un gestor de verdad: en la seccion de arranque y sin
+# ficheros de inicio, porque `main` ES el punto de entrada. `-fno-jump-tables`
+# y `-mrelax` son los que lo dejan por debajo de los 512 bytes.
+BOOT_CC := avr-gcc -mmcu=atmega328p -DF_CPU=12500000UL -DBAUD=19200 -Os \
+           -std=gnu99 -Wall -Wextra -fno-jump-tables -mrelax -nostartfiles \
+           -Wl,--section-start=.text=0x7E00
+
+$(FW_DIR)/boot.bin: fw/bootloader/axioma_boot.c
+	@mkdir -p $(FW_DIR)
+	@$(BOOT_CC) -o $(FW_DIR)/boot.elf $<
+	@avr-objcopy -O binary $(FW_DIR)/boot.elf $@
+	@n=$$(stat -c%s $@); \
+	 if [ $$n -gt 512 ]; then \
+	   echo -e "$(RED)el gestor ocupa $$n bytes y el presupuesto son 512$(NC)"; \
+	   exit 1; \
+	 fi; \
+	 echo -e "$(DIM)  gestor de arranque: $$n bytes de 512$(NC)"
+
+.PHONY: sim-boot
+sim-boot: $(FW_DIR)/boot.bin
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vboot -o tb_soc_boot \
+	  --top-module tb_soc_uart_top \
+	  sim/soc/tb_soc_uart_top.v $(SOC_SRCS) sim/soc/tb_soc_boot.cpp >/dev/null
+	@echo -e "$(BOLD)Gestor de arranque STK500v1, hablado por el pin$(NC)"
+	@./$(BUILD)/vboot/tb_soc_boot $(FW_DIR)/boot.bin
+
 # --- el criterio de aceptacion de la fase 2, leido del pin ---
 .PHONY: sim-hello
 sim-hello: $(FW_DIR)/hello.bin
@@ -673,7 +701,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-spm sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-bits sim-micros sim-i2c sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-bits sim-micros sim-i2c sim-boot sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

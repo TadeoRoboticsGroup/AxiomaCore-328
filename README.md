@@ -90,7 +90,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   43/43 objetivos en verde
+regresión   44/44 objetivos en verde
 mutación   327/327 fallos inyectados, 327 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 28 módulos al 100 %; los 14 puntos restantes, adjudicados:
@@ -126,12 +126,12 @@ cuenta se hace con esos pesos, no a ojo:
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
 | 3 · periféricos | 5 | **100 %** — las tareas y las tres cláusulas del criterio | 5,00 |
-| 4 · Arduino | 3 | 20 % — `SPM` por páginas hecho; falta el gestor de arranque y el paquete | 0,60 |
+| 4 · Arduino | 3 | 45 % — `SPM` por páginas y **gestor de arranque** hechos; falta el paquete del IDE y la suite de sketches | 1,35 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **12,40** |
+| | **17** | | **13,15** |
 
-Salen **~73 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
-un 46 % y un 54 %, y **~49 %** tomando el punto medio. Es el presupuesto del propio plan, no una
+Salen **~77 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
+un 49 % y un 57 %, y **~52 %** tomando el punto medio. Es el presupuesto del propio plan, no una
 impresión.
 
 Los **diez periféricos de la fase 3 están dentro**, más el `SPM` por páginas que abre la fase 4, y
@@ -414,7 +414,7 @@ make check-tools
 | **1** | **Núcleo ISA: ALU, SREG, banco, decodificador, secuenciador, memorias, oráculos** | **Hecha** — criterio de aceptación cumplido |
 | 2 | SoC mínimo: bus de datos, GPIO, Timer0, USART, IRQ. Primer bitstream | **Cumplida en simulación** — falta enchufar la placa |
 | 3 | Periféricos completos: Timer1 con registro TEMP, SPI, TWI, ADC, EEPROM | **Hecha** — los diez dentro y las tres cláusulas del criterio demostradas |
-| 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | **En marcha** — el `SPM` por páginas, que era su primera pieza, ya está |
+| 4 | Compatibilidad Arduino: bootloader STK500v1 propio, paquete para el IDE | **En marcha** — el `SPM` por páginas y el gestor de arranque (500 B) ya están |
 | 5 | Endurecimiento: cierre de timing, portes a iCE40 y Gowin, regresión nocturna | Pendiente |
 | 6 | Silicio: backend Sky130, LibreLane, Tiny Tapeout y chipIgnite | Pendiente |
 | 7 | Módulo DIP-28 en KiCad, compatible con el zócalo de un Arduino Uno | Pendiente |

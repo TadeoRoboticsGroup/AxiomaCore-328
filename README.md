@@ -90,7 +90,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | Síntesis FPGA, GDSII | No ejecutadas | Fases 2 y 6 |
 
 ```
-regresión   47/47 objetivos en verde
+regresión   48/48 objetivos en verde
 mutación   327/327 fallos inyectados, 327 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 28 módulos al 100 %; los 14 puntos restantes, adjudicados:
@@ -126,9 +126,9 @@ cuenta se hace con esos pesos, no a ojo:
 | 1 · núcleo ISA | 4 | 100 % | 4,00 |
 | 2 · SoC y FPGA | 2 | 90 % — cumplida en simulación, falta enchufar la placa | 1,80 |
 | 3 · periféricos | 5 | **100 %** — las tareas y las tres cláusulas del criterio | 5,00 |
-| 4 · Arduino | 3 | 75 % — `SPM`, gestor de arranque, `axioma.conf`, `boards.txt` y NeoPixel cronometrado; faltan nueve sketches y publicar el paquete | 2,25 |
+| 4 · Arduino | 3 | 80 % — `SPM`, gestor, `axioma.conf`, `boards.txt` y tres sketches cronometrados; faltan siete y publicar el paquete | 2,40 |
 | 5 · endurecimiento | 2 | 0 % | 0,00 |
-| | **17** | | **14,05** |
+| | **17** | | **14,20** |
 
 Salen **~83 % hasta la v1.0 en FPGA**. Contando el silicio —de 6 a 10 semanas más— quedaría entre
 un 52 % y un 61 %, y **~56 %** tomando el punto medio. Es el presupuesto del propio plan, no una

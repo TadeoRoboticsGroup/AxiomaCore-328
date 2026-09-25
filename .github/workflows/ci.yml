@@ -309,6 +309,11 @@ jobs:
           source ~/eda/oss-cad-suite/environment
           make check-avrdude check-arduino
 
+      - name: Servo y tone(), cronometrados
+        run: |
+          source ~/eda/oss-cad-suite/environment
+          make sim-tiempos
+
       - name: NeoPixel, la trama WS2812B cronometrada
         run: |
           source ~/eda/oss-cad-suite/environment

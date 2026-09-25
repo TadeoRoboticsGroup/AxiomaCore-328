@@ -654,6 +654,21 @@ check-avrdude:
 	   echo -e "  $(GREEN)y sin el fichero, no$(NC)          la pieza la trae este fichero"; \
 	 else echo -e "  $(RED)axioma328 se reconoce sin el fichero$(NC)"; exit 1; fi
 
+# --- Servo y tone(): dos ondas cronometradas (fase 4) ---
+$(FW_DIR)/tiempos.bin: fw/examples/tiempos.c
+	@mkdir -p $(FW_DIR)
+	@$(AVR_CC) -o $(FW_DIR)/tiempos.elf $<
+	@avr-objcopy -j .text -j .data -O binary $(FW_DIR)/tiempos.elf $@
+
+.PHONY: sim-tiempos
+sim-tiempos: $(FW_DIR)/tiempos.bin
+	@verilator --cc --exe --build -Wall -Wno-DECLFILENAME \
+	  $(INCDIRS) -Mdir $(BUILD)/vtmp -o tb_soc_tiempos \
+	  --top-module tb_soc_uart_top \
+	  sim/soc/tb_soc_uart_top.v $(SOC_SRCS) sim/soc/tb_soc_tiempos.cpp >/dev/null
+	@echo -e "$(BOLD)Servo y tone(), cronometrados en el pin$(NC)"
+	@./$(BUILD)/vtmp/tb_soc_tiempos $(FW_DIR)/tiempos.bin
+
 # --- NeoPixel: el nivel L3 medido con cronometro (fase 4) ---
 $(FW_DIR)/neopixel.bin: fw/examples/neopixel.c
 	@mkdir -p $(FW_DIR)
@@ -745,7 +760,7 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio \
              sim-timer0 sim-timer1 sim-timer2 sim-usart sim-spi sim-twi \
              sim-adc sim-ac sim-wdt sim-eeprom sim-spm sim-clkctrl sim-extint sim-irq \
-             sim-soc sim-bits sim-micros sim-i2c sim-boot sim-neopixel sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
+             sim-soc sim-bits sim-micros sim-i2c sim-boot sim-neopixel sim-tiempos sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
 
 .PHONY: check-all

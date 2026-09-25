@@ -1412,7 +1412,27 @@ correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
       ninguna. Eso le pasaría igual a un ATmega328P con ese cristal. Lo que aquí se comprueba es el
       chip, no la biblioteca.
 
-      Faltan los otros nueve sketches.
+      **Segundo y tercero: `Servo` y `tone()`**, en un solo programa porque los dos hacen su onda
+      **con el hardware** y se dejan corriendo a la vez — que no es comodidad del banco, es la
+      prueba de que dos temporizadores con prescaler distinto no se pisan.
+
+      El servo usa el **modo 14** del Timer1: PWM rápido con el tope en `ICR1`, que es el que usa la
+      biblioteca `Servo` de Arduino y el único que ejercita `ICR1` como TOP con su registro temporal
+      de 16 bits de por medio. Medido: **trama de 20 000 µs exactos y pulso de 1 501 µs**, todas las
+      tramas idénticas —un servo tiembla con la trama que varía, no con la que es larga, así que la
+      media sola taparía un temblor simétrico—. `tone()` va por Timer2 en CTC conmutando `OC2A`:
+      **996,49 Hz**.
+
+      **Las cifras esperadas no son «20 ms» y «1 kHz», son las que salen de los registros**, y la
+      distinción importa: a 12,5 MHz con prescaler 64 no existe un `OCR2A` que dé 1 000 Hz clavados,
+      y un banco que redondeara aceptaría un prescaler equivocado.
+
+      Dos cosas que el banco aprendió por el camino: **el pulso son `OCR1A`+1 tics y no `OCR1A`**
+      —en PWM rápido el pin sube en BOTTOM y baja en la comparación, así que está alto durante las
+      cuentas 0..`OCR1A`—, y **el primer pulso que pilla el muestreo puede estar empezado**, que
+      corría la media 41 ciclos y parecía cosa del chip.
+
+      Faltan siete sketches.
 
 **Criterio de aceptación:** desde el Arduino IDE, sin herramientas externas: seleccionar la placa,
 pulsar *Upload* y que el sketch corra en la FPGA. Diez sketches de la suite pasando, **NeoPixel

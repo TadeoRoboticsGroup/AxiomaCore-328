@@ -453,6 +453,26 @@ La cuarta pata nació de un mutante superviviente, y la lección es la de siempr
 contaba los tics del oscilador **por fuera del chip**, y eso no prueba nada —los tics están ahí
 igual; la pregunta es si el perro los usa—. Medir el mordisco sí lo prueba.
 
+### Servo y `tone()`: la onda la hace el hardware, y se mide
+
+`make sim-tiempos` cronometra dos ondas **a la vez**, y que sean dos no es comodidad: es lo que
+demuestra que dos temporizadores con prescaler distinto no se pisan.
+
+El **servo** usa el modo 14 del Timer1 —PWM rápido con el tope en `ICR1`—, que es el que usa la
+biblioteca `Servo` y el único que ejercita `ICR1` como TOP con el registro temporal de 16 bits de
+por medio. Se miden **20 000 µs de trama y 1 501 µs de pulso**, y se exige además que **todas las
+tramas sean idénticas**: un servo tiembla con la trama que varía, no con la que es larga, así que la
+media sola taparía un temblor simétrico. `tone()` va por Timer2 en CTC conmutando `OC2A`, a
+**996,49 Hz**.
+
+**Las cifras esperadas salen de los registros, no del nombre de la función.** A 12,5 MHz con
+prescaler 64 no existe un `OCR2A` que dé 1 000 Hz clavados, y un banco que redondeara a «1 kHz»
+aceptaría un prescaler equivocado.
+
+Y el banco se equivocó dos veces antes de acertar, las dos anotadas en su cabecera: el pulso son
+`OCR1A`**+1** tics —el pin sube en BOTTOM y baja en la comparación— y **el primer pulso que pilla
+el muestreo puede estar empezado**, lo que corría la media 41 ciclos y parecía cosa del chip.
+
 ### NeoPixel: el nivel L3 medido con un cronómetro
 
 Todo lo demás de este documento comprueba que las instrucciones **hagan** lo correcto. Éste
@@ -687,7 +707,7 @@ Un «0 divergencias» no dice nada sobre lo que no se ejecutó. La prueba de mut
 ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alguien se le ocurrió
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
-`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 56 ejecuciones instrumentadas
+`make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 57 ejecuciones instrumentadas
 —el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
@@ -763,7 +783,7 @@ TRES trabajos separados a propósito:
 | Trabajo | Qué ejecuta | Por qué va aparte |
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
-| **Verificación del núcleo** | las **37 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **44 objetivos** de una vez |
+| **Verificación del núcleo** | las **39 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **48 objetivos** de una vez |
 | **Mutación** | `make mutation`, los 327 mutantes | Tarda ~25 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad

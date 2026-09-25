@@ -1273,8 +1273,6 @@ enumerado** en vez de implícito.
 
       Quedan declaradas dos deudas: **D16** (`IVSEL` sin sección de arranque, fase 4) y **D17** (el
       nivel bajo externo no despierta de `Power-down`, fase 5, va con D6).
-- [ ] Barrido completo del mapa de registros (Capa 4).
-
 - [x] **El barrido semántico del mapa de registros.** `make sim-bits`: **664 bits en 83 registros —
       399 de almacenamiento, 136 con comportamiento propio y 129 reservados. Ninguno sin
       clasificar.** Qué bits existen sale de avr-libc por el mismo generador que ya decide las
@@ -1437,6 +1435,39 @@ correcta; `micros()` no deriva; el scanner I2C detecta un esclavo real.
 **Criterio de aceptación:** desde el Arduino IDE, sin herramientas externas: seleccionar la placa,
 pulsar *Upload* y que el sketch corra en la FPGA. Diez sketches de la suite pasando, **NeoPixel
 incluido**.
+
+> **Dónde está la fase, al 24-sep-2026.** Las cuatro piezas de software están hechas y verificadas:
+> el `SPM` por páginas, el gestor de arranque, `axioma.conf` y `boards.txt`. De los diez sketches
+> hay **tres**, y son los tres que no se pueden aprobar a ojo. Lo que queda, por orden de lo que
+> aporta:
+>
+> **1. Los siete sketches que faltan.** Los tres que hay son de temporización porque son los que
+> sólo un cronómetro puede juzgar; de los siete, los que aportan algo nuevo son:
+>
+> - **`SoftwareSerial`** — una USART bit-bangeada. Es el único que mide el tiempo **desde el
+>   programa** y no desde un temporizador, así que depende de la duración de las instrucciones y no
+>   de un prescaler. Se decodifica del pin con el mismo receptor que ya tiene `tb_soc_boot.cpp`.
+> - **`analogRead`** — el ADC llamado como lo llama un sketch, con el resultado saliendo por serie.
+>   El banco del periférico ya cubre el SAR; lo que falta es el camino entero desde C.
+> - **`Wire` como maestro con dos esclavos** — el barrido de `sim-i2c` usa uno. Con dos se
+>   ejercita el direccionamiento de verdad, no sólo «responde / no responde».
+> - **`EEPROM.read`/`write`** de avr-libc, que es el mismo caso que `<avr/boot.h>` con el `SPM`: si
+>   el periférico no es exacto, la cabecera oficial no funciona.
+>
+> Los tres restantes —`Blink`, `Serial`, `analogWrite`— **ya están cubiertos** por `make sim-hello`,
+> que decodifica del pin el LED, el texto y los seis canales de PWM. Contarlos otra vez como
+> sketches nuevos sería inflar la cuenta.
+>
+> **2. Publicar el paquete.** El `package_axioma_index.json` del Gestor de Tarjetas **no se escribe
+> antes de que exista el paquete**: lleva una URL y un SHA-256, y ponerlos inventados es exactamente
+> lo que este repositorio no hace. Hace falta, por orden: etiquetar una versión, empaquetar
+> `boards.txt` + el gestor en `.hex` + `platform.txt`, subirlo, y **entonces** escribir el JSON con
+> el resumen real. Es un paso de *release*.
+>
+> **3. La cláusula que no se puede cerrar aquí.** «Que el sketch corra **en la FPGA**» necesita la
+> placa enchufada. Todo lo demás del criterio se demuestra en simulación; eso no. Sigue siendo el
+> mismo pendiente que la fase 2 dejó abierto —`make prog-ulx3s`—, y no hay forma honesta de darlo
+> por cumplido sin hardware.
 
 ### Fase 5 — Endurecimiento (2 semanas)
 

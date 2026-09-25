@@ -442,10 +442,16 @@ el SPI, el TWI, el ADC, el comparador analógico, el perro guardián, la EEPROM 
 reloj—, las deudas D3, D12, D13 y D14 cerradas, el mapa de registros barrido bit a bit y **las tres
 cláusulas de su criterio de aceptación demostradas**, cada una con un comando.
 
-La **fase 4** ha empezado por donde tenía que empezar: el **`SPM` por páginas** (deuda D2), que es
-lo que hace posible un gestor de arranque y lo que trajo de paso el último vector sin fuente. El
-núcleo ya no escribe la Flash — pide, y quien escribe es `axioma_spm`, que sabe de páginas y del
-búfer temporal.
+La **fase 4** tiene sus cuatro piezas de software hechas y verificadas: el **`SPM` por páginas**
+(deuda D2), el **gestor de arranque STK500v1** en 500 de 512 bytes, `axioma.conf` para `avrdude` y
+`boards.txt` para el IDE. El núcleo ya no escribe la Flash — pide, y quien escribe es `axioma_spm`.
+
+De los diez sketches de la suite hay **tres**, y son los tres que **no se pueden aprobar a ojo**:
+NeoPixel, `Servo` y `tone()`, los tres cronometrados en el pin. De los siete que faltan, tres
+—`Blink`, `Serial` y `analogWrite`— ya los cubre `make sim-hello`. Falta además **publicar el
+paquete**: el JSON del Gestor de Tarjetas lleva una URL y un SHA-256, y no se escribe antes de que
+el paquete exista. Y la cláusula «que el sketch corra **en la FPGA**» necesita la placa
+enchufada — es el mismo pendiente que dejó la fase 2.
 
 El décimo periférico trajo la decisión de más alcance de la fase 3, en el
 [ADR 0003](docs/adr/0003-relojes-por-habilitacion.md): **`CLKPR` y `PRR` cortan relojes de verdad**,

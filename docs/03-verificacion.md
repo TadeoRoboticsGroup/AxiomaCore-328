@@ -137,7 +137,7 @@ Se ejecuta con `make mutation` (~25 min), en un trabajo propio de la CI.
 **Un patrón que ya no se encuentra NO es «detectado»**, y ésa es la forma más silenciosa de perder
 un mutante: el catálogo busca un trozo de texto literal del RTL para sustituirlo, así que mover una
 línea deja el mutante sin inyectar y la cuenta final no baja, porque ese mutante simplemente no
-corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 327
+corre. Ha pasado **cinco veces** al mover el RTL. Por eso `make mutation-check` comprueba los 329
 patrones **en un segundo** y corre en el trabajo rápido de la CI, en cada push; y `make mutation`
 lo hace también antes de inyectar nada, en vez de descubrirlo nueve minutos después.
 
@@ -521,6 +521,46 @@ resultó ser **código muerto** —el `SPM` que arranca la operación ya cierra 
 destapó que **ningún caso escribía `SPMEN` sin ejecutar `SPM` detrás**, que es justo cuando la hoja
 de datos dice que se cae a los cuatro ciclos.
 
+### Lo que una auditoría encontró que las puertas no veían
+
+Las puertas de este documento comprueban el **chip**. Ninguna comprueba **las puertas**, y el
+26-sep-2026 se hizo una pasada mirando precisamente eso: qué hay en el árbol que ninguna gate
+puede ver. Salieron cinco cosas, y la primera es la que importa.
+
+**Una declaración de «sin usar» que apagaba el aviso de lint.** En el SoC, la línea que declara qué
+reconocimientos de interrupción no van a ninguna parte listaba los vectores **6, 21 y 23** —perro
+guardián, ADC y comparador— de cuando esos periféricos no existían. Los tres llevaban semanas con
+su `ack` conectado. Funcionalmente no rompía nada: declarar «sin usar» algo que sí se usa es
+inofensivo. **Lo que rompía era la red**: si alguien desconectaba uno, lint ya no se quejaba. Se
+comprobó desconectando el del perro guardián a mano — antes pasaba, ahora salta.
+
+Es un modo de fallo que merece nombre propio: **una excepción a lint que envejece se convierte en
+un agujero**, y crece solo, porque cada periférico nuevo tiende a añadir su vector a la lista y
+nadie quita los que ya sobran.
+
+**Un agregado que mentía.** `make sim-core` prometía en la ayuda «todas las anteriores» y corría
+diecisiete de las treinta y nueve simulaciones: era una segunda lista, escrita a mano, que se quedó
+atrás. Ahora se **deriva** de `REGRESION`, que este mismo fichero declara dos veces como el único
+sitio donde vive esa lista. (Y moverlo enseñó algo de Make: los **prerrequisitos se expanden cuando
+Make lee la regla**, no cuando la usa, así que una asignación diferida no salva el orden — la regla
+tiene que ir debajo de la variable.)
+
+**Un comentario que decía lo contrario del código.** Cuatro ficheros repetían que el divisor del
+oscilador del perro guardián «se deja corto en simulación para no esperar un siglo». No es corto:
+12,5 MHz ÷ 98 son 127,55 kHz, o sea **el valor de verdad**, y con él `WDP`=0 vence a los 16,1 ms
+cuando la hoja de datos dice 16. Lo peor de un comentario así es que invita a «arreglar» lo único
+que estaba bien.
+
+**Un módulo sin un solo mutante.** `axioma_core.v` no tiene lógica —instancia y une—, y por eso no
+tenía ninguno. Y por eso hacía falta: un **cruce** ahí pasa lint, pasa síntesis y sólo se ve
+ejecutando. Se añadieron dos —los puertos de lectura del banco cruzados y los operandos de la ALU
+al revés— y el diferencial los caza.
+
+**Y dos cifras desincronizadas:** los documentos decían veinte programas de co-simulación y hay
+veintiuno, y dos parámetros de tiempo prometían servir «para que el banco no simule milisegundos
+enteros» cuando ningún banco los sobreescribe — los bancos simulan el tiempo completo **a
+propósito**, porque parte de lo que comprueban es que dure lo que dice la hoja de datos.
+
 ### Y una puerta que sólo se ve desde fuera: clonar y ejecutar
 
 Todas las puertas de arriba corren en **este** árbol, que lleva meses de `build/` acumulado,
@@ -708,7 +748,7 @@ ese hueco, pero su catálogo lo escribe una persona: **sólo prueba lo que a alg
 romper**. La cobertura de código dice, sin opinión, qué líneas y qué señales no ha tocado nadie.
 
 `make coverage` instrumenta el RTL y **fusiona todas las fuentes**: 57 ejecuciones instrumentadas
-—el arnés diferencial con sus veinte programas y los diez aleatorios, el banco propio de cada
+—el arnés diferencial con sus veintiún programas y los diez aleatorios, el banco propio de cada
 periférico, el del disparo del ADC, el de robustez y el de extremo a extremo—. La fusión es lo que importa: medir sólo el
 diferencial da un 80 % y una conclusión falsa, porque cada periférico sale bajo cuando su
 funcionalidad la cubre **su** banco.
@@ -784,7 +824,7 @@ TRES trabajos separados a propósito:
 |---------|-------------|-------------------|
 | **Lint y ficheros generados** | `lint` · `regmap-check` · `lpf` · `check-docs` · `mutation-check` | Falla en un minuto, y casi todos los fallos tontos caen aquí. `check-docs` son **tres** comprobaciones: las rutas que citan los `.md`, la cuenta de vectores contra `irq_src`, y que **toda deuda citada en el código exista en el registro** |
 | **Verificación del núcleo** | las **39 simulaciones**, `coverage` y `synth-check` | Es la señal que importa: si esto está verde, el dispositivo hace lo que dice. En local, `make check-all` corre los **48 objetivos** de una vez |
-| **Mutación** | `make mutation`, los 327 mutantes | Tarda ~25 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
+| **Mutación** | `make mutation`, los 329 mutantes | Tarda ~25 minutos y **modifica el RTL en sitio**. En un trabajo aparte no retrasa la señal del resto, y un catálogo desincronizado no se confunde con un fallo del RTL |
 
 **Lo que NO hay, y conviene no creérselo:** no hay ejecución nocturna, ni matriz de compatibilidad
 generada, ni síntesis para las otras dos familias de FPGA. Las tres estaban escritas aquí como si

@@ -426,7 +426,7 @@ AxiomaCore-328/
 │   ├── soc/        axioma328_soc.v  axioma_regmap.vh
 │   └── fpga/       axioma_adc_frente.v  ecp5/  ice40/  gowin/
 ├── sim/
-│   ├── diff/       el arnes de co-simulacion contra simavr, y sus 20 programas
+│   ├── diff/       el arnes de co-simulacion contra simavr, y sus 21 programas
 │   ├── alu/        exhaustivos de ALU, SREG y banco de registros
 │   ├── periph/     un banco por periferico, escrito desde la hoja de datos
 │   ├── soc/        mapa de I/O, robustez, extremo a extremo, disparo del ADC,
@@ -1234,7 +1234,8 @@ enumerado** en vez de implícito.
       almacenan y se leen de vuelta».
 
       **Con `CLKPS`=0 la habilitación vale uno siempre**, así que el chip quedó **bit a bit** igual
-      y el diferencial dio 20/20 programas y 97/97 mnemónicos sin tocar una línea. Y esa misma red
+      y el diferencial dio 20/20 programas —los que había entonces— y 97/97 mnemónicos sin
+      tocar una línea. Y esa misma red
       es el agujero: a un módulo se le puede olvidar la habilitación y pasar su banco, lint,
       síntesis y el diferencial. Por eso `make sim-clk` baja el reloj de verdad y mide **por el
       pin**, con cuatro patas. Encontró que el generador de baudios de la USART se había quedado

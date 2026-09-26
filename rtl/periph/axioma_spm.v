@@ -84,7 +84,13 @@
 
 module axioma_spm #(
     // Ciclos del oscilador de 128 kHz para borrar o escribir una página: 4,5 ms
-    // son 576. Parametrizable para los bancos.
+    // son 576.
+    //
+    // ES PARAMETRO Y NADIE LO SOBREESCRIBE, y conviene decirlo en vez de
+    // prometer un uso que no existe: los bancos corren el tiempo COMPLETO a
+    // propósito, porque parte de lo que comprueban es justamente que dure lo
+    // que la hoja de datos dice. Queda parametrizado para quien integre esto
+    // con un oscilador distinto, que es la única razón honesta.
     parameter [15:0] T_PAGINA = 16'd576
 )(
     input  wire        clk,

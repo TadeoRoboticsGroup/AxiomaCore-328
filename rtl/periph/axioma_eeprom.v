@@ -57,8 +57,13 @@
 
 module axioma_eeprom #(
     // Ciclos del oscilador de 128 kHz. Del tiempo de la hoja de datos: 3,4 ms
-    // son 435 y 1,8 ms son 230. Parametrizable para que el banco no tenga que
-    // simular milisegundos enteros.
+    // son 435 y 1,8 ms son 230.
+    //
+    // AQUI DECIA «parametrizable para que el banco no tenga que simular
+    // milisegundos enteros», y era falso: ningun banco lo sobreescribe, y
+    // simulan los milisegundos enteros justamente porque parte de lo que
+    // comprueban es que duren lo que dice la hoja de datos. Queda parametrizado
+    // para quien integre esto con otro oscilador.
     parameter [15:0] T_BORRA_ESCRIBE = 16'd435,
     parameter [15:0] T_SIMPLE        = 16'd230
 )(

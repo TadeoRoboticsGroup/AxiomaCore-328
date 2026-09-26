@@ -48,7 +48,7 @@ fase 4 y el silicio de la 6.
 
 Cada cifra de esta tabla sale de ejecutar `make`, no de escribirla a mano. Dos son derivadas y
 conviene decirlo: las de `progmem` y `dmem` son el desglose de las 34 049 comprobaciones que
-imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte programas dirigidos.
+imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veintiún programas dirigidos.
 
 | Bloque | Estado | Evidencia |
 |--------|--------|-----------|
@@ -79,7 +79,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 | `fw/hello/hello.c` | **Verificado** | **El criterio de aceptación de la fase 2, menos el cable.** C compilado con avr-gcc y avr-libc sin modificar, corriendo sobre el SoC completo: el banco decodifica el **pin** y lee `Hola, AxiomaCore-328`, mide 19 055 baudios contra 19 200 nominales (−0,76 %), ve parpadear PB5, **decodifica del pin una transacción SPI** de tres bytes con el reloj de `SCK`, **decodifica también una transacción de la USART en modo SPI maestro** —`XCK` en PD4 con 48 flancos exactos y los bytes por PD1— y **una del TWI** —el START, la dirección `0xA0` y el STOP sobre `SDA`=PC4 y `SCL`=PC5—, y **mide el ciclo de trabajo de los SEIS canales PWM a la vez**, cada uno en su pin y con un ciclo distinto a propósito —25,39 · 78,50 · 37,49 · 74,86 · 12,49 · 62,48 %—, contra lo que da la hoja de datos. Seis cifras distintas es lo que hace visible un mapa de pines cruzado |
 | `fw/blink/blink.c` | **Verificado** | C compilado con avr-gcc y avr-libc **sin modificar**: 50 000 instrucciones contra `simavr`, exactas en ciclos, con 4 entradas a ISR |
 | `rtl/soc/axioma328_soc.v` | **Verificado** | **La integración es diseño, no banco de pruebas.** Las **221 direcciones** del espacio de I/O barridas por el bus real —las 224 del mapa menos las tres que el núcleo intercepta, `SPL`, `SPH` y `SREG`—: sin colisiones, el mapa coincide con la hoja de datos y los huecos se leen como `0x00` |
-| `rtl/core/axioma_seq.v` | **Verificado** | 20 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
+| `rtl/core/axioma_seq.v` | **Verificado** | 21 programas dirigidos + 10⁶ instrucciones aleatorias, 0 divergencias en estado, ciclos y espacio de datos |
 | `rtl/core/axioma_core.v` | **Verificado** | Ídem. Es el módulo que une todo |
 | Tabla de ciclos (nivel L3) | **Verificada** | 380 048 instrucciones con sus ciclos contrastados contra el manual, 0 desviaciones · **97 de 97 mnemónicos** |
 | Regresión aleatoria | **Verde** | 10 programas × 100 000 instrucciones generadas con semilla fija, 0 divergencias |
@@ -91,7 +91,7 @@ imprime `make sim-mem`, y la de la tabla de ciclos es la suma de los veinte prog
 
 ```
 regresión   48/48 objetivos en verde
-mutación   327/327 fallos inyectados, 327 detectados
+mutación   329/329 fallos inyectados, 329 detectados
 cobertura   99,8 % del RTL, fusionando todas las fuentes
             22 de 28 módulos al 100 %; los 14 puntos restantes, adjudicados:
             los `default` inalcanzables de la ALU y del TWI —sus casos están
@@ -237,23 +237,24 @@ objetivos, y estas dos —cuarenta y tres y veintitrés— se volvieron a medir 
 La prueba de mutación va aparte, porque tarda y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # 327 fallos inyectados, ~25 min; MODIFICA el RTL mientras corre
+make mutation      # 329 fallos inyectados, ~25 min; MODIFICA el RTL mientras corre
 ```
 
 **Los cuarenta y tres objetivos deben pasar**, y tardan unos veinte minutos en un portátil. La
 prueba de mutación va aparte:
 
 ```bash
-make mutation      # 327 fallos inyectados, ~25 min; MODIFICA el RTL mientras corre
+make mutation      # 329 fallos inyectados, ~25 min; MODIFICA el RTL mientras corre
 ```
 
 La co-simulación diferencial recoge sola cualquier `.S` que aparezca en `sim/diff/tests/`. Hoy son
-**veinte programas**: tres de aritmética, control de flujo y memoria; cuatro dirigidos que
+**veintiún programas**: tres de aritmética, control de flujo y memoria; cuatro dirigidos que
 completan el conjunto de instrucciones —bits y espacio de I/O, las 16 ramas condicionales, `LPM` en
 sus tres formas, y el control del sistema—; uno de puertos de E/S; uno que escribe por la USART sin
-interrupciones; y nueve que entran en la rutina de interrupción de verdad, desde los tres
-temporizadores, la USART, el SPI, el TWI, el ADC, el comparador analógico y los
-cinco vectores externos. Entre todos ejercitan
+interrupciones; **uno que reproduce el bucle de limpieza de `.bss` que emite el enlazador**, que es
+cómo el compilador compara punteros; y diez que entran en la rutina de interrupción de verdad,
+desde los tres temporizadores, la USART, el SPI, el TWI, el ADC, el comparador analógico, la EEPROM,
+el perro guardián y los cinco vectores externos. Entre todos ejercitan
 **los 97 mnemónicos** que el ATmega328P puede ejecutar. Tras cada instrucción se comparan PC, los 32 registros, SREG, SP y los ciclos; al
 terminar, la SRAM entera byte a byte.
 
@@ -265,7 +266,7 @@ terminar, la SRAM entera byte a byte.
 > los que el 328P puede ejecutar; `SPM` es la única exclusión y es deliberada.
 
 ```bash
-make mutation      # ~25 min · inyecta 327 fallos y comprueba que la regresión los caza
+make mutation      # ~25 min · inyecta 329 fallos y comprueba que la regresión los caza
 ```
 
 A eso se le suman **10⁶ instrucciones aleatorias** (`make sim-random`): programas válidos con
@@ -425,7 +426,7 @@ Criterio de aceptación de la fase 1, sin ambigüedad, y su estado:
 
 | Requisito | Estado |
 |-----------|--------|
-| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 20 programas dirigidos |
+| El conjunto de instrucciones pasa el diferencial contra simavr | 97/97 mnemónicos, en 21 programas dirigidos |
 | 10⁶ instrucciones aleatorias sin divergencia | 10⁶, 0 divergencias |
 | ALU 100 % exhaustiva verde | 22 282 240 vectores, 0 fallos |
 | Tabla de ciclos exacta | 97/97 mnemónicos, 0 desviaciones |

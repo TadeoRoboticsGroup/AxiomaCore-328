@@ -91,7 +91,7 @@ help:
 	@echo "  make sim-decode       decodificador contra avr-objdump (65 536 opcodes)"
 	@echo "  make sim-diff         co-simulación diferencial contra simavr"
 	@echo "  make cycles-table     regenera la tabla de ciclos del contrato L3"
-	@echo "  make sim-core         todas las anteriores"
+	@echo "  make sim-core         solo las simulaciones de la regresion"
 	@echo "  make check-all        LA REGRESION ENTERA, y la lista vive ahi"
 	@echo "  make sim-random       10^6 instrucciones aleatorias vs simavr"
 	@echo "  make mutation         prueba de mutación de TODO el RTL (~8 min)"
@@ -606,8 +606,6 @@ sim-diff: $(BUILD)/vdiff/Vaxioma_sim_top $(DIFF_TESTS) $(PERF_DIR)/cycles.bin
 	test $$ko -eq 0
 
 .PHONY: sim-core
-sim-core: sim-alu sim-sreg sim-regfile sim-mem sim-dbus sim-gpio sim-timer0 \
-          sim-timer1 sim-usart sim-twi sim-irq sim-soc sim-fw sim-hello sim-simavr sim-decode sim-diff
 
 # --- firmware: C de verdad, compilado con avr-gcc y avr-libc ---
 # Que un programa en C sin modificar compile y corra es medio criterio de
@@ -762,6 +760,23 @@ REGRESION := lint synth-check regmap-check lpf check-docs mutation-check \
              sim-adc sim-ac sim-wdt sim-eeprom sim-spm sim-clkctrl sim-extint sim-irq \
              sim-soc sim-bits sim-micros sim-i2c sim-boot sim-neopixel sim-tiempos sim-trig sim-clk sim-sleep sim-pud sim-prr sim-robust sim-fw sim-hello sim-simavr sim-decode \
              sim-diff sim-random coverage
+
+# `sim-core` SALE DE `REGRESION`, no de una lista propia. Tenia una, y se quedo
+# en diecisiete de las treinta y nueve simulaciones mientras la ayuda seguia
+# prometiendo «todas las anteriores»: quien lo ejecutara creyendo que corria
+# todo se dejaba la mitad sin enterarse. Una segunda lista de lo que hay que
+# pasar contradice la regla que este fichero declara dos veces —que esa lista
+# vive en `REGRESION` y en ningun otro sitio—, asi que ahora se deriva.
+#
+# Y VA DESPUES DE `REGRESION`, no antes: los PRERREQUISITOS de una regla se
+# expanden cuando Make LEE la regla, no cuando la usa, asi que con la variable
+# todavia vacia `sim-core` se quedaba sin nada que hacer y lo decia con un
+# alegre «Nothing to be done». Una asignacion diferida no arregla eso; ponerlo
+# aqui, si.
+SIMULACIONES := $(filter sim-%,$(REGRESION))
+
+.PHONY: sim-core
+sim-core: $(SIMULACIONES)
 
 .PHONY: check-all
 check-all:

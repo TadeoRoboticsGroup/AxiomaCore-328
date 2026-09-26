@@ -180,7 +180,7 @@ La prueba de mutación va **aparte**, en un trabajo propio de la CI, porque tard
 y **modifica el RTL mientras corre**:
 
 ```bash
-make mutation      # inyecta 327 fallos y comprueba que la regresión los caza
+make mutation      # inyecta 329 fallos y comprueba que la regresión los caza
 ```
 
 `make mutation` **modifica el RTL en sitio** mientras corre: no lances nada en paralelo con él.

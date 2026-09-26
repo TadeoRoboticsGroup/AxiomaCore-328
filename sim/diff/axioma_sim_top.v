@@ -100,9 +100,14 @@ module axioma_sim_top (
 
     // ------------------------------- el oscilador del perro guardian
     // 128 kHz no son logica: en el chip es una celda RC y aqui se divide del
-    // reloj de sistema. El divisor es GRANDE a proposito -un perro guardian que
-    // muerde en microsegundos no es un perro guardian-, pero en simulacion se
-    // deja corto para que un banco pueda verlo vencer sin esperar un siglo.
+    // reloj de sistema. 12,5 MHz / 98 son 127,55 kHz, o sea EL VALOR DE VERDAD
+    // y no uno acortado: con el, `WDP`=0 vence a los 16,1 ms y la hoja de datos
+    // dice 16. Un banco que quiera ver morder al perro espera lo que se espera
+    // en el chip.
+    //
+    // Aqui decia que el divisor «se deja corto en simulacion para no esperar un
+    // siglo», y era falso en los cuatro sitios donde estaba copiado. Lo peor de
+    // un comentario asi es que invita a «arreglar» lo unico que esta bien.
     reg [6:0] osc_rc_div;
     wire      osc_rc_tick = (osc_rc_div == 7'd0);
     always @(posedge clk or negedge rst_n)

@@ -708,10 +708,16 @@ module axioma328_soc #(
                        ei_int0,       // 1       INT0
                        1'b0 };        // 0       RESET, que no es interrupción
 
-    // Los reconocimientos de los vectores que aún no tienen periférico no van a
-    // ninguna parte, igual que sus peticiones.
-    // Los reconocimientos que no van a ninguna parte, y por qué:
-    //   25, 23..21, 6, 0  vectores sin periférico todavía.
+    // LOS RECONOCIMIENTOS QUE NO VAN A NINGUNA PARTE, Y POR QUÉ. Esta lista
+    // tiene que contener SÓLO los que de verdad no se usan: meter en ella uno
+    // que sí está conectado no rompe nada hoy, pero **apaga el aviso de lint el
+    // día que alguien lo desconecte**, que es justo para lo que sirve.
+    //
+    // Llegó a tener tres de más —el 6, el 21 y el 23, del perro guardián, el
+    // ADC y el comparador— de cuando esos periféricos no existían. Los tres
+    // llevaban su `ack` conectado desde hacía semanas.
+    //
+    //   0                 RESET, que no es una interrupción.
     //   24 (TWI)          TWINT no la limpia el vector: la limpia ESCRIBIR UN
     //                     UNO en ella, que es lo que arranca la operación
     //                     siguiente. Una ISR que se limitara a retornar
@@ -720,8 +726,11 @@ module axioma328_soc #(
     //                     ESCRIBIR UDR0, que es lo que hace la ISR.
     //   18 (USART_RX)     ídem, la limpia LEER UDR0.
     // Sólo TXC se limpia al atender su vector, y ése sí está conectado.
-    wire unused_ack = &{1'b0, irq_ack_v[25:21], irq_ack_v[19:18],
-                        irq_ack_v[6], irq_ack_v[0]};
+    //   22 (EE_READY)     y 25 (SPM_READY) son de NIVEL, no de bandera: valen
+    //   25 (SPM_READY)    mientras su condición se cumpla, así que no hay nada
+    //                     que limpiar al atender el vector.
+    wire unused_ack = &{1'b0, irq_ack_v[25:24], irq_ack_v[22],
+                        irq_ack_v[19:18], irq_ack_v[0]};
 
     axioma_irq irqc (
         .src(irq_src),

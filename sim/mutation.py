@@ -38,6 +38,7 @@ ALU     = "rtl/core/axioma_alu.v"
 SREG    = "rtl/core/axioma_sreg.v"
 REGFILE = "rtl/core/axioma_regfile.v"
 DECODE  = "rtl/core/axioma_decode.v"
+CORE    = "rtl/core/axioma_core.v"
 SEQ     = "rtl/core/axioma_seq.v"
 DMEM    = "rtl/mem/axioma_dmem.v"
 PROGMEM = "rtl/mem/axioma_progmem.v"
@@ -1261,6 +1262,18 @@ CATALOG = [
  "            mcusr_q <= 4'b0000;"),
 # El bit reservado de `PRR` se guardaba y se devolvia a uno. Lo encontro el
 # barrido semantico, contrastando contra avr-libc que ese bit no existe.
+# --- el cableado del nucleo ---
+# `axioma_core.v` no tiene logica: instancia el secuenciador, la ALU, el banco y
+# el registro de estado, y los une. Por eso no tenia ni un mutante — y por eso
+# hacia falta, porque un CRUCE ahi no lo vigila ninguna otra puerta: lint pasa,
+# la sintesis pasa, y el fallo solo se ve ejecutando. Una auditoria lo encontro.
+("seq", CORE, "sim-diff", "los dos puertos de lectura del banco, cruzados",
+ "        .rf_rd_data(rf_rd_data), .rf_rr_data(rf_rr_data),",
+ "        .rf_rd_data(rf_rr_data), .rf_rr_data(rf_rd_data),"),
+("seq", CORE, "sim-diff", "la ALU recibe los operandos al reves",
+ "        .alu_op_o(alu_op_w), .alu_a(alu_a_w), .alu_b(alu_b_w),",
+ "        .alu_op_o(alu_op_w), .alu_a(alu_b_w), .alu_b(alu_a_w),"),
+
 # --- SPM de verdad: paginas, bufer y la quinta secuencia (fase 4) ---
 ("spm", SPM, "sim-spm", "un SPM suelto programa igual, sin su SPMCSR",
  "    wire valido      = spm_pulso && abierta && spmen && (est == S_QUIETO);",

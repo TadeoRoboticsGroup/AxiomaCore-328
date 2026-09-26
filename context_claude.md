@@ -1,8 +1,8 @@
 # Contexto para retomar el trabajo
 
-**Última sesión:** 24 de septiembre de 2026 · **fase 3 CERRADA; el `SPM` de verdad abre la fase 4**.
-Fase 3 al **100 %** —tareas y las tres cláusulas del criterio—; fase 4 al **20 %**
-**Repositorio:** `f43a4e8` **publicado**. Regresión **43/43**, mutación **327** en el catálogo,
+**Última sesión:** 24 de septiembre de 2026 · **la fase 4 casi entera: gestor, avrdude, IDE y tres sketches**.
+Fase 3 al **100 %**; fase 4 al **80 %**
+**Repositorio:** `049053c` **publicado**. Regresión **48/48**, mutación **327** en el catálogo,
 cobertura **99,8 %** (3 258 de 3 266), área **8 146 LUT4 / 1 475 FF**
 **Sin comitear:** sólo este fichero.
 
@@ -54,6 +54,101 @@ aquí tocaron la regresión (`REGRESION` en el Makefile), `tools/coverage.py`, l
 mutación. Y salió un octavo sitio que no estaba en la lista: **los envoltorios de los bancos de
 módulo** (`tb_timer0_top.v`, `tb_timer1_top.v`) fallaron con `PINMISSING` al crecer el puerto del
 módulo. Lint lo cazó en `check-all`, no en `make lint`.
+
+---
+
+## 0vicies. AUDITORIA DEL CODIGO CARGADO (26-sep)
+
+Se audito lo que NINGUNA puerta puede ver, porque las puertas comprueban el chip y nadie comprueba
+las puertas. Cinco hallazgos, y el primero es el que importa.
+
+**UNA EXCEPCION A LINT QUE APAGABA LA RED.** En el SoC, `unused_ack` listaba los vectores **6, 21 y
+23** —perro guardian, ADC y comparador— de cuando esos perifericos no existian. Los tres llevaban
+semanas con su `ack` CONECTADO. Declarar «sin usar» algo que si se usa no rompe nada... salvo que
+**si alguien lo desconecta, lint ya no avisa**. Comprobado desconectando el del perro a mano: antes
+pasaba, ahora salta.
+
+Merece nombre propio como modo de fallo: **una excepcion a lint que envejece se convierte en un
+agujero**, y crece sola, porque cada periferico nuevo tiende a añadir su vector a la lista y nadie
+quita los que sobran. **Revisar esa linea cada vez que se conecta un `ack`.**
+
+**`sim-core` MENTIA:** la ayuda prometia «todas las anteriores» y corria 17 de 39. Era una segunda
+lista escrita a mano. Ahora se DERIVA de `REGRESION`. Y moverlo enseño algo de Make que conviene
+recordar: **los prerrequisitos se expanden cuando Make LEE la regla**, no cuando la usa, asi que
+una asignacion diferida NO salva el orden — la regla tiene que ir debajo de la variable.
+
+**UN COMENTARIO QUE DECIA LO CONTRARIO DEL CODIGO**, copiado en cuatro ficheros: que el divisor del
+oscilador «se deja corto en simulacion». No es corto: 12,5 MHz / 98 = 127,55 kHz, el valor REAL, y
+con el `WDP`=0 vence a los 16,1 ms cuando la hoja dice 16. Invitaba a «arreglar» lo unico que
+estaba bien.
+
+**`axioma_core.v` SIN UN SOLO MUTANTE.** No tiene logica -instancia y une- y por eso no tenia
+ninguno; y por eso hacia falta, porque un CRUCE ahi pasa lint y sintesis. Dos mutantes nuevos
+(puertos de lectura cruzados, operandos de la ALU al reves) y el diferencial los caza.
+
+**DOS CIFRAS DESINCRONIZADAS:** 21 programas de co-simulacion donde los docs decian 20, y dos
+parametros de tiempo que prometian servir «para que el banco no simule milisegundos enteros»
+cuando NINGUN banco los sobreescribe — los bancos simulan el tiempo completo A PROPOSITO.
+
+**LO QUE SI ESTABA BIEN**, para no repetir la busqueda: ningun TODO/FIXME real; ningun banco
+huerfano; todos los objetivos de `REGRESION` se ejecutan en la CI; y todos los ficheros RTL estan
+en synth-check, coverage y el catalogo de mutacion salvo `axioma_adc_frente.v`, que es el modelo
+analogico del banco y no debe tener mutantes.
+
+---
+
+## 0undevicies. LA FASE 4, DE UNA TIRADA (24-sep)
+
+Commits: `f43a4e8` SPM · `643652d` gestor · `0d5f3c9` avrdude+IDE · `1932c79` NeoPixel ·
+`049053c` Servo+tone. **check-all 48/48**, cobertura 99,8 %.
+
+**EL GESTOR DE ARRANQUE, 500 de 512 bytes.** No tiene codigo de Flash propio: usa `<avr/boot.h>`
+de avr-libc SIN TOCAR, asi que ES una prueba del RTL. `make sim-boot` hace de avrdude moviendo
+bits en RXD y leyendo TXD; el periodo de bit se LEE de `UBRR0`/`U2X0`, no se supone.
+
+**LA TRAMPA QUE MAS COSTO:** con `-nostartfiles` NADIE LLAMA A MAIN. El enlazador sigue metiendo
+`__do_clear_bss` en `.init4`, y al acabar ese bucle la ejecucion cae en la siguiente funcion de
+`.text` y de ahi a un `ret` con la pila vacia. El sintoma era el chip reiniciandose 8 veces cada
+6 000 ciclos, que apunta al nucleo. Se llevo el bucle a la co-simulacion (`bss_clear.S`) y salio
+IDENTICO a simavr. Se arregla con `main` en `.init9`, como Optiboot.
+
+**DOS PUERTAS NUEVAS QUE NO SON SIMULACION:** `check-avrdude` deja que el propio avrdude valide
+`sw/avrdude/axioma.conf` —con las dos mitades, que lo reconozca CON el fichero y NO sin el— y
+`check-arduino` comprueba que las cifras de `boards.txt` cuadren con el gestor COMPILADO y con las
+banderas del Makefile.
+
+**TRES SKETCHES CRONOMETRADOS**, todos midiendo el pin sin mirar señales internas:
+NeoPixel (T0H 320 ns, T1H 720 ns, reposo 642 us), servo (trama 20 000 us, pulso 1 501 us, todas
+las tramas identicas) y tone() (996,49 Hz).
+
+**TRES ERRORES DE CUENTA QUE PARECIAN FALLOS DEL CHIP**, y los tres valen para la proxima:
+`brcs` TOMADO cuesta 2 ciclos; el pulso de PWM rapido son `OCR1A`+1 tics; y el primer pulso que
+pilla un cronometro puede estar empezado.
+
+**LO QUE QUEDA, PARA RETOMAR MAÑANA SIN RELEER NADA** (detalle largo en `docs/00-PLAN.md`, al
+final de la fase 4):
+
+1. **Cuatro sketches que aportan algo nuevo.** `SoftwareSerial` —el unico que mide el tiempo DESDE
+   EL PROGRAMA y no desde un temporizador, asi que depende de la duracion de las instrucciones; se
+   decodifica con el mismo receptor que ya hay en `tb_soc_boot.cpp`—, `analogRead` —el camino
+   entero desde C, que el banco del periferico no cubre—, `Wire` con DOS esclavos —con uno solo no
+   se ejercita el direccionamiento— y `EEPROM.read/write` de avr-libc, que es el mismo caso que
+   `<avr/boot.h>` con el SPM.
+
+   Los otros tres de la lista de diez —Blink, Serial, analogWrite— YA LOS CUBRE `make sim-hello`.
+   Contarlos otra vez seria inflar la cuenta.
+
+2. **Publicar el paquete.** Por orden: etiquetar version, empaquetar boards.txt + gestor en .hex +
+   platform.txt, subirlo, y ENTONCES escribir `package_axioma_index.json` con el SHA-256 real.
+   Antes no: seria inventarse un resumen criptografico.
+
+3. **La clausula que no se cierra aqui:** «que el sketch corra EN LA FPGA» necesita la placa. Es el
+   mismo pendiente de la fase 2 (`make prog-ulx3s`), y no hay forma honesta de darlo por cumplido
+   sin hardware.
+
+**DESPUES VIENE LA FASE 5**, y su primer punto ya tiene diagnostico escrito en el plan: subir el
+reloj a >= 32 MHz. Hoy el `Fmax` es 18,25 MHz y el camino critico son 24,7 ns con **solo 4 ns de
+logica**: el resto es rutado. Eso no se arregla optimizando el RTL.
 
 ---
 
